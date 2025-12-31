@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  APPROVER
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  BOOKED
+  MAINTENANCE
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  CHANGED
+}
+
+enum MaintenanceStatus {
+  REPORTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum NotificationType {
+  BOOKING
+  MAINTENANCE
+  SYSTEM
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole
+
+  bookings      Booking[]
+  approvedJobs  Booking[] @relation("Approver")
+  maintenances  Maintenance[]
+  notifications Notification[]
+  logs          Log[]
+
+  createdAt DateTime @default(now())
+}
+
+model VehicleType {
+  id       String    @id @default(uuid())
+  name     String
+  vehicles Vehicle[]
+}
+
+model Vehicle {
+  id          String        @id @default(uuid())
+  plateNumber String        @unique
+  status      VehicleStatus @default(AVAILABLE)
+
+  typeId       String
+  type         VehicleType  @relation(fields: [typeId], references: [id])
+
+  bookings     Booking[]
+  maintenances Maintenance[]
+}
+
+model Booking {
+  id        String        @id @default(uuid())
+
+  userId     String
+  vehicleId  String
+  approverId String?
+
+  startDate DateTime
+  endDate   DateTime
+  status    BookingStatus @default(PENDING)
+
+  user      User     @relation(fields: [userId], references: [id])
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+  approver  User?    @relation("Approver", fields: [approverId], references: [id])
+
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId, startDate, endDate])
+}
+
+model Maintenance {
+  id          String             @id @default(uuid())
+
+  vehicleId   String
+  reporterId  String
+
+  description String
+  status      MaintenanceStatus  @default(REPORTED)
+  startDate   DateTime
+  endDate     DateTime?
+
+  vehicle     Vehicle @relation(fields: [vehicleId], references: [id])
+  reporter    User    @relation(fields: [reporterId], references: [id])
+
+  notifications Notification[]
+}
+
+model Notification {
+  id             String           @id @default(uuid())
+  userId         String
+  type           NotificationType
+  message        String
+  isRead         Boolean          @default(false)
+
+  bookingId      String?
+  maintenanceId  String?
+
+  user           User        @relation(fields: [userId], references: [id])
+  booking        Booking?    @relation(fields: [bookingId], references: [id])
+  maintenance    Maintenance?@relation(fields: [maintenanceId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Log {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  createdAt DateTime @default(now())
+
+  user      User @relation(fields: [userId], references: [id])
+}
