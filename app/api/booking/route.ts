@@ -178,7 +178,6 @@ export async function POST(req: NextRequest) {
       }, { status: 409 })
     }
 
-    // Create booking - ✅ เพิ่ม destination field กลับเข้าไป
     const booking = await prisma.booking.create({
       data: {
         userId: decoded.userId,
@@ -186,7 +185,6 @@ export async function POST(req: NextRequest) {
         startDate: start,
         endDate: end,
         purpose,
-        destination: destination || null, // รองรับ optional field
         status: "PENDING"
       },
       include: {

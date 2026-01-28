@@ -23,7 +23,6 @@ type BookingData = {
   startDate: string
   endDate: string
   purpose: string
-  destination: string
 }
 
 export default function BookingPage() {
@@ -45,7 +44,6 @@ export default function BookingPage() {
     startDate: "",
     endDate: "",
     purpose: "",
-    destination: ""
   })
 
   // Fetch vehicle types
@@ -87,8 +85,7 @@ export default function BookingPage() {
       startDate: searchDate.startDate,
       endDate: searchDate.endDate,
       purpose: "",
-      destination: ""
-    })
+  })
     setShowBookingForm(true)
   }
 
@@ -111,7 +108,6 @@ export default function BookingPage() {
         startDate: "",
         endDate: "",
         purpose: "",
-        destination: ""
       })
     } catch (error: any) {
       setError(error.response?.data?.message || "ไม่สามารถจองรถได้")
@@ -315,18 +311,6 @@ export default function BookingPage() {
                     />
                   </div>
 
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      ปลายทาง
-                    </label>
-                    <input
-                      type="text"
-                      value={bookingData.destination}
-                      onChange={(e) => setBookingData({...bookingData, destination: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="สถานที่ที่จะไป (ไม่บังคับ)"
-                    />
-                  </div>
 
                   <div className="flex justify-end gap-3">
                     <button
