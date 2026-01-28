@@ -83,6 +83,7 @@ model Booking {
 
   startDate DateTime
   endDate   DateTime
+  purpose    String 
   status    BookingStatus @default(PENDING)
 
   user      User     @relation(fields: [userId], references: [id])
