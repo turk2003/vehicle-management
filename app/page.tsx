@@ -85,6 +85,16 @@ export default function LoginPage() {
           Email: admin@system.com<br/>
           Password: admin123
         </p>
+        <p className="mt-4 text-black text-center">
+          user test:<br/>
+          Email: test01@gmail.con<br/>
+          Password: 1234
+        </p>
+        <p className="mt-4 text-black text-center">
+          approver test:<br/>
+          Email: ap1@gmain.com<br/>
+          Password: 1234
+        </p>
       </div>
       </form>
       

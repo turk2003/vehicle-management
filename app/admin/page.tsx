@@ -41,13 +41,6 @@ export default function AdminPage() {
       href: "/admin/reports",
       color: "bg-pink-500 hover:bg-pink-600"
     },
-    {
-      title: "ตั้งค่าระบบ",
-      description: "จัดการการตั้งค่าระบบทั่วไป",
-      icon: "⚙️",
-      href: "/admin/settings",
-      color: "bg-gray-500 hover:bg-gray-600"
-    }
   ]
 
   return (

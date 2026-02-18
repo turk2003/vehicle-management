@@ -28,13 +28,6 @@ export default function ApproverPage() {
       href: "/approver/reports",
       color: "bg-purple-500 hover:bg-purple-600"
     },
-    {
-      title: "จัดการรถ",
-      description: "ดูสถานะรถทั้งหมด",
-      icon: "🚗",
-      href: "/approver/vehicles",
-      color: "bg-orange-500 hover:bg-orange-600"
-    }
   ]
 
   return (
