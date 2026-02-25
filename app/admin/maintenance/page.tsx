@@ -14,6 +14,7 @@ type Maintenance = {
   vehicle: {
     id: string
     plateNumber: string
+    status: string
     type: { name: string }
   }
   reporter: {
@@ -26,6 +27,7 @@ type Maintenance = {
 type Vehicle = {
   id: string
   plateNumber: string
+  status: string
   type: { name: string }
 }
 
@@ -59,7 +61,7 @@ export default function AdminMaintenancePage() {
   // Stats
   const stats = {
     total: maintenances.length,
-    reported: maintenances.filter(m => m.status === "REPORTED").length,
+    pending: maintenances.filter(m => m.status === "REPORTED" && new Date(m.startDate) > new Date()).length,
     inProgress: maintenances.filter(m => m.status === "IN_PROGRESS").length,
     completed: maintenances.filter(m => m.status === "COMPLETED").length,
   }
@@ -152,10 +154,18 @@ export default function AdminMaintenancePage() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, startDate: string) => {
+    const now = new Date()
+    const start = new Date(startDate)
+    const isPending = start > now // วันยังไม่ถึง
+
     switch (status) {
       case "REPORTED":
-        return (
+        return isPending ? (
+          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
+            <Clock className="w-3 h-3" /> รอถึงวันกำหนด
+          </span>
+        ) : (
           <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
             <AlertCircle className="w-3 h-3" /> รายงานแล้ว
           </span>
@@ -234,10 +244,34 @@ export default function AdminMaintenancePage() {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: "ทั้งหมด", value: stats.total, color: "text-gray-900", ring: filterStatus === "" ? "ring-2 ring-gray-400" : "", filter: "" },
-            { label: "รายงานแล้ว", value: stats.reported, color: "text-yellow-600", ring: filterStatus === "REPORTED" ? "ring-2 ring-yellow-400" : "", filter: "REPORTED" },
-            { label: "กำลังซ่อม", value: stats.inProgress, color: "text-blue-600", ring: filterStatus === "IN_PROGRESS" ? "ring-2 ring-blue-400" : "", filter: "IN_PROGRESS" },
-            { label: "เสร็จสิ้น", value: stats.completed, color: "text-green-600", ring: filterStatus === "COMPLETED" ? "ring-2 ring-green-400" : "", filter: "COMPLETED" },
+            {
+              label: "ทั้งหมด",
+              value: stats.total,
+              color: "text-gray-900",
+              ring: filterStatus === "" ? "ring-2 ring-gray-400" : "",
+              filter: ""
+            },
+            {
+              label: "รอถึงวันกำหนด",  // ✅ เปลี่ยนชื่อให้ชัดขึ้น
+              value: stats.pending,
+              color: "text-gray-500",
+              ring: filterStatus === "REPORTED" ? "ring-2 ring-gray-400" : "",
+              filter: "REPORTED"
+            },
+            {
+              label: "กำลังซ่อม",
+              value: stats.inProgress,
+              color: "text-blue-600",
+              ring: filterStatus === "IN_PROGRESS" ? "ring-2 ring-blue-400" : "",
+              filter: "IN_PROGRESS"
+            },
+            {
+              label: "เสร็จสิ้น",
+              value: stats.completed,
+              color: "text-green-600",
+              ring: filterStatus === "COMPLETED" ? "ring-2 ring-green-400" : "",
+              filter: "COMPLETED"
+            },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -294,6 +328,13 @@ export default function AdminMaintenancePage() {
                     <td className="px-6 py-4">
                       <p className="font-medium text-gray-900">{item.vehicle.plateNumber}</p>
                       <p className="text-sm text-gray-500">{item.vehicle.type.name}</p>
+                      <span className={`inline-flex items-center mt-1 px-1.5 py-0.5 text-xs rounded font-medium
+                        ${item.vehicle.status === "AVAILABLE" ? "bg-green-100 text-green-700" :
+                          item.vehicle.status === "MAINTENANCE" ? "bg-orange-100 text-orange-700" :
+                          "bg-red-100 text-red-700"}`}>
+                        {item.vehicle.status === "AVAILABLE" ? "จองได้" :
+                          item.vehicle.status === "MAINTENANCE" ? "ซ่อมบำรุง" : "ถูกจองแล้ว"}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-900 max-w-xs truncate" title={item.description}>
@@ -309,7 +350,7 @@ export default function AdminMaintenancePage() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(item.status)}
+                      {getStatusBadge(item.status, item.startDate)}
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-900">{item.reporter.name}</p>
@@ -342,7 +383,7 @@ export default function AdminMaintenancePage() {
 
         {/* Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black/50 text-gray-500 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
               <div className="flex justify-between items-center px-6 py-4 border-b">
                 <h3 className="text-lg font-semibold text-gray-900">

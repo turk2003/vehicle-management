@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import jwt from "jsonwebtoken"
+import { MaintenanceStatus } from "@/app/generated/prisma/client"
+import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
 
 function getToken(req: NextRequest) {
   let token = req.cookies.get("token")?.value
   if (!token) {
     const authHeader = req.headers.get("authorization")
-    if (authHeader?.startsWith("Bearer ")) {
-      token = authHeader.substring(7)
-    }
+    if (authHeader?.startsWith("Bearer ")) token = authHeader.substring(7)
   }
   return token
 }
@@ -21,7 +21,7 @@ function verifyAdmin(req: NextRequest) {
   return decoded
 }
 
-// GET: รายการ maintenance ทั้งหมด
+// GET
 export async function GET(req: NextRequest) {
   try {
     verifyAdmin(req)
@@ -29,18 +29,17 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status")
     const vehicleId = searchParams.get("vehicleId")
 
+    // ✅ ใช้ shared helper แทน local function
+    await syncAllVehicleStatuses()
+
     const maintenances = await prisma.maintenance.findMany({
       where: {
         ...(status && { status: status as any }),
-        ...(vehicleId && { vehicleId }),
+        ...(vehicleId && { vehicleId })
       },
       include: {
-        vehicle: {
-          include: { type: true }
-        },
-        reporter: {
-          select: { id: true, name: true, email: true }
-        }
+        vehicle: { include: { type: true } },
+        reporter: { select: { id: true, name: true, email: true } }
       },
       orderBy: { startDate: "desc" }
     })
@@ -54,7 +53,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: สร้าง maintenance ใหม่
+// POST
 export async function POST(req: NextRequest) {
   try {
     const decoded = verifyAdmin(req)
@@ -64,7 +63,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" }, { status: 400 })
     }
 
-    // เช็คว่ารถมีการจองในช่วงนั้นไหม
     const conflictBooking = await prisma.booking.findFirst({
       where: {
         vehicleId,
@@ -75,7 +73,22 @@ export async function POST(req: NextRequest) {
     })
 
     if (conflictBooking) {
-      return NextResponse.json({ message: "รถคันนี้มีการจองในช่วงเวลาดังกล่าว" }, { status: 400 })
+      return NextResponse.json(
+        { message: "รถคันนี้มีการจองในช่วงเวลาดังกล่าว กรุณาเลือกเวลาอื่น" },
+        { status: 400 }
+      )
+    }
+
+    const start = new Date(startDate)
+    const now = new Date()
+
+    // ✅ ใช้ MaintenanceStatus enum แทน string
+    let resolvedStatus: MaintenanceStatus = MaintenanceStatus.REPORTED
+    if (start <= now) {
+      resolvedStatus = MaintenanceStatus.IN_PROGRESS
+    }
+    if (status && !(status === "REPORTED" && start <= now)) {
+      resolvedStatus = status as MaintenanceStatus
     }
 
     const maintenance = await prisma.maintenance.create({
@@ -83,9 +96,9 @@ export async function POST(req: NextRequest) {
         vehicleId,
         reporterId: decoded.userId,
         description,
-        startDate: new Date(startDate),
+        startDate: start,
         endDate: endDate ? new Date(endDate) : null,
-        status: status || "REPORTED"
+        status: resolvedStatus  // ✅ ไม่มี error แล้ว
       },
       include: {
         vehicle: { include: { type: true } },
@@ -93,11 +106,12 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    // อัพเดทสถานะรถเป็น MAINTENANCE
-    await prisma.vehicle.update({
-      where: { id: vehicleId },
-      data: { status: "MAINTENANCE" }
-    })
+    if (start <= now) {
+      await prisma.vehicle.update({
+        where: { id: vehicleId },
+        data: { status: "MAINTENANCE" }
+      })
+    }
 
     return NextResponse.json(maintenance, { status: 201 })
   } catch (error: any) {
@@ -108,32 +122,40 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT: อัพเดท maintenance
+// PUT
 export async function PUT(req: NextRequest) {
   try {
     verifyAdmin(req)
     const { id, description, startDate, endDate, status } = await req.json()
 
-    if (!id) {
-      return NextResponse.json({ message: "Missing ID" }, { status: 400 })
-    }
+    if (!id) return NextResponse.json({ message: "Missing ID" }, { status: 400 })
 
     const existing = await prisma.maintenance.findUnique({
       where: { id },
       include: { vehicle: true }
     })
 
-    if (!existing) {
-      return NextResponse.json({ message: "ไม่พบข้อมูล" }, { status: 404 })
+    if (!existing) return NextResponse.json({ message: "ไม่พบข้อมูล" }, { status: 404 })
+
+    const now = new Date()
+    const newStart = startDate ? new Date(startDate) : existing.startDate
+
+    // ✅ ใช้ MaintenanceStatus enum
+    let resolvedStatus: MaintenanceStatus | undefined = status
+      ? status as MaintenanceStatus
+      : undefined
+
+    if (status === "REPORTED" && newStart <= now) {
+      resolvedStatus = MaintenanceStatus.IN_PROGRESS
     }
 
     const updated = await prisma.maintenance.update({
       where: { id },
       data: {
         ...(description && { description }),
-        ...(startDate && { startDate: new Date(startDate) }),
+        ...(startDate && { startDate: newStart }),
         endDate: endDate ? new Date(endDate) : null,
-        ...(status && { status })
+        ...(resolvedStatus && { status: resolvedStatus })  // ✅ ไม่มี error แล้ว
       },
       include: {
         vehicle: { include: { type: true } },
@@ -141,11 +163,34 @@ export async function PUT(req: NextRequest) {
       }
     })
 
-    // ถ้า COMPLETED ให้เปลี่ยนสถานะรถกลับเป็น AVAILABLE
-    if (status === "COMPLETED") {
+    if (resolvedStatus === MaintenanceStatus.COMPLETED) {
+      const otherActive = await prisma.maintenance.findFirst({
+        where: {
+          vehicleId: existing.vehicleId,
+          id: { not: id },
+          status: MaintenanceStatus.IN_PROGRESS,
+          startDate: { lte: now },
+          OR: [{ endDate: null }, { endDate: { gte: now } }]
+        }
+      })
+      if (!otherActive) {
+        const activeBooking = await prisma.booking.findFirst({
+          where: {
+            vehicleId: existing.vehicleId,
+            status: "APPROVED",
+            startDate: { lte: now },
+            endDate: { gte: now }
+          }
+        })
+        await prisma.vehicle.update({
+          where: { id: existing.vehicleId },
+          data: { status: activeBooking ? "BOOKED" : "AVAILABLE" }
+        })
+      }
+    } else if (resolvedStatus === MaintenanceStatus.IN_PROGRESS) {
       await prisma.vehicle.update({
         where: { id: existing.vehicleId },
-        data: { status: "AVAILABLE" }
+        data: { status: "MAINTENANCE" }
       })
     }
 
@@ -158,34 +203,44 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE: ลบ maintenance
+// DELETE
 export async function DELETE(req: NextRequest) {
   try {
     verifyAdmin(req)
     const { searchParams } = new URL(req.url)
     const id = searchParams.get("id")
 
-    if (!id) {
-      return NextResponse.json({ message: "Missing ID" }, { status: 400 })
-    }
+    if (!id) return NextResponse.json({ message: "Missing ID" }, { status: 400 })
 
-    const existing = await prisma.maintenance.findUnique({
-      where: { id }
-    })
-
-    if (!existing) {
-      return NextResponse.json({ message: "ไม่พบข้อมูล" }, { status: 404 })
-    }
-
-    // คืนสถานะรถกลับเป็น AVAILABLE ถ้ายังไม่ COMPLETED
-    if (existing.status !== "COMPLETED") {
-      await prisma.vehicle.update({
-        where: { id: existing.vehicleId },
-        data: { status: "AVAILABLE" }
-      })
-    }
+    const existing = await prisma.maintenance.findUnique({ where: { id } })
+    if (!existing) return NextResponse.json({ message: "ไม่พบข้อมูล" }, { status: 404 })
 
     await prisma.maintenance.delete({ where: { id } })
+
+    const now = new Date()
+    const otherActive = await prisma.maintenance.findFirst({
+      where: {
+        vehicleId: existing.vehicleId,
+        status: { in: ["REPORTED", "IN_PROGRESS"] },
+        startDate: { lte: now },
+        OR: [{ endDate: null }, { endDate: { gte: now } }]
+      }
+    })
+
+    if (!otherActive) {
+      const activeBooking = await prisma.booking.findFirst({
+        where: {
+          vehicleId: existing.vehicleId,
+          status: "APPROVED",
+          startDate: { lte: now },
+          endDate: { gte: now }
+        }
+      })
+      await prisma.vehicle.update({
+        where: { id: existing.vehicleId },
+        data: { status: activeBooking ? "BOOKED" : "AVAILABLE" }
+      })
+    }
 
     return NextResponse.json({ message: "ลบเรียบร้อยแล้ว" })
   } catch (error: any) {

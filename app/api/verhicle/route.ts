@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import jwt from "jsonwebtoken"
+import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
 
 // Helper function to get token
 function getToken(req: NextRequest) {
@@ -37,16 +38,17 @@ export async function GET(req: NextRequest) {
 
     // Verify token
     jwt.verify(token, process.env.JWT_SECRET!)
-    
+
+    // ✅ Sync สถานะรถทั้งหมดตามเวลาจริงก่อน return
+    await syncAllVehicleStatuses()
+
     const vehicles = await prisma.vehicle.findMany({
       include: {
-        type: true, 
+        type: true,
       },
-      orderBy: { plateNumber: 'asc' }
+      orderBy: { plateNumber: "asc" }
     })
-    
-    console.log("Vehicles with types:", vehicles) 
-    
+
     return NextResponse.json(vehicles)
   } catch (error) {
     console.error("Vehicle fetch error:", error)

@@ -204,6 +204,18 @@ export default function AdminBookingsPage() {
       minute: '2-digit'
     })
   }
+  const getVehicleStatusBadge = (status: string) => {
+    switch (status) {
+      case "AVAILABLE":
+        return <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">ว่าง</span>
+      case "BOOKED":
+        return <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">กำลังถูกใช้งาน</span>
+      case "MAINTENANCE":
+        return <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">ซ่อมบำรุง</span>
+      default:
+        return null
+    }
+  }
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -421,8 +433,8 @@ export default function AdminBookingsPage() {
                         <div className="text-sm text-gray-500">
                           {booking.vehicle.type.name}
                         </div>
-                        <div className="text-xs text-gray-400">
-                          {booking.vehicle.status}
+                        <div className="mt-1">
+                          {getVehicleStatusBadge(booking.vehicle.status)}
                         </div>
                       </div>
                     </td>
