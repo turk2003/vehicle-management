@@ -40,6 +40,28 @@ enum NotificationType {
   SYSTEM
 }
 
+enum Permission {
+  // Booking
+  BOOKING_VIEW
+  BOOKING_CREATE
+  BOOKING_APPROVE
+  BOOKING_DELETE
+
+  // Vehicle
+  VEHICLE_VIEW
+  VEHICLE_MANAGE
+
+  // Maintenance
+  MAINTENANCE_VIEW
+  MAINTENANCE_MANAGE
+
+  // User
+  USER_MANAGE
+
+  // Report
+  REPORT_VIEW
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String
@@ -138,4 +160,12 @@ model Log {
   createdAt DateTime @default(now())
 
   user      User @relation(fields: [userId], references: [id])
+}
+
+model RolePermission {
+  id         String     @id @default(uuid())
+  role       UserRole
+  permission Permission
+
+  @@unique([role, permission])
 }

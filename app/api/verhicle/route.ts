@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyAdmin, verifyUser, isAuthError } from "@/lib/auth"
+import { isAuthError } from "@/lib/auth"
+import { verifyPermission, isPermissionError } from "@/lib/permissions"
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
 
 // GET: list vehicles
 export async function GET(req: NextRequest) {
   try {
-    verifyUser(req)
+    await verifyPermission(req, "VEHICLE_VIEW")
     await syncAllVehicleStatuses()
 
     const vehicles = await prisma.vehicle.findMany({
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(vehicles)
   } catch (error) {
-    if (isAuthError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    if (isPermissionError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
 }
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
 // POST: create vehicle
 export async function POST(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyPermission(req, "VEHICLE_MANAGE")
     const { plateNumber, typeId, status } = await req.json()
 
     const existingVehicle = await prisma.vehicle.findUnique({ where: { plateNumber } })
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(vehicle)
   } catch (error: any) {
-    if (isAuthError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    if (isPermissionError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
 // PUT: update vehicle
 export async function PUT(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyPermission(req, "VEHICLE_MANAGE")
     const { id, plateNumber, typeId, status } = await req.json()
 
     const existingVehicle = await prisma.vehicle.findFirst({
@@ -65,7 +66,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(vehicle)
   } catch (error: any) {
-    if (isAuthError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    if (isPermissionError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -73,7 +74,7 @@ export async function PUT(req: NextRequest) {
 // DELETE: delete vehicle
 export async function DELETE(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyPermission(req, "VEHICLE_MANAGE")
     const { searchParams } = new URL(req.url)
     const id = searchParams.get("id")
 
@@ -87,7 +88,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.vehicle.delete({ where: { id } })
     return NextResponse.json({ message: "Vehicle deleted successfully" })
   } catch (error: any) {
-    if (isAuthError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    if (isPermissionError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

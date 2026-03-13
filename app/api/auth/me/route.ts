@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 import { prisma } from "@/lib/prisma"
 
+export const dynamic = "force-dynamic"
+
+
 export async function GET(req: NextRequest) {
 
   const token = req.cookies.get("token")?.value
@@ -22,7 +25,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ user })
+    const { getPermissionsForRole } = await import("@/lib/permissions")
+    const permissionsSet = await getPermissionsForRole(user.role)
+    const permissions = Array.from(permissionsSet)
+
+    return NextResponse.json({ user, permissions })
   } catch (error) {
     console.log("JWT verification failed:", error)
     return NextResponse.json({ message: "Invalid token" }, { status: 401 })

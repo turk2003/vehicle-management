@@ -1,48 +1,54 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Car, FileText, Wrench, User, Bell } from "lucide-react"
+import { Car, FileText, Wrench, User, Bell, Shield } from "lucide-react"
+import { useEffect, useState } from "react"
+import api from "@/lib/api"
 
 export default function UserPage() {
   const router = useRouter()
+  const [permissions, setPermissions] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchMe = async () => {
+      try {
+        const res = await api.get("/api/auth/me")
+        setPermissions(res.data.permissions || [])
+      } catch (error) {
+        console.error("Failed to load permissions", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchMe()
+  }, [])
   
-  const menuItems = [
+  const allMenuItems = [
     {
       title: "จองรถ",
       description: "เลือกรถและวันเวลาที่ต้องการใช้",
       icon: Car,
       href: "/user/booking",
-      color: "bg-blue-500 hover:bg-blue-600"
+      color: "bg-blue-500 hover:bg-blue-600",
+      permission: "BOOKING_CREATE"
     },
     {
       title: "ประวัติการจอง",
       description: "ดูประวัติการจองรถของคุณ",
       icon: FileText,
       href: "/user/my-bookings",
-      color: "bg-green-500 hover:bg-green-600"
+      color: "bg-green-500 hover:bg-green-600",
+      permission: "BOOKING_VIEW"
     },
-    {
-      title: "แจ้งซ่อมบำรุง",
-      description: "แจ้งปัญหาหรือขอซ่อมบำรุงรถ",
-      icon: Wrench,
-      href: "/user/maintenance",
-      color: "bg-orange-500 hover:bg-orange-600"
-    },
-    {
-      title: "จัดการโปรไฟล์",
-      description: "แก้ไขข้อมูลส่วนตัว",
-      icon: User,
-      href: "/user/profile",
-      color: "bg-purple-500 hover:bg-purple-600"
-    },
-    {
-      title: "การแจ้งเตือน",
-      description: "ดูการแจ้งเตือนทั้งหมด",
-      icon: Bell,
-      href: "/user/notifications",
-      color: "bg-pink-500 hover:bg-pink-600"
-    },
+    
   ]
+
+  const menuItems = allMenuItems.filter(item => permissions.includes(item.permission))
+
+  if (loading) {
+     return <div className="min-h-screen bg-gray-100 flex items-center justify-center">กำลังโหลดข้อมูล...</div>
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -80,6 +86,13 @@ export default function UserPage() {
               </div>
             )
           })}
+          {menuItems.length === 0 && (
+            <div className="col-span-full text-center py-12 bg-white rounded-xl shadow-sm border border-gray-200">
+              <Shield className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+              <h3 className="text-lg font-medium text-gray-900">ไม่พบเมนูที่สามารถเข้าถึงได้</h3>
+              <p className="mt-1 text-gray-500">คุณยังไม่ได้รับสิทธิ์ในการเข้าถึงเมนูใดๆ ในส่วนนี้</p>
+            </div>
+          )}
         </div>
       </main>
     </div>

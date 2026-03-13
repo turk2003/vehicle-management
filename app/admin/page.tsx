@@ -1,48 +1,87 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Users, Car, Calendar, Wrench, BarChart3 } from "lucide-react"
+import { Users, Car, Calendar, Wrench, BarChart3, Shield } from "lucide-react"
+import { useEffect, useState } from "react"
+import api from "@/lib/api"
 
 export default function AdminPage() {
   const router = useRouter()
+  const [permissions, setPermissions] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchMe = async () => {
+      try {
+        const res = await api.get("/api/auth/me")
+        setPermissions(res.data.permissions || [])
+      } catch (error) {
+        console.error("Failed to load permissions", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchMe()
+  }, [])
   
-  const menuItems = [
+  const allMenuItems = [
     {
       title: "จัดการผู้ใช้",
       description: "เพิ่ม แก้ไข ลบผู้ใช้ในระบบ",
       icon: Users,
       href: "/admin/users",
-      color: "bg-blue-500 hover:bg-blue-600"
+      color: "bg-blue-500 hover:bg-blue-600",
+      permission: "USER_MANAGE"
     },
     {
       title: "จัดการรถ",
       description: "เพิ่ม แก้ไข ลบข้อมูลรถและประเภทรถ",
       icon: Car,
       href: "/admin/vehicles",
-      color: "bg-green-500 hover:bg-green-600"
+      color: "bg-green-500 hover:bg-green-600",
+      permission: "VEHICLE_MANAGE"
     },
     {
       title: "จัดการการจอง",
       description: "ดูและจัดการคำขอจองรถทั้งหมด",
       icon: Calendar,
       href: "/admin/bookings",
-      color: "bg-purple-500 hover:bg-purple-600"
+      color: "bg-purple-500 hover:bg-purple-600",
+      permission: "BOOKING_DELETE"
     },
     {
       title: "จัดการการซ่อมบำรุง",
       description: "ติดตามและจัดการการซ่อมบำรุงรถ",
       icon: Wrench,
       href: "/admin/maintenance",
-      color: "bg-orange-500 hover:bg-orange-600"
+      color: "bg-orange-500 hover:bg-orange-600",
+      permission: "MAINTENANCE_MANAGE"
     },
     {
       title: "รายงานและสถิติ",
       description: "ดูรายงานการใช้งานและสถิติต่างๆ",
       icon: BarChart3,
       href: "/admin/reports",
-      color: "bg-pink-500 hover:bg-pink-600"
+      color: "bg-pink-500 hover:bg-pink-600",
+      permission: "REPORT_VIEW"
+    },
+    {
+      title: "จัดการสิทธิ์",
+      description: "กำหนดสิทธิ์การใช้งานของแต่ละบทบาท",
+      icon: Shield,
+      href: "/admin/permissions",
+      color: "bg-indigo-500 hover:bg-indigo-600",
+      permission: "ADMIN_ONLY_LOCKED"
     },
   ]
+
+  const menuItems = allMenuItems.filter(item => 
+    item.permission === "ADMIN_ONLY_LOCKED" || permissions.includes(item.permission)
+  )
+
+  if (loading) {
+     return <div className="min-h-screen bg-gray-100 flex items-center justify-center">กำลังโหลดข้อมูล...</div>
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -80,6 +119,13 @@ export default function AdminPage() {
               </div>
             )
           })}
+          {menuItems.length === 0 && (
+            <div className="col-span-full text-center py-12 bg-white rounded-xl shadow-sm border border-gray-200">
+              <Shield className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+              <h3 className="text-lg font-medium text-gray-900">ไม่พบเมนูที่สามารถเข้าถึงได้</h3>
+              <p className="mt-1 text-gray-500">คุณยังไม่ได้รับสิทธิ์ในการเข้าถึงเมนูใดๆ ในส่วนนี้</p>
+            </div>
+          )}
         </div>
       </main>
     </div>
