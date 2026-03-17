@@ -10,6 +10,7 @@ type Booking = {
   purpose: string
   destination?: string
   status: string
+  rejectionReason?: string
   createdAt: string
   vehicle: {
     id: string
@@ -33,6 +34,13 @@ export default function MyBookingsPage() {
   const [selectedStatus, setSelectedStatus] = useState("ALL")
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editForm, setEditForm] = useState({
+    id: "",
+    startDate: "",
+    endDate: "",
+    purpose: ""
+  })
 
   // Statistics
   const [stats, setStats] = useState({
@@ -89,6 +97,36 @@ export default function MyBookingsPage() {
   const viewDetails = (booking: Booking) => {
     setSelectedBooking(booking)
     setShowDetailModal(true)
+  }
+
+  const openEditModal = (booking: Booking) => {
+    const toLocalISO = (dateStr: string) => {
+      const dt = new Date(dateStr)
+      dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset())
+      return dt.toISOString().slice(0, 16)
+    }
+    setEditForm({
+      id: booking.id,
+      startDate: toLocalISO(booking.startDate),
+      endDate: toLocalISO(booking.endDate),
+      purpose: booking.purpose
+    })
+    setShowEditModal(true)
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      setLoading(true)
+      setError("")
+      await api.patch("/api/booking", editForm)
+      setShowEditModal(false)
+      fetchBookings()
+    } catch (err: any) {
+      alert(err.response?.data?.message || "ไม่สามารถแก้ไขการจองได้")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -253,6 +291,13 @@ export default function MyBookingsPage() {
                           <p className="text-gray-900">{booking.approver.name}</p>
                         </div>
                       )}
+
+                      {booking.status === "REJECTED" && booking.rejectionReason && (
+                        <div className="md:col-span-2 bg-red-50 p-3 rounded-md border border-red-100 mt-2">
+                          <p className="text-sm font-medium text-red-800">เหตุผลที่ปฏิเสธ</p>
+                          <p className="text-sm text-red-600 mt-1">{booking.rejectionReason}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -265,13 +310,22 @@ export default function MyBookingsPage() {
                     </button>
                     
                     {booking.status === "PENDING" && (
-                      <button
-                        onClick={() => cancelBooking(booking.id)}
-                        disabled={loading}
-                        className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 disabled:opacity-50"
-                      >
-                        ยกเลิก
-                      </button>
+                      <>
+                        <button
+                          onClick={() => openEditModal(booking)}
+                          disabled={loading}
+                          className="px-4 py-2 text-sm font-medium text-amber-600 bg-amber-50 rounded-md hover:bg-amber-100 disabled:opacity-50"
+                        >
+                          แก้ไข
+                        </button>
+                        <button
+                          onClick={() => cancelBooking(booking.id)}
+                          disabled={loading}
+                          className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 disabled:opacity-50"
+                        >
+                          ยกเลิก
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -371,6 +425,12 @@ export default function MyBookingsPage() {
                           <p className="text-gray-900">{selectedBooking.approver.name}</p>
                           <p className="text-sm text-gray-500">{selectedBooking.approver.email}</p>
                         </div>
+                        {selectedBooking.status === "REJECTED" && selectedBooking.rejectionReason && (
+                          <div className="mt-3 bg-red-50 p-3 rounded-md border border-red-100">
+                            <p className="text-sm font-medium text-red-800">เหตุผลที่ปฏิเสธ</p>
+                            <p className="text-sm text-red-600 mt-1">{selectedBooking.rejectionReason}</p>
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
@@ -384,6 +444,77 @@ export default function MyBookingsPage() {
                     ปิด
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {showEditModal && (
+          <div className="fixed inset-0 bg-gray-600/50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+              <div className="mt-3">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    แก้ไขการจอง
+                  </h3>
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <span className="text-2xl">×</span>
+                  </button>
+                </div>
+                
+                <form onSubmit={handleEditSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">วันที่และเวลาเริ่ม</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={editForm.startDate}
+                      onChange={e => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">วันที่และเวลาสิ้นสุด</label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={editForm.endDate}
+                      onChange={e => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">วัตถุประสงค์</label>
+                    <textarea
+                      required
+                      rows={3}
+                      value={editForm.purpose}
+                      onChange={e => setEditForm(prev => ({ ...prev, purpose: e.target.value }))}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    ></textarea>
+                  </div>
+                  
+                  <div className="mt-6 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowEditModal(false)}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {loading ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>

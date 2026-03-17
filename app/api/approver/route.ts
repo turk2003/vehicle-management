@@ -113,7 +113,7 @@ export async function PUT(req: NextRequest) {
       data: {
         status: action,
         approverId: decoded.userId,
-        // You can add a comment field to schema if needed
+        ...(action === "REJECTED" && comment ? { rejectionReason: comment } : {})
       },
       include: {
         user: {
@@ -155,6 +155,14 @@ export async function PUT(req: NextRequest) {
           ? `การจองรถ ${existingBooking.vehicle.plateNumber} ได้รับการอนุมัติแล้ว`
           : `การจองรถ ${existingBooking.vehicle.plateNumber} ถูกปฏิเสธ`,
         bookingId: id
+      }
+    })
+
+    // Create execution log for the approver
+    await prisma.log.create({
+      data: {
+        userId: decoded.userId,
+        action: `${action === "APPROVED" ? "Approved" : "Rejected"} booking ${id} for vehicle ${existingBooking.vehicle.plateNumber}`
       }
     })
 

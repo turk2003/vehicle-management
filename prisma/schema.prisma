@@ -107,6 +107,7 @@ model Booking {
   endDate   DateTime
   purpose    String 
   status    BookingStatus @default(PENDING)
+  rejectionReason String?
 
   user      User     @relation(fields: [userId], references: [id])
   vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])

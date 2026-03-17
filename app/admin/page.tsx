@@ -58,14 +58,6 @@ export default function AdminPage() {
       permission: "MAINTENANCE_MANAGE"
     },
     {
-      title: "รายงานและสถิติ",
-      description: "ดูรายงานการใช้งานและสถิติต่างๆ",
-      icon: BarChart3,
-      href: "/admin/reports",
-      color: "bg-pink-500 hover:bg-pink-600",
-      permission: "REPORT_VIEW"
-    },
-    {
       title: "จัดการสิทธิ์",
       description: "กำหนดสิทธิ์การใช้งานของแต่ละบทบาท",
       icon: Shield,

@@ -10,6 +10,7 @@ type Booking = {
   purpose: string
   destination?: string
   status: string
+  rejectionReason?: string
   createdAt: string
   user: {
     id: string
@@ -250,6 +251,11 @@ export default function ApproverBookingsPage() {
                             ปลายทาง: {booking.destination}
                           </div>
                         )}
+                        {booking.status === "REJECTED" && booking.rejectionReason && (
+                          <div className="text-xs text-red-500 mt-1 truncate" title={booking.rejectionReason}>
+                            เหตุผลที่ปฏิเสธ: {booking.rejectionReason}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -311,14 +317,15 @@ export default function ApproverBookingsPage() {
 
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      หมายเหตุ (ไม่บังคับ)
+                       {actionType === "APPROVED" ? "หมายเหตุ (ไม่บังคับ)" : "เหตุผลที่ปฏิเสธ (บังคับ)"}
                     </label>
                     <textarea
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
+                      required={actionType === "REJECTED"}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       rows={3}
-                      placeholder="เพิ่มหมายเหตุ..."
+                      placeholder={actionType === "APPROVED" ? "เพิ่มหมายเหตุ..." : "กรุณาระบุเหตุผลที่ปฏิเสธ..."}
                     />
                   </div>
 
