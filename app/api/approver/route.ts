@@ -1,33 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import jwt from "jsonwebtoken"
-
-// Helper function to get token
-function getToken(req: NextRequest) {
-  let token = req.cookies.get("token")?.value
-  
-  if (!token) {
-    const authHeader = req.headers.get("authorization")
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.substring(7)
-    }
-  }
-  
-  return token
-}
-
-// Helper function to verify approver
-function verifyApprover(req: NextRequest) {
-  const token = getToken(req)
-  if (!token) throw new Error("No token")
-  
-  const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-  if (decoded.role !== "APPROVER" && decoded.role !== "ADMIN") {
-    throw new Error("Not authorized")
-  }
-  
-  return decoded
-}
+import { verifyApprover } from "@/lib/auth"
 
 // GET: list pending bookings for approval
 export async function GET(req: NextRequest) {

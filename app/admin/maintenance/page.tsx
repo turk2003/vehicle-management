@@ -252,7 +252,7 @@ export default function AdminMaintenancePage() {
               filter: ""
             },
             {
-              label: "รอถึงวันกำหนด",  // ✅ เปลี่ยนชื่อให้ชัดขึ้น
+              label: "รอถึงวันกำหนด",  
               value: stats.pending,
               color: "text-gray-500",
               ring: filterStatus === "REPORTED" ? "ring-2 ring-gray-400" : "",

@@ -1,40 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import jwt from "jsonwebtoken"
-
-// Helper function to get token
-function getToken(req: NextRequest) {
-  let token = req.cookies.get("token")?.value
-  
-  if (!token) {
-    const authHeader = req.headers.get("authorization")
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.substring(7)
-    }
-  }
-  
-  return token
-}
-
-// Helper function to verify admin
-function verifyAdmin(req: NextRequest) {
-  const token = getToken(req)
-  if (!token) throw new Error("No token")
-  
-  const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-  if (decoded.role !== "ADMIN") {
-    throw new Error("Not authorized")
-  }
-  
-  return decoded
-}
+import { verifyAdmin } from "@/lib/auth"
 
 // GET: list all bookings with filters
 export async function GET(req: NextRequest) {
   try {
     const decoded = verifyAdmin(req)
     const { searchParams } = new URL(req.url)
-    
+
     const status = searchParams.get('status')
     const userId = searchParams.get('userId')
     const vehicleId = searchParams.get('vehicleId')

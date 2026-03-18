@@ -169,7 +169,7 @@ export default function BookingPage() {
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               >
                 <option value="">ทุกประเภท</option>
                 {vehicleTypes.map(type => (
@@ -187,7 +187,7 @@ export default function BookingPage() {
                 value={searchDate.startDate}
                 onChange={(e) => setSearchDate({...searchDate, startDate: e.target.value})}
                 min={new Date().toISOString().slice(0, 16)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               />
             </div>
 
@@ -200,7 +200,7 @@ export default function BookingPage() {
                 value={searchDate.endDate}
                 onChange={(e) => setSearchDate({...searchDate, endDate: e.target.value})}
                 min={getMinEndDateTime()}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               />
             </div>
 
@@ -264,7 +264,7 @@ export default function BookingPage() {
 
         {/* Booking Form Modal */}
         {showBookingForm && selectedVehicle && (
-          <div className="fixed inset-0 bg-gray-600/50 overflow-y-auto h-full w-full z-50">
+          <div className="fixed inset-0 bg-gray-600/50 overflow-y-auto h-full w-full z-50 text-black">
             <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
               <div className="mt-3">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">

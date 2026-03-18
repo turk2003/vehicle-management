@@ -1,25 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import jwt from "jsonwebtoken"
+import { verifyAdmin } from "@/lib/auth"
 import { MaintenanceStatus } from "@/app/generated/prisma/client"
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
-
-function getToken(req: NextRequest) {
-  let token = req.cookies.get("token")?.value
-  if (!token) {
-    const authHeader = req.headers.get("authorization")
-    if (authHeader?.startsWith("Bearer ")) token = authHeader.substring(7)
-  }
-  return token
-}
-
-function verifyAdmin(req: NextRequest) {
-  const token = getToken(req)
-  if (!token) throw new Error("No token")
-  const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-  if (decoded.role !== "ADMIN") throw new Error("Not authorized")
-  return decoded
-}
 
 // GET
 export async function GET(req: NextRequest) {
