@@ -17,7 +17,6 @@ const MENU_GROUPS = [
       { id: "VEHICLE_MANAGE", title: "จัดการรถ", description: "เพิ่ม แก้ไข ลบข้อมูลรถและประเภทรถ" },
       { id: "BOOKING_DELETE", title: "จัดการการจอง", description: "ดูและจัดการคำขอจองรถทั้งหมด (ลบ/ยกเลิกได้)" },
       { id: "MAINTENANCE_MANAGE", title: "จัดการการซ่อมบำรุง", description: "ติดตามและจัดการบำรุงรักษารถ" },
-      { id: "REPORT_VIEW", title: "รายงานและสถิติ", description: "ดูรายงานการใช้งานและสถิติต่างๆ" },
     ]
   },
   {
@@ -25,6 +24,7 @@ const MENU_GROUPS = [
     forRoles: ["APPROVER",],
     items: [
       { id: "BOOKING_APPROVE", title: "อนุมัติการจอง", description: "พิจารณาคำขออนุมัติการจองรถ" },
+      { id: "BOOKING_VIEW", title: "ประวัติการจอง / การอนุมัติ", description: "ดูประวัติการจองและการอนุมัติของตนเอง" },
     ]
   },
   {
@@ -33,8 +33,6 @@ const MENU_GROUPS = [
     items: [
       { id: "BOOKING_CREATE", title: "จองรถ", description: "เลือกรถและวันเวลาที่ต้องการใช้" },
       { id: "BOOKING_VIEW", title: "ประวัติการจอง / การอนุมัติ", description: "ดูประวัติการจองและการอนุมัติของตนเอง" },
-      { id: "VEHICLE_VIEW", title: "ดูข้อมูลรถ", description: "ดูข้อมูลพื้นฐานของรถ" },
-      { id: "MAINTENANCE_VIEW", title: "ดู/แจ้ง การซ่อมบำรุง", description: "ดูประวัติและรายการซ่อมบำรุงรถ" },
     ]
   }
 ]

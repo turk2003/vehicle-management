@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
+import { getBookingStatusColor, getBookingStatusText, formatDateTime } from "@/lib/format"
 import api from "@/lib/api"
 
-type Booking = {
+interface Booking {
   id: string
   startDate: string
   endDate: string
@@ -29,7 +30,7 @@ type Booking = {
 
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("ALL")
   const [showDetailModal, setShowDetailModal] = useState(false)
@@ -129,46 +130,6 @@ export default function MyBookingsPage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800"
-      case "APPROVED":
-        return "bg-green-100 text-green-800"
-      case "REJECTED":
-        return "bg-red-100 text-red-800"
-      case "CANCELLED":
-        return "bg-gray-100 text-gray-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return "รออนุมัติ"
-      case "APPROVED":
-        return "อนุมัติแล้ว"
-      case "REJECTED":
-        return "ปฏิเสธ"
-      case "CANCELLED":
-        return "ยกเลิกแล้ว"
-      default:
-        return status
-    }
-  }
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
   const filteredBookings = selectedStatus === "ALL" 
     ? bookings 
     : bookings.filter(b => b.status === selectedStatus)
@@ -247,8 +208,8 @@ export default function MyBookingsPage() {
                       <h3 className="text-lg font-semibold text-gray-900">
                         {booking.vehicle.plateNumber}
                       </h3>
-                      <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(booking.status)}`}>
-                        {getStatusText(booking.status)}
+                      <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getBookingStatusColor(booking.status)}`}>
+                        {getBookingStatusText(booking.status)}
                       </span>
                     </div>
                     
@@ -355,8 +316,8 @@ export default function MyBookingsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm font-medium text-gray-500">สถานะ</p>
-                      <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(selectedBooking.status)}`}>
-                        {getStatusText(selectedBooking.status)}
+                      <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getBookingStatusColor(selectedBooking.status)}`}>
+                        {getBookingStatusText(selectedBooking.status)}
                       </span>
                     </div>
                     

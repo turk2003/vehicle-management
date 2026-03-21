@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Plus, Pencil, Trash2, Wrench, CheckCircle, Clock, AlertCircle, X } from "lucide-react"
 import api from "@/lib/api"
+import { getMaintenanceStatusColor, getMaintenanceStatusText, formatDateTime } from "@/lib/format"
 
 type Maintenance = {
   id: string
@@ -152,49 +153,6 @@ export default function AdminMaintenancePage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const getStatusBadge = (status: string, startDate: string) => {
-    const now = new Date()
-    const start = new Date(startDate)
-    const isPending = start > now // วันยังไม่ถึง
-
-    switch (status) {
-      case "REPORTED":
-        return isPending ? (
-          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
-            <Clock className="w-3 h-3" /> รอถึงวันกำหนด
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-            <AlertCircle className="w-3 h-3" /> รายงานแล้ว
-          </span>
-        )
-      case "IN_PROGRESS":
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-            <Clock className="w-3 h-3" /> กำลังซ่อม
-          </span>
-        )
-      case "COMPLETED":
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-            <CheckCircle className="w-3 h-3" /> เสร็จสิ้น
-          </span>
-        )
-      default:
-        return null
-    }
-  }
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString("th-TH", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
-    })
   }
 
   useEffect(() => {
@@ -350,7 +308,9 @@ export default function AdminMaintenancePage() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(item.status, item.startDate)}
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getMaintenanceStatusColor(item.status)}`}>
+                        {getMaintenanceStatusText(item.status)}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-900">{item.reporter.name}</p>

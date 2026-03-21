@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import api from "@/lib/api"
+import { getVehicleStatusColor, getVehicleStatusText } from "@/lib/format"
 
 type Vehicle = {
   id: string
@@ -240,32 +241,6 @@ export default function AdminVehiclesPage() {
     fetchVehicleTypes()
   }, [])
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "AVAILABLE":
-        return "bg-green-100 text-green-800"
-      case "BOOKED":
-        return "bg-yellow-100 text-yellow-800"
-      case "MAINTENANCE":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "AVAILABLE":
-        return "Available"
-      case "BOOKED":
-        return "Booked"
-      case "MAINTENANCE":
-        return "Maintenance"
-      default:
-        return status
-    }
-  }
-
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -358,11 +333,11 @@ export default function AdminVehiclesPage() {
                         <div className="text-sm text-gray-900">{vehicle.type?.name || 'No Type'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(vehicle.status)}`}>
-                          {getStatusText(vehicle.status)}
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getVehicleStatusColor(vehicle.status)}`}>
+                          {getVehicleStatusText(vehicle.status)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
                           onClick={() => openEditModal(vehicle)}
                           className="text-blue-600 hover:text-blue-900 mr-3"
@@ -480,7 +455,7 @@ export default function AdminVehiclesPage() {
                       required
                       value={formData.typeId}
                       onChange={(e) => setFormData({...formData, typeId: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                     >
                       <option value="">Select Type</option>
                       {vehicleTypes.map(type => (
@@ -548,7 +523,7 @@ export default function AdminVehiclesPage() {
                       required
                       value={typeFormData.name}
                       onChange={(e) => setTypeFormData({name: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                       placeholder="e.g. Sedan, SUV, Van"
                     />
                   </div>

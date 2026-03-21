@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import api from "@/lib/api"
+import { getBookingStatusColor, getBookingStatusText } from "@/lib/format"
 
 type Booking = {
   id: string
@@ -91,36 +92,6 @@ export default function ApproverBookingsPage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800"
-      case "APPROVED":
-        return "bg-green-100 text-green-800"
-      case "REJECTED":
-        return "bg-red-100 text-red-800"
-      case "CANCELLED":
-        return "bg-gray-100 text-gray-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return "รออนุมัติ"
-      case "APPROVED":
-        return "อนุมัติแล้ว"
-      case "REJECTED":
-        return "ปฏิเสธ"
-      case "CANCELLED":
-        return "ยกเลิก"
-      default:
-        return status
-    }
-  }
-
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString('th-TH', {
       year: 'numeric',
@@ -154,7 +125,7 @@ export default function ApproverBookingsPage() {
                     : "bg-white text-gray-700 hover:bg-gray-50"
                 } border`}
               >
-                {getStatusText(status)}
+                {getBookingStatusText(status)}
               </button>
             ))}
           </div>
@@ -259,8 +230,8 @@ export default function ApproverBookingsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(booking.status)}`}>
-                        {getStatusText(booking.status)}
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getBookingStatusColor(booking.status)}`}>
+                        {getBookingStatusText(booking.status)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

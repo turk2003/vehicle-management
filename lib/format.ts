@@ -48,6 +48,16 @@ export function getVehicleStatusText(status: string): string {
 
 // ─── Maintenance Status ──────────────────────────────────────────────────────
 
+/** Tailwind class สำหรับ badge สถานะการบำรุงรักษา */
+export function getMaintenanceStatusColor(status: string): string {
+  switch (status) {
+    case "REPORTED":    return "bg-yellow-100 text-yellow-800"
+    case "IN_PROGRESS": return "bg-blue-100 text-blue-800"
+    case "COMPLETED":   return "bg-green-100 text-green-800"
+    default:            return "bg-gray-100 text-gray-800"
+  }
+}
+
 /** ข้อความภาษาไทยสำหรับสถานะการบำรุงรักษา */
 export function getMaintenanceStatusText(status: string): string {
   switch (status) {
@@ -89,4 +99,34 @@ export function formatDateTimeLong(dateString: string): string {
     hour: "2-digit",
     minute: "2-digit",
   })
+}
+
+// ─── User Role ──────────────────────────────────────────────────────────────
+
+/** Tailwind class สำหรับ badge บทบาทผู้ใช้ */
+export function getRoleColor(role: string): string {
+  switch (role) {
+    case "ADMIN":
+      return "bg-red-100 text-red-800"
+    case "APPROVER":
+      return "bg-blue-100 text-blue-800"
+    case "USER":
+      return "bg-green-100 text-green-800"
+    default:
+      return "bg-gray-100 text-gray-800"
+  }
+}
+
+/** ข้อความภาษาไทยสำหรับบทบาทผู้ใช้ */
+export function getRoleDisplayName(role: string): string {
+  switch (role) {
+    case "ADMIN":
+      return "ผู้ดูแลระบบ"
+    case "APPROVER":
+      return "ผู้อนุมัติ"
+    case "USER":
+      return "ผู้ใช้งาน"
+    default:
+      return role
+  }
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import api from "@/lib/api"
+import { getBookingStatusColor, getBookingStatusText, formatDateTime } from "@/lib/format"
 
 type Booking = {
   id: string
@@ -105,42 +106,6 @@ export default function ApprovalHistoryPage() {
   const viewDetails = (booking: Booking) => {
     setSelectedBooking(booking)
     setShowDetailModal(true)
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "APPROVED":
-        return "bg-green-100 text-green-800"
-      case "REJECTED":
-        return "bg-red-100 text-red-800"
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "APPROVED":
-        return "อนุมัติแล้ว"
-      case "REJECTED":
-        return "ปฏิเสธแล้ว"
-      case "PENDING":
-        return "รออนุมัติ"
-      default:
-        return status
-    }
-  }
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
   }
 
   useEffect(() => {
@@ -303,11 +268,11 @@ export default function ApprovalHistoryPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(booking.status)}`}>
-                        {getStatusText(booking.status)}
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getBookingStatusColor(booking.status)}`}>
+                        {getBookingStatusText(booking.status)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <button
                         onClick={() => viewDetails(booking)}
                         className="text-blue-600 hover:text-blue-900"
@@ -343,8 +308,8 @@ export default function ApprovalHistoryPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm font-medium text-gray-500">สถานะ</p>
-                      <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(selectedBooking.status)}`}>
-                        {getStatusText(selectedBooking.status)}
+                      <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getBookingStatusColor(selectedBooking.status)}`}>
+                        {getBookingStatusText(selectedBooking.status)}
                       </span>
                     </div>
                     <div>
