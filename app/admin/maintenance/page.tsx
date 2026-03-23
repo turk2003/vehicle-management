@@ -120,6 +120,39 @@ export default function AdminMaintenancePage() {
       setLoading(true)
       setError("")
 
+      // --- Validation Logic ---
+      const now = new Date()
+      const start = new Date(formData.startDate)
+      
+      if (formData.status === "COMPLETED") {
+        if (!formData.endDate) {
+          setError("กรุณาระบุวันที่เสร็จสิ้น เมื่อสถานะเป็น 'เสร็จสิ้น'")
+          setLoading(false)
+          return
+        }
+        const end = new Date(formData.endDate)
+        if (start > now) {
+          setError("วันที่เริ่มซ่อมไม่สามารถเป็นวันในอนาคตได้ เมื่อสถานะ 'เสร็จสิ้น'")
+          setLoading(false)
+          return
+        }
+        if (end > now) {
+          setError("วันที่ซ่อมเสร็จไม่สามารถเป็นวันในอนาคตได้")
+          setLoading(false)
+          return
+        }
+      }
+
+      if (formData.endDate) {
+        const end = new Date(formData.endDate)
+        if (end < start) {
+          setError("วันที่เสร็จสิ้นต้องไม่ก่อนวันที่เริ่ม")
+          setLoading(false)
+          return
+        }
+      }
+      // ------------------------
+
       if (editingItem) {
         await api.put("/api/admin/maintenance", {
           id: editingItem.id,
@@ -411,10 +444,11 @@ export default function AdminMaintenancePage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      วันที่เสร็จ
+                      วันที่เสร็จ {formData.status === "COMPLETED" && <span className="text-red-500">*</span>}
                     </label>
                     <input
                       type="datetime-local"
+                      required={formData.status === "COMPLETED"}
                       value={formData.endDate}
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"

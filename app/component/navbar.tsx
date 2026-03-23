@@ -50,8 +50,8 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
-      document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
-      router.push("/")
+      await axios.post("/api/auth/logout")
+      window.location.href = "/"
     } catch (error) {
       console.error("Logout error:", error)
     }
