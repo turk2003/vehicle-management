@@ -9,19 +9,24 @@ export default function ApproverPage() {
   const router = useRouter()
   const [permissions, setPermissions] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
-    const fetchMe = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get("/api/auth/me")
-        setPermissions(res.data.permissions || [])
+        const [authRes, pendingRes] = await Promise.all([
+          api.get("/api/auth/me"),
+          api.get("/api/approver?status=PENDING")
+        ])
+        setPermissions(authRes.data.permissions || [])
+        setPendingCount(pendingRes.data.length || 0)
       } catch (error) {
-        console.error("Failed to load permissions", error)
+        console.error("Failed to load data", error)
       } finally {
         setLoading(false)
       }
     }
-    fetchMe()
+    fetchData()
   }, [])
   
   const allMenuItems = [
@@ -31,7 +36,7 @@ export default function ApproverPage() {
       icon: CheckCircle,
       href: "/approver/approve",
       color: "bg-blue-500 hover:bg-blue-600",
-      count: "pending",
+      hasPendingAlert: true,
       permission: "BOOKING_APPROVE"
     },
     {
@@ -79,9 +84,9 @@ export default function ApproverPage() {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-xl font-semibold mb-1">{item.title}</h3>
-                    {item.count === "pending" && (
+                    {item.hasPendingAlert && pendingCount > 0 && (
                       <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
-                        รอการอนุมัติ
+                        {pendingCount} รายการรออนุมัติ
                       </span>
                     )}
                   </div>

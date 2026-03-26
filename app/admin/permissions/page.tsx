@@ -289,15 +289,7 @@ export default function AdminPermissionsPage() {
           )
         })}
 
-        {/* Info box */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-5 py-4 text-sm text-amber-800">
-          <p className="font-semibold mb-1">⚠️ หมายเหตุระบบสิทธิ์ (Permissions)</p>
-          <ul className="list-disc list-inside space-y-1 text-amber-700">
-            <li>สิทธิ์หลักบางรายการของ Admin จะถูกล็อกไว้ (ไม่สามารถปิดได้) เพื่อป้องกันสถานการณ์ที่ Admin ล็อกตัวเองออกจากระบบ</li>
-            <li>เมื่อมีการบันทึก ระบบจะจำค่าใหม่ทันที ผู้ใช้ที่ล็อกอินอยู่แล้วจะได้รับสิทธิ์ใหม่เมื่อทำการรีเฟรชหรือเปลี่ยนหน้า</li>
-            <li><b>คำแนะนำ:</b> ควรให้สิทธิ์แค่เฉพาะเมนูที่ผู้ใช้กลุ่มนั้นๆ จำเป็นต้องเห็น เพื่อความสะอาดของ UI และความปลอดภัยของข้อมูล</li>
-          </ul>
-        </div>
+        
 
       </div>
     </div>

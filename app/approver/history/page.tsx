@@ -171,7 +171,7 @@ export default function ApprovalHistoryPage() {
                 type="date"
                 value={dateFilter.startDate}
                 onChange={(e) => setDateFilter({...dateFilter, startDate: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               />
             </div>
             <div>
@@ -182,7 +182,7 @@ export default function ApprovalHistoryPage() {
                 type="date"
                 value={dateFilter.endDate}
                 onChange={(e) => setDateFilter({...dateFilter, endDate: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
               />
             </div>
             <div className="flex items-end">

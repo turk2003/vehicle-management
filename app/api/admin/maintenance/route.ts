@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status")
     const vehicleId = searchParams.get("vehicleId")
 
-    // ✅ ใช้ shared helper แทน local function
+   
     await syncAllVehicleStatuses()
 
     const maintenances = await prisma.maintenance.findMany({
