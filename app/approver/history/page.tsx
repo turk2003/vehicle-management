@@ -60,40 +60,42 @@ export default function ApprovalHistoryPage() {
       setLoading(true)
       setError("")
 
-      // Fetch all non-pending bookings (my approvals)
-      const statuses = selectedStatus === "ALL" 
-        ? ["APPROVED", "REJECTED"] 
-        : [selectedStatus]
+      // Fetch all non-pending bookings for stats separately
+      const allBookingsResponse = await api.get(`/api/approver?status=ALL`)
+      const allBookingsForStats = allBookingsResponse.data.filter(
+        (b: Booking) => b.status === "APPROVED" || b.status === "REJECTED"
+      )
 
-      const allBookings = []
-      for (const status of statuses) {
-        const response = await api.get(`/api/approver?status=${status}`)
-        allBookings.push(...response.data)
-      }
-
-      // Filter by date if provided
-      let filtered = allBookings
+      // Calculate stats based on ALL data (ignoring current tab filter)
+      let statsToCalculate = allBookingsForStats
       if (dateFilter.startDate && dateFilter.endDate) {
         const start = new Date(dateFilter.startDate)
         const end = new Date(dateFilter.endDate)
-        filtered = allBookings.filter((b: Booking) => {
+        statsToCalculate = allBookingsForStats.filter((b: Booking) => {
           const updated = new Date(b.updatedAt)
           return updated >= start && updated <= end
         })
       }
 
-      setBookings(filtered)
-
-      // Calculate stats
-      const bookingStats = filtered.reduce((acc: any, booking: Booking) => {
+      const bookingStats = statsToCalculate.reduce((acc: any, booking: Booking) => {
         acc.total++
         if (booking.status === "APPROVED") acc.approved++
         if (booking.status === "REJECTED") acc.rejected++
-        if (booking.status === "PENDING") acc.pending++
         return acc
       }, { total: 0, approved: 0, rejected: 0, pending: 0 })
 
       setStats(bookingStats)
+
+      // Now filter table data based on selected tab
+      let filteredForTable = statsToCalculate
+      if (selectedStatus !== "ALL") {
+        filteredForTable = statsToCalculate.filter(
+          (b: Booking) => b.status === selectedStatus
+        )
+      }
+
+      setBookings(filteredForTable)
+
     } catch (error: any) {
       setError("ไม่สามารถโหลดข้อมูลได้")
       console.error("Fetch history error:", error)

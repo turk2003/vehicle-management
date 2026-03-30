@@ -7,12 +7,18 @@ export async function GET(req: NextRequest) {
   try {
     const decoded = verifyApprover(req)
     const { searchParams } = new URL(req.url)
-    const status = searchParams.get('status') || 'PENDING'
+    const statusParam = searchParams.get('status') || 'PENDING'
+
+    // Build where clause based on status
+    const whereClause: any = {}
+    
+    // If status is not ALL, filter by that specific status
+    if (statusParam !== 'ALL') {
+      whereClause.status = statusParam
+    }
 
     const bookings = await prisma.booking.findMany({
-      where: {
-        status: status as any
-      },
+      where: whereClause,
       include: {
         user: {
           select: {
