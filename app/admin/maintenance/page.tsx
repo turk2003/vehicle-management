@@ -67,14 +67,16 @@ export default function AdminMaintenancePage() {
     completed: maintenances.filter(m => m.status === "COMPLETED").length,
   }
 
+  const filteredMaintenances = filterStatus 
+    ? maintenances.filter(m => m.status === filterStatus)
+    : maintenances
+
   const fetchData = async () => {
     try {
       setLoading(true)
-      const params = new URLSearchParams()
-      if (filterStatus) params.append("status", filterStatus)
 
       const [maintenanceRes, vehicleRes] = await Promise.all([
-        api.get(`/api/admin/maintenance?${params}`),
+        api.get("/api/admin/maintenance"),
         api.get("/api/verhicle")
       ])
 
@@ -190,7 +192,7 @@ export default function AdminMaintenancePage() {
 
   useEffect(() => {
     fetchData()
-  }, [filterStatus])
+  }, [])
 
   useEffect(() => {
     if (success) {
@@ -309,12 +311,12 @@ export default function AdminMaintenancePage() {
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-500">กำลังโหลด...</td>
                 </tr>
-              ) : maintenances.length === 0 ? (
+              ) : filteredMaintenances.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูลการบำรุงรักษา</td>
                 </tr>
               ) : (
-                maintenances.map((item) => (
+                filteredMaintenances.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <p className="font-medium text-gray-900">{item.vehicle.plateNumber}</p>
