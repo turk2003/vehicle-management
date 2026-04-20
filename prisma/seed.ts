@@ -26,7 +26,7 @@ async function main() {
           email: adminEmail,
           password: hashedPassword,
           role: UserRole.ADMIN,
-        },
+        }, 
       })
 
       console.log("🚀 Admin user created")

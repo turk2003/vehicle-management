@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import {usePathname } from "next/navigation"
 import axios from "axios"
 import { getRoleColor, getRoleDisplayName } from "@/lib/format"
 
@@ -13,7 +13,6 @@ interface User {
 }
 
 export default function Navbar() {
-  const router = useRouter()
   const pathname = usePathname()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -42,7 +41,7 @@ export default function Navbar() {
     }
 
     fetchUser()
-  }, [router, pathname])
+  }, [pathname])
 
   if (pathname === "/") {
     return null
