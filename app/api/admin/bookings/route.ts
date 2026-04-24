@@ -85,7 +85,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 })
     }
 
-    const validStatuses = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"]
+    const validStatuses = ["PENDING", "APPROVED", "REJECTED", "CANCELLED", "IN_PROGRESS", "COMPLETED"]
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ message: "Invalid status" }, { status: 400 })
     }

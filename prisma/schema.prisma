@@ -17,6 +17,7 @@ enum UserRole {
 enum VehicleStatus {
   AVAILABLE
   BOOKED
+  IN_USE
   MAINTENANCE
 }
 
@@ -26,6 +27,8 @@ enum BookingStatus {
   REJECTED
   CANCELLED
   CHANGED
+  IN_PROGRESS
+  COMPLETED
 }
 
 enum MaintenanceStatus {
@@ -85,9 +88,10 @@ model VehicleType {
 }
 
 model Vehicle {
-  id          String        @id @default(uuid())
-  plateNumber String        @unique
-  status      VehicleStatus @default(AVAILABLE)
+  id             String        @id @default(uuid())
+  plateNumber    String        @unique
+  status         VehicleStatus @default(AVAILABLE)
+  currentMileage Int           @default(0)
 
   typeId       String
   type         VehicleType  @relation(fields: [typeId], references: [id])
@@ -108,6 +112,11 @@ model Booking {
   purpose    String 
   status    BookingStatus @default(PENDING)
   rejectionReason String?
+
+  mileageStart    Int?
+  mileageEnd      Int?
+  pickedUpAt      DateTime?
+  returnedAt      DateTime?
 
   user      User     @relation(fields: [userId], references: [id])
   vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])

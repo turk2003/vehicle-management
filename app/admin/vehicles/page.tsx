@@ -8,6 +8,7 @@ type Vehicle = {
   id: string
   plateNumber: string
   status: string
+  currentMileage: number
   type?: {
     id: string
     name: string
@@ -304,6 +305,9 @@ export default function AdminVehiclesPage() {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Mileage
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -311,15 +315,15 @@ export default function AdminVehiclesPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading && vehicles.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                      Loading...
-                    </td>
+                     <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                       Loading...
+                     </td>
                   </tr>
                 ) : vehicles.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                      No vehicles found
-                    </td>
+                     <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                       No vehicles found
+                     </td>
                   </tr>
                 ) : (
                   vehicles.map((vehicle) => (
@@ -336,6 +340,9 @@ export default function AdminVehiclesPage() {
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getVehicleStatusColor(vehicle.status)}`}>
                           {getVehicleStatusText(vehicle.status)}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{(vehicle.currentMileage || 0).toLocaleString()} km</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
@@ -475,6 +482,7 @@ export default function AdminVehiclesPage() {
                     >
                       <option value="AVAILABLE">Available</option>
                       <option value="BOOKED">Booked</option>
+                      <option value="IN_USE">In Use</option>
                       <option value="MAINTENANCE">Maintenance</option>
                     </select>
                   </div>

@@ -3,24 +3,28 @@
 /** Tailwind class สำหรับ badge สถานะการจอง */
 export function getBookingStatusColor(status: string): string {
   switch (status) {
-    case "PENDING":   return "bg-yellow-100 text-yellow-800"
-    case "APPROVED":  return "bg-green-100 text-green-800"
-    case "REJECTED":  return "bg-red-100 text-red-800"
-    case "CANCELLED": return "bg-gray-100 text-gray-800"
-    case "CHANGED":   return "bg-blue-100 text-blue-800"
-    default:          return "bg-gray-100 text-gray-800"
+    case "PENDING":     return "bg-yellow-100 text-yellow-800"
+    case "APPROVED":    return "bg-green-100 text-green-800"
+    case "REJECTED":    return "bg-red-100 text-red-800"
+    case "CANCELLED":   return "bg-gray-100 text-gray-800"
+    case "CHANGED":     return "bg-blue-100 text-blue-800"
+    case "IN_PROGRESS": return "bg-indigo-100 text-indigo-800"
+    case "COMPLETED":   return "bg-teal-100 text-teal-800"
+    default:            return "bg-gray-100 text-gray-800"
   }
 }
 
 /** ข้อความภาษาไทยสำหรับสถานะการจอง */
 export function getBookingStatusText(status: string): string {
   switch (status) {
-    case "PENDING":   return "รออนุมัติ"
-    case "APPROVED":  return "อนุมัติแล้ว"
-    case "REJECTED":  return "ปฏิเสธ"
-    case "CANCELLED": return "ยกเลิก"
-    case "CHANGED":   return "เปลี่ยนแปลง"
-    default:          return status
+    case "PENDING":     return "รออนุมัติ"
+    case "APPROVED":    return "อนุมัติแล้ว"
+    case "REJECTED":    return "ปฏิเสธ"
+    case "CANCELLED":   return "ยกเลิก"
+    case "CHANGED":     return "เปลี่ยนแปลง"
+    case "IN_PROGRESS": return "กำลังใช้งาน"
+    case "COMPLETED":   return "เสร็จสิ้น"
+    default:            return status
   }
 }
 
@@ -31,6 +35,7 @@ export function getVehicleStatusColor(status: string): string {
   switch (status) {
     case "AVAILABLE":   return "bg-green-100 text-green-800"
     case "BOOKED":      return "bg-blue-100 text-blue-800"
+    case "IN_USE":      return "bg-purple-100 text-purple-800"
     case "MAINTENANCE": return "bg-orange-100 text-orange-800"
     default:            return "bg-gray-100 text-gray-800"
   }
@@ -40,7 +45,8 @@ export function getVehicleStatusColor(status: string): string {
 export function getVehicleStatusText(status: string): string {
   switch (status) {
     case "AVAILABLE":   return "ว่าง"
-    case "BOOKED":      return "กำลังถูกใช้งาน"
+    case "BOOKED":      return "จองแล้ว"
+    case "IN_USE":      return "กำลังใช้งาน"
     case "MAINTENANCE": return "ซ่อมบำรุง"
     default:            return status
   }

@@ -64,9 +64,9 @@ async function main() {
     
     // Create Sample Vehicles
     const sampleVehicles = [
-      { plateNumber: "ABC-1234", typeName: "Van", status: "AVAILABLE" },
-      { plateNumber: "DEF-5678", typeName: "Cable Car", status: "AVAILABLE" },
-      { plateNumber: "GHI-9012", typeName: "Truck", status: "BOOKED" },
+      { plateNumber: "ABC-1234", typeName: "Van", status: "AVAILABLE", currentMileage: 15000 },
+      { plateNumber: "DEF-5678", typeName: "Cable Car", status: "AVAILABLE", currentMileage: 42000 },
+      { plateNumber: "GHI-9012", typeName: "Truck", status: "AVAILABLE", currentMileage: 8500 },
     ]
 
     console.log("Creating sample vehicles...")
@@ -84,6 +84,7 @@ async function main() {
               plateNumber: vehicleData.plateNumber,
               typeId: vehicleType.id,
               status: vehicleData.status as any,
+              currentMileage: vehicleData.currentMileage,
             }
           })
           console.log(`🚙 Vehicle "${vehicleData.plateNumber}" created`)
