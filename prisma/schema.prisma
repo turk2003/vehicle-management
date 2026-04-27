@@ -1,6 +1,6 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  provider   = "prisma-client"
+  output     = "../app/generated/prisma"
   engineType = "client"
 }
 
@@ -66,14 +66,14 @@ enum Permission {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      UserRole
+  id       String   @id @default(uuid())
+  name     String
+  email    String   @unique
+  password String
+  role     UserRole
 
   bookings      Booking[]
-  approvedJobs  Booking[] @relation("Approver")
+  approvedJobs  Booking[]      @relation("Approver")
   maintenances  Maintenance[]
   notifications Notification[]
   logs          Log[]
@@ -93,34 +93,34 @@ model Vehicle {
   status         VehicleStatus @default(AVAILABLE)
   currentMileage Int           @default(0)
 
-  typeId       String
-  type         VehicleType  @relation(fields: [typeId], references: [id])
+  typeId String
+  type   VehicleType @relation(fields: [typeId], references: [id])
 
   bookings     Booking[]
   maintenances Maintenance[]
 }
 
 model Booking {
-  id        String        @id @default(uuid())
+  id String @id @default(uuid())
 
   userId     String
   vehicleId  String
   approverId String?
 
-  startDate DateTime
-  endDate   DateTime
-  purpose    String 
-  status    BookingStatus @default(PENDING)
+  startDate       DateTime
+  endDate         DateTime
+  purpose         String
+  status          BookingStatus @default(PENDING)
   rejectionReason String?
 
-  mileageStart    Int?
-  mileageEnd      Int?
-  pickedUpAt      DateTime?
-  returnedAt      DateTime?
+  mileageStart Int?
+  mileageEnd   Int?
+  pickedUpAt   DateTime?
+  returnedAt   DateTime?
 
-  user      User     @relation(fields: [userId], references: [id])
-  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
-  approver  User?    @relation("Approver", fields: [approverId], references: [id])
+  user     User    @relation(fields: [userId], references: [id])
+  vehicle  Vehicle @relation(fields: [vehicleId], references: [id])
+  approver User?   @relation("Approver", fields: [approverId], references: [id])
 
   notifications Notification[]
 
@@ -131,35 +131,38 @@ model Booking {
 }
 
 model Maintenance {
-  id          String             @id @default(uuid())
+  id String @id @default(uuid())
 
-  vehicleId   String
-  reporterId  String
+  vehicleId  String
+  reporterId String
 
-  description String
-  status      MaintenanceStatus  @default(REPORTED)
-  startDate   DateTime
-  endDate     DateTime?
+  description       String
+  repairDetails     String?
+  serviceCenterName String?
+  cost              Float?
+  status            MaintenanceStatus @default(REPORTED)
+  startDate         DateTime
+  endDate           DateTime?
 
-  vehicle     Vehicle @relation(fields: [vehicleId], references: [id])
-  reporter    User    @relation(fields: [reporterId], references: [id])
+  vehicle  Vehicle @relation(fields: [vehicleId], references: [id])
+  reporter User    @relation(fields: [reporterId], references: [id])
 
   notifications Notification[]
 }
 
 model Notification {
-  id             String           @id @default(uuid())
-  userId         String
-  type           NotificationType
-  message        String
-  isRead         Boolean          @default(false)
+  id      String           @id @default(uuid())
+  userId  String
+  type    NotificationType
+  message String
+  isRead  Boolean          @default(false)
 
-  bookingId      String?
-  maintenanceId  String?
+  bookingId     String?
+  maintenanceId String?
 
-  user           User        @relation(fields: [userId], references: [id])
-  booking        Booking?    @relation(fields: [bookingId], references: [id])
-  maintenance    Maintenance?@relation(fields: [maintenanceId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  booking     Booking?     @relation(fields: [bookingId], references: [id])
+  maintenance Maintenance? @relation(fields: [maintenanceId], references: [id])
 
   createdAt DateTime @default(now())
 }
@@ -170,7 +173,7 @@ model Log {
   action    String
   createdAt DateTime @default(now())
 
-  user      User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model RolePermission {

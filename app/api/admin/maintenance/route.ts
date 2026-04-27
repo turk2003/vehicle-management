@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const decoded = verifyAdmin(req)
-    const { vehicleId, description, startDate, endDate, status } = await req.json()
+    const { vehicleId, description, startDate, endDate, status, repairDetails, serviceCenterName, cost } = await req.json()
 
     if (!vehicleId || !description || !startDate) {
       return NextResponse.json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" }, { status: 400 })
@@ -79,6 +79,9 @@ export async function POST(req: NextRequest) {
         vehicleId,
         reporterId: decoded.userId,
         description,
+        repairDetails,
+        serviceCenterName,
+        cost: cost ? parseFloat(cost) : null,
         startDate: start,
         endDate: endDate ? new Date(endDate) : null,
         status: resolvedStatus  // ✅ ไม่มี error แล้ว
@@ -109,7 +112,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     verifyAdmin(req)
-    const { id, description, startDate, endDate, status } = await req.json()
+    const { id, description, startDate, endDate, status, repairDetails, serviceCenterName, cost } = await req.json()
 
     if (!id) return NextResponse.json({ message: "Missing ID" }, { status: 400 })
 
@@ -136,6 +139,9 @@ export async function PUT(req: NextRequest) {
       where: { id },
       data: {
         ...(description && { description }),
+        ...(repairDetails !== undefined && { repairDetails }),
+        ...(serviceCenterName !== undefined && { serviceCenterName }),
+        ...(cost !== undefined && { cost: cost !== null && cost !== "" ? parseFloat(cost) : null }),
         ...(startDate && { startDate: newStart }),
         endDate: endDate ? new Date(endDate) : null,
         ...(resolvedStatus && { status: resolvedStatus })  // ✅ ไม่มี error แล้ว

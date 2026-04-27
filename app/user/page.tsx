@@ -41,6 +41,14 @@ export default function UserPage() {
       color: "bg-green-500 hover:bg-green-600",
       permission: "BOOKING_VIEW"
     },
+    {
+      title: "แจ้งซ่อมบำรุง",
+      description: "แจ้งปัญหารถเสียและติดตามสถานะ",
+      icon: Wrench,
+      href: "/user/maintenance",
+      color: "bg-orange-500 hover:bg-orange-600",
+      permission: "BOOKING_VIEW" // Users who can view bookings can report maintenance
+    },
     
   ]
 

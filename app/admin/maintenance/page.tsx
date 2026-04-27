@@ -11,6 +11,9 @@ type Maintenance = {
   status: string
   startDate: string
   endDate?: string
+  repairDetails?: string
+  serviceCenterName?: string
+  cost?: number
   createdAt: string
   vehicle: {
     id: string
@@ -35,6 +38,9 @@ type Vehicle = {
 type FormData = {
   vehicleId: string
   description: string
+  repairDetails: string
+  serviceCenterName: string
+  cost: string
   startDate: string
   endDate: string
   status: string
@@ -43,6 +49,9 @@ type FormData = {
 const defaultForm: FormData = {
   vehicleId: "",
   description: "",
+  repairDetails: "",
+  serviceCenterName: "",
+  cost: "",
   startDate: "",
   endDate: "",
   status: "REPORTED"
@@ -101,6 +110,9 @@ export default function AdminMaintenancePage() {
     setFormData({
       vehicleId: item.vehicle.id,
       description: item.description,
+      repairDetails: item.repairDetails || "",
+      serviceCenterName: item.serviceCenterName || "",
+      cost: item.cost ? item.cost.toString() : "",
       startDate: item.startDate.slice(0, 16),
       endDate: item.endDate ? item.endDate.slice(0, 16) : "",
       status: item.status
@@ -299,6 +311,8 @@ export default function AdminMaintenancePage() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รถ</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายละเอียด</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ศูนย์บริการ/ช่าง</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ค่าใช้จ่าย</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่เริ่ม</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่เสร็จ</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
@@ -309,11 +323,11 @@ export default function AdminMaintenancePage() {
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">กำลังโหลด...</td>
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">กำลังโหลด...</td>
                 </tr>
               ) : filteredMaintenances.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูลการบำรุงรักษา</td>
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">ไม่พบข้อมูลการบำรุงรักษา</td>
                 </tr>
               ) : (
                 filteredMaintenances.map((item) => (
@@ -333,6 +347,12 @@ export default function AdminMaintenancePage() {
                       <p className="text-sm text-gray-900 max-w-xs truncate" title={item.description}>
                         {item.description}
                       </p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-900">{item.serviceCenterName || "-"}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-900">{item.cost ? `฿${item.cost.toLocaleString()}` : "-"}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDateTime(item.startDate)}
@@ -429,6 +449,52 @@ export default function AdminMaintenancePage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
+
+                {/* Additional Info for COMPLETED or IN_PROGRESS */}
+                {(formData.status === "COMPLETED" || formData.status === "IN_PROGRESS" || editingItem) && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        รายละเอียดการซ่อม (เพิ่มเติม)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={formData.repairDetails}
+                        onChange={(e) => setFormData({ ...formData, repairDetails: e.target.value })}
+                        placeholder="เปลี่ยนอะไหล่, ซ่อมเครื่องยนต์..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          ชื่อศูนย์บริการ / ช่าง
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.serviceCenterName}
+                          onChange={(e) => setFormData({ ...formData, serviceCenterName: e.target.value })}
+                          placeholder="อู่ทองคำ, B-Quik..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          ค่าใช้จ่าย (บาท)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={formData.cost}
+                          onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+                          placeholder="0.00"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Dates */}
                 <div className="grid grid-cols-2 gap-4">
