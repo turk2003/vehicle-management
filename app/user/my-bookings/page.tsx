@@ -114,8 +114,8 @@ export default function MyBookingsPage() {
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">ประวัติการจอง</h1>
-          <p className="text-gray-600">ดูประวัติการจองรถทั้งหมดของคุณ</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">การจองของฉัน</h1>
+          <p className="text-gray-600">ดูการจองรถของฉัน</p>
         </div>
 
         {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}

@@ -34,8 +34,8 @@ export default function UserPage() {
       permission: "BOOKING_CREATE"
     },
     {
-      title: "ประวัติการจอง",
-      description: "ดูประวัติการจองรถของคุณ",
+      title: "การจองของฉัน",
+      description: "ดูการจองของคุณ",
       icon: FileText,
       href: "/user/my-bookings",
       color: "bg-green-500 hover:bg-green-600",

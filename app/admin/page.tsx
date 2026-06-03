@@ -1,29 +1,29 @@
-"use client"
+"use client";
 
-import { useRouter } from "next/navigation"
-import { Users, Car, Calendar, Wrench, BarChart3, Shield } from "lucide-react"
-import { useEffect, useState } from "react"
-import api from "@/lib/api"
+import { useRouter } from "next/navigation";
+import { Users, Car, Calendar, Wrench, BarChart3, Shield } from "lucide-react";
+import { useEffect, useState } from "react";
+import api from "@/lib/api";
 
 export default function AdminPage() {
-  const router = useRouter()
-  const [permissions, setPermissions] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
+  const router = useRouter();
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchMe = async () => {
       try {
-        const res = await api.get("/api/auth/me")
-        setPermissions(res.data.permissions || [])
+        const res = await api.get("/api/auth/me");
+        setPermissions(res.data.permissions || []);
       } catch (error) {
-        console.error("Failed to load permissions", error)
+        console.error("Failed to load permissions", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    fetchMe()
-  }, [])
-  
+    };
+    fetchMe();
+  }, []);
+
   const allMenuItems = [
     {
       title: "จัดการผู้ใช้",
@@ -31,7 +31,7 @@ export default function AdminPage() {
       icon: Users,
       href: "/admin/users",
       color: "bg-blue-500 hover:bg-blue-600",
-      permission: "USER_MANAGE"
+      permission: "USER_MANAGE",
     },
     {
       title: "จัดการรถ",
@@ -39,7 +39,7 @@ export default function AdminPage() {
       icon: Car,
       href: "/admin/vehicles",
       color: "bg-green-500 hover:bg-green-600",
-      permission: "VEHICLE_MANAGE"
+      permission: "VEHICLE_MANAGE",
     },
     {
       title: "จัดการการจอง",
@@ -47,7 +47,7 @@ export default function AdminPage() {
       icon: Calendar,
       href: "/admin/bookings",
       color: "bg-purple-500 hover:bg-purple-600",
-      permission: "BOOKING_DELETE"
+      permission: "BOOKING_DELETE",
     },
     {
       title: "จัดการการซ่อมบำรุง",
@@ -55,7 +55,15 @@ export default function AdminPage() {
       icon: Wrench,
       href: "/admin/maintenance",
       color: "bg-orange-500 hover:bg-orange-600",
-      permission: "MAINTENANCE_MANAGE"
+      permission: "MAINTENANCE_MANAGE",
+    },
+    {
+      title: "ประวัติการใช้งานรถ",
+      description: "ดูประวัติการใช้งาน ไมล์ และการซ่อมรายคัน",
+      icon: BarChart3,
+      href: "/admin/vehicle-history",
+      color: "bg-emerald-600 hover:bg-emerald-700",
+      permission: "REPORT_VIEW",
     },
     {
       title: "จัดการสิทธิ์",
@@ -63,16 +71,22 @@ export default function AdminPage() {
       icon: Shield,
       href: "/admin/permissions",
       color: "bg-indigo-500 hover:bg-indigo-600",
-      permission: "ADMIN_ONLY_LOCKED"
+      permission: "ADMIN_ONLY_LOCKED",
     },
-  ]
+  ];
 
-  const menuItems = allMenuItems.filter(item => 
-    item.permission === "ADMIN_ONLY_LOCKED" || permissions.includes(item.permission)
-  )
+  const menuItems = allMenuItems.filter(
+    (item) =>
+      item.permission === "ADMIN_ONLY_LOCKED" ||
+      permissions.includes(item.permission),
+  );
 
   if (loading) {
-     return <div className="min-h-screen bg-gray-100 flex items-center justify-center">กำลังโหลดข้อมูล...</div>
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        กำลังโหลดข้อมูล...
+      </div>
+    );
   }
 
   return (
@@ -82,15 +96,13 @@ export default function AdminPage() {
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">
             ผู้ดูแลระบบ Dashboard
           </h2>
-          <p className="text-gray-600">
-            จัดการระบบและข้อมูลทั้งหมด
-          </p>
+          <p className="text-gray-600">จัดการระบบและข้อมูลทั้งหมด</p>
         </div>
 
         {/* Menu Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {menuItems.map((item, index) => {
-            const IconComponent = item.icon
+            const IconComponent = item.icon;
             return (
               <div
                 key={index}
@@ -109,17 +121,21 @@ export default function AdminPage() {
                   {item.description}
                 </p>
               </div>
-            )
+            );
           })}
           {menuItems.length === 0 && (
             <div className="col-span-full text-center py-12 bg-white rounded-xl shadow-sm border border-gray-200">
               <Shield className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-              <h3 className="text-lg font-medium text-gray-900">ไม่พบเมนูที่สามารถเข้าถึงได้</h3>
-              <p className="mt-1 text-gray-500">คุณยังไม่ได้รับสิทธิ์ในการเข้าถึงเมนูใดๆ ในส่วนนี้</p>
+              <h3 className="text-lg font-medium text-gray-900">
+                ไม่พบเมนูที่สามารถเข้าถึงได้
+              </h3>
+              <p className="mt-1 text-gray-500">
+                คุณยังไม่ได้รับสิทธิ์ในการเข้าถึงเมนูใดๆ ในส่วนนี้
+              </p>
             </div>
           )}
         </div>
       </main>
     </div>
-  )
+  );
 }
