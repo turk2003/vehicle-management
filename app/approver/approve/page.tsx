@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { AxiosError } from "axios"
 import api from "@/lib/api"
 import { getBookingStatusColor, getBookingStatusText } from "@/lib/format"
 
@@ -43,20 +44,21 @@ export default function ApproverBookingsPage() {
   const [comment, setComment] = useState("")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const submittingRef = useRef(false)
 
   // Fetch bookings
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     try {
       setLoading(true)
       const response = await api.get(`/api/approver?status=${selectedStatus}`)
       setBookings(response.data)
-    } catch (error: any) {
+    } catch (error: unknown) {
       setError("ไม่สามารถโหลดข้อมูลได้")
       console.error("Fetch bookings error:", error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedStatus])
 
   // Open approval modal
   const openApprovalModal = (booking: Booking, action: "APPROVED" | "REJECTED") => {
@@ -69,9 +71,10 @@ export default function ApproverBookingsPage() {
   // Submit approval/rejection
   const submitApproval = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedBooking) return
+    if (!selectedBooking || submittingRef.current) return
 
     try {
+      submittingRef.current = true
       setLoading(true)
       setError("")
 
@@ -84,10 +87,12 @@ export default function ApproverBookingsPage() {
       setSuccess(`การจองได้รับการ${actionType === "APPROVED" ? "อนุมัติ" : "ปฏิเสธ"}แล้ว`)
       setShowModal(false)
       setSelectedBooking(null)
-      fetchBookings() // Refresh bookings
-    } catch (error: any) {
-      setError(error.response?.data?.message || "เกิดข้อผิดพลาด")
+      await fetchBookings() // Refresh bookings
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message?: string }>
+      setError(axiosError.response?.data?.message || "เกิดข้อผิดพลาด")
     } finally {
+      submittingRef.current = false
       setLoading(false)
     }
   }
@@ -104,7 +109,7 @@ export default function ApproverBookingsPage() {
 
   useEffect(() => {
     fetchBookings()
-  }, [selectedStatus])
+  }, [fetchBookings])
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">

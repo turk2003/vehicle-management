@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyUser } from "@/lib/auth"
+import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
 
 /**
  * PUT /api/booking/pickup
@@ -62,6 +63,10 @@ export async function PUT(req: NextRequest) {
         status: "IN_PROGRESS",
         mileageStart,
         pickedUpAt: new Date()
+      },
+      include: {
+        user: { select: { name: true, email: true } },
+        vehicle: { include: { type: true } }
       }
     })
 
@@ -69,6 +74,11 @@ export async function PUT(req: NextRequest) {
     await prisma.vehicle.update({
       where: { id: booking.vehicleId },
       data: { status: "IN_USE" }
+    })
+
+    await notifyBookingEvent({
+      event: "PICKED_UP",
+      booking: updatedBooking
     })
 
     // สร้าง log
@@ -80,9 +90,9 @@ export async function PUT(req: NextRequest) {
     })
 
     return NextResponse.json(updatedBooking)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Pickup error:", error)
-    if (error.message === "No token" || error.message === "Not authorized") {
+    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })

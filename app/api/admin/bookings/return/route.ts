@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyAdmin } from "@/lib/auth"
+import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
 
 /**
  * PUT /api/admin/bookings/return
@@ -113,15 +114,11 @@ export async function PUT(req: NextRequest) {
       }
     })
 
-    // สร้าง notification ให้ user
     const distance = booking.mileageStart !== null ? mileageEnd - booking.mileageStart : 0
-    await prisma.notification.create({
-      data: {
-        userId: booking.userId,
-        type: "BOOKING",
-        message: `คุณได้คืนรถ ${booking.vehicle.plateNumber} แล้ว ระยะทาง: ${distance} km`,
-        bookingId
-      }
+    await notifyBookingEvent({
+      event: "RETURNED",
+      booking: updatedBooking,
+      message: `คุณได้คืนรถ ${booking.vehicle.plateNumber} แล้ว ระยะทาง: ${distance} km`
     })
 
     // สร้าง log
@@ -133,9 +130,9 @@ export async function PUT(req: NextRequest) {
     })
 
     return NextResponse.json(updatedBooking)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Return error:", error)
-    if (error.message === "No token" || error.message === "Not authorized") {
+    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })

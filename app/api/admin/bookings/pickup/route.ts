@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyAdmin } from "@/lib/auth"
+import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
 
 /**
  * PUT /api/admin/bookings/pickup
@@ -71,14 +72,9 @@ export async function PUT(req: NextRequest) {
       data: { status: "IN_USE" }
     })
 
-    // สร้าง notification ให้ user
-    await prisma.notification.create({
-      data: {
-        userId: booking.userId,
-        type: "BOOKING",
-        message: `คุณได้รับรถ ${booking.vehicle.plateNumber} แล้ว เลขไมล์เริ่มต้น: ${mileageStart} km`,
-        bookingId
-      }
+    await notifyBookingEvent({
+      event: "PICKED_UP",
+      booking: updatedBooking
     })
 
     // สร้าง log
@@ -90,9 +86,9 @@ export async function PUT(req: NextRequest) {
     })
 
     return NextResponse.json(updatedBooking)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Pickup error:", error)
-    if (error.message === "No token" || error.message === "Not authorized") {
+    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })

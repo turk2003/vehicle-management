@@ -1,20 +1,44 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyApprover } from "@/lib/auth"
+import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
+import { BookingStatus } from "@/app/generated/prisma/client"
+
+const bookingInclude = {
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true
+    }
+  },
+  vehicle: {
+    include: {
+      type: true
+    }
+  },
+  approver: {
+    select: {
+      id: true,
+      name: true,
+      email: true
+    }
+  }
+} as const
 
 // GET: list pending bookings for approval
 export async function GET(req: NextRequest) {
   try {
-    const decoded = verifyApprover(req)
+    verifyApprover(req)
     const { searchParams } = new URL(req.url)
     const statusParam = searchParams.get('status') || 'PENDING'
 
     // Build where clause based on status
-    const whereClause: any = {}
+    const whereClause: { status?: BookingStatus } = {}
     
     // If status is not ALL, filter by that specific status
     if (statusParam !== 'ALL') {
-      whereClause.status = statusParam
+      whereClause.status = statusParam as BookingStatus
     }
 
     const bookings = await prisma.booking.findMany({
@@ -46,9 +70,9 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json(bookings)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Get bookings error:", error)
-    if (error.message === "No token" || error.message === "Not authorized") {
+    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })
@@ -72,10 +96,7 @@ export async function PUT(req: NextRequest) {
     // Get booking
     const existingBooking = await prisma.booking.findUnique({
       where: { id },
-      include: {
-        vehicle: true,
-        user: true
-      }
+      include: bookingInclude
     })
 
     if (!existingBooking) {
@@ -83,7 +104,14 @@ export async function PUT(req: NextRequest) {
     }
 
     if (existingBooking.status !== "PENDING") {
-      return NextResponse.json({ message: "Booking is not pending" }, { status: 400 })
+      if (existingBooking.status === action && existingBooking.approverId === decoded.userId) {
+        return NextResponse.json(existingBooking)
+      }
+
+      return NextResponse.json({
+        message: "รายการนี้ถูกดำเนินการไปแล้ว",
+        status: existingBooking.status
+      }, { status: 409 })
     }
 
     // Update booking
@@ -94,27 +122,7 @@ export async function PUT(req: NextRequest) {
         approverId: decoded.userId,
         ...(action === "REJECTED" && comment ? { rejectionReason: comment } : {})
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        vehicle: {
-          include: {
-            type: true
-          }
-        },
-        approver: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      }
+      include: bookingInclude
     })
 
     // If approved, update vehicle status to BOOKED
@@ -125,16 +133,10 @@ export async function PUT(req: NextRequest) {
       })
     }
 
-    // Create notification for user
-    await prisma.notification.create({
-      data: {
-        userId: existingBooking.userId,
-        type: "BOOKING",
-        message: action === "APPROVED" 
-          ? `การจองรถ ${existingBooking.vehicle.plateNumber} ได้รับการอนุมัติแล้ว`
-          : `การจองรถ ${existingBooking.vehicle.plateNumber} ถูกปฏิเสธ`,
-        bookingId: id
-      }
+    await notifyBookingEvent({
+      event: action,
+      booking: updatedBooking,
+      emailOptions: { comment }
     })
 
     // Create execution log for the approver
@@ -146,9 +148,9 @@ export async function PUT(req: NextRequest) {
     })
 
     return NextResponse.json(updatedBooking)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Update booking error:", error)
-    if (error.message === "No token" || error.message === "Not authorized") {
+    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })

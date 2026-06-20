@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyUser } from "@/lib/auth"
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
+import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
 
 // GET
 export async function GET(req: NextRequest) {
@@ -201,7 +202,15 @@ export async function PUT(req: NextRequest) {
     const updated = await prisma.booking.update({
       where: { id },
       data: { status: "CANCELLED" },
-      include: { vehicle: true }
+      include: {
+        user: { select: { name: true, email: true } },
+        vehicle: { include: { type: true } }
+      }
+    })
+
+    await notifyBookingEvent({
+      event: "CANCELLED",
+      booking: updated
     })
 
     // Create execution log

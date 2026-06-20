@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, POST, PUT, PATCH } from '../route'
 import { verifyUser } from '@/lib/auth'
 import { syncAllVehicleStatuses } from '@/lib/syncStatuses'
+import { notifyBookingEvent } from '@/lib/email/bookingNotifications'
 
 const prismaMock = vi.hoisted(() => ({
   booking: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
@@ -19,6 +20,9 @@ vi.mock('@/lib/auth', () => ({
 }))
 vi.mock('@/lib/syncStatuses', () => ({
   syncAllVehicleStatuses: vi.fn()
+}))
+vi.mock('@/lib/email/bookingNotifications', () => ({
+  notifyBookingEvent: vi.fn()
 }))
 
 describe('Booking API', () => {
@@ -178,7 +182,14 @@ describe('Booking API', () => {
       expect(prismaMock.booking.update).toHaveBeenCalledWith({
         where: { id: 'b1' },
         data: { status: 'CANCELLED' },
-        include: { vehicle: true }
+        include: {
+          user: { select: { name: true, email: true } },
+          vehicle: { include: { type: true } }
+        }
+      })
+      expect(notifyBookingEvent).toHaveBeenCalledWith({
+        event: 'CANCELLED',
+        booking: { id: 'b1', vehicle: { plateNumber: 'TEST' } }
       })
     })
   })

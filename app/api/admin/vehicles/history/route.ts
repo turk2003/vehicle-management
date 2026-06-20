@@ -95,13 +95,15 @@ export async function GET(req: NextRequest) {
       }
       userSetByVehicle.get(booking.vehicleId)?.add(booking.userId);
 
+      const mileageStart = booking.mileageStart;
+      const mileageEnd = booking.mileageEnd;
       const hasMileage =
-        booking.mileageStart !== null &&
-        booking.mileageEnd !== null &&
-        booking.mileageEnd >= booking.mileageStart;
+        mileageStart !== null &&
+        mileageEnd !== null &&
+        mileageEnd >= mileageStart;
 
       if (hasMileage) {
-        const distance = booking.mileageEnd - booking.mileageStart;
+        const distance = mileageEnd - mileageStart;
         const currentDistance =
           totalDistanceByVehicle.get(booking.vehicleId) || 0;
         totalDistanceByVehicle.set(

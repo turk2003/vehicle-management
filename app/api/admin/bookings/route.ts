@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyAdmin } from "@/lib/auth"
+import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
+import type { BookingEmailEvent } from "@/lib/email/templates"
+import { BookingStatus } from "@/app/generated/prisma/client"
 
 // GET: list all bookings with filters
 export async function GET(req: NextRequest) {
   try {
-    const decoded = verifyAdmin(req)
+    verifyAdmin(req)
     const { searchParams } = new URL(req.url)
 
     const status = searchParams.get('status')
@@ -15,10 +18,18 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get('endDate')
 
     // Build where clause
-    let whereClause: any = {}
+    const whereClause: {
+      status?: BookingStatus
+      userId?: string
+      vehicleId?: string
+      startDate?: {
+        gte: Date
+        lte: Date
+      }
+    } = {}
 
     if (status) {
-      whereClause.status = status
+      whereClause.status = status as BookingStatus
     }
 
     if (userId) {
@@ -66,9 +77,9 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json(bookings)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Get bookings error:", error)
-    if (error.message === "No token" || error.message === "Not authorized") {
+    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })
@@ -148,27 +159,44 @@ export async function PUT(req: NextRequest) {
       })
     }
 
-    // Create notification for user
     const statusMessages = {
       APPROVED: "ได้รับการอนุมัติแล้ว",
       REJECTED: "ถูกปฏิเสธ",
       CANCELLED: "ถูกยกเลิก",
-      PENDING: "อยู่ระหว่างการพิจารณา"
+      PENDING: "อยู่ระหว่างการพิจารณา",
+      IN_PROGRESS: "เริ่มใช้งานแล้ว",
+      COMPLETED: "เสร็จสิ้นแล้ว"
     }
 
-    await prisma.notification.create({
-      data: {
-        userId: existingBooking.userId,
-        type: "BOOKING",
+    const emailEvents: Partial<Record<string, BookingEmailEvent>> = {
+      APPROVED: "APPROVED",
+      REJECTED: "REJECTED",
+      CANCELLED: "CANCELLED"
+    }
+
+    const emailEvent = emailEvents[status]
+    if (emailEvent) {
+      await notifyBookingEvent({
+        event: emailEvent,
+        booking: updatedBooking,
         message: `การจองรถ ${existingBooking.vehicle.plateNumber} ${statusMessages[status as keyof typeof statusMessages]}`,
-        bookingId: id
-      }
-    })
+        emailOptions: { comment }
+      })
+    } else {
+      await prisma.notification.create({
+        data: {
+          userId: existingBooking.userId,
+          type: "BOOKING",
+          message: `การจองรถ ${existingBooking.vehicle.plateNumber} ${statusMessages[status as keyof typeof statusMessages]}`,
+          bookingId: id
+        }
+      })
+    }
 
     return NextResponse.json(updatedBooking)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Update booking error:", error)
-    if (error.message === "No token" || error.message === "Not authorized") {
+    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })
@@ -178,7 +206,7 @@ export async function PUT(req: NextRequest) {
 // DELETE: delete booking
 export async function DELETE(req: NextRequest) {
   try {
-    const decoded = verifyAdmin(req)
+    verifyAdmin(req)
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
 
@@ -210,9 +238,9 @@ export async function DELETE(req: NextRequest) {
     })
 
     return NextResponse.json({ message: "Booking deleted successfully" })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Delete booking error:", error)
-    if (error.message === "No token" || error.message === "Not authorized") {
+    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })
