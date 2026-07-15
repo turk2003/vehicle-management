@@ -1,10 +1,29 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { getBookingStatusColor, getBookingStatusText, formatDateTime } from "@/lib/format"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import type { AxiosError } from "axios"
+import {
+  CalendarDays,
+  Car,
+  CheckCircle2,
+  Clock,
+  Eye,
+  Gauge,
+  Pencil,
+  RotateCcw,
+  Trash2,
+  Undo2,
+  X,
+  XCircle,
+} from "lucide-react"
 import api from "@/lib/api"
+import {
+  formatDateTime,
+  getBookingStatusColor,
+  getBookingStatusText,
+} from "@/lib/format"
 
-interface Booking {
+type Booking = {
   id: string
   startDate: string
   endDate: string
@@ -17,72 +36,251 @@ interface Booking {
   pickedUpAt?: string | null
   returnedAt?: string | null
   createdAt: string
-  vehicle: { id: string; plateNumber: string; type: { id: string; name: string } }
+  vehicle: {
+    id: string
+    plateNumber: string
+    type: { id: string; name: string }
+  }
   approver?: { id: string; name: string; email: string }
+}
+
+type BookingStats = {
+  total: number
+  pending: number
+  approved: number
+  rejected: number
+  cancelled: number
+  in_progress: number
+  completed: number
+}
+
+type EditForm = {
+  id: string
+  startDate: string
+  endDate: string
+  purpose: string
+}
+
+type ModalType = "detail" | "edit" | "pickup" | "return" | null
+
+const INITIAL_STATS: BookingStats = {
+  total: 0,
+  pending: 0,
+  approved: 0,
+  rejected: 0,
+  cancelled: 0,
+  in_progress: 0,
+  completed: 0,
+}
+
+const INITIAL_EDIT_FORM: EditForm = {
+  id: "",
+  startDate: "",
+  endDate: "",
+  purpose: "",
+}
+
+const STATUS_FILTERS = [
+  {
+    key: "ALL",
+    label: "ทั้งหมด",
+    stat: "total",
+    color: "text-gray-950",
+    icon: CalendarDays,
+  },
+  {
+    key: "PENDING",
+    label: "รออนุมัติ",
+    stat: "pending",
+    color: "text-yellow-700",
+    icon: Clock,
+  },
+  {
+    key: "APPROVED",
+    label: "อนุมัติแล้ว",
+    stat: "approved",
+    color: "text-green-700",
+    icon: CheckCircle2,
+  },
+  {
+    key: "IN_PROGRESS",
+    label: "กำลังใช้งาน",
+    stat: "in_progress",
+    color: "text-indigo-700",
+    icon: Car,
+  },
+  {
+    key: "COMPLETED",
+    label: "เสร็จสิ้น",
+    stat: "completed",
+    color: "text-teal-700",
+    icon: RotateCcw,
+  },
+  {
+    key: "REJECTED",
+    label: "ปฏิเสธ",
+    stat: "rejected",
+    color: "text-red-700",
+    icon: XCircle,
+  },
+  {
+    key: "CANCELLED",
+    label: "ยกเลิก",
+    stat: "cancelled",
+    color: "text-gray-700",
+    icon: Trash2,
+  },
+] as const
+
+function getErrorMessage(error: unknown, fallback: string) {
+  const axiosError = error as AxiosError<{ message?: string }>
+  return axiosError.response?.data?.message || fallback
+}
+
+function toLocalDateTimeInputValue(dateString: string) {
+  const date = new Date(dateString)
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
+  return date.toISOString().slice(0, 16)
+}
+
+function getLocalDateTimeInputValue(date = new Date()) {
+  const localDate = new Date(date)
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset())
+  return localDate.toISOString().slice(0, 16)
+}
+
+function buildStats(bookings: Booking[]): BookingStats {
+  return bookings.reduce<BookingStats>((acc, booking) => {
+    acc.total += 1
+    const key = booking.status.toLowerCase() as keyof BookingStats
+
+    if (key in acc && key !== "total") {
+      acc[key] += 1
+    }
+
+    return acc
+  }, { ...INITIAL_STATS })
+}
+
+function getDistance(booking: Booking) {
+  if (booking.mileageStart == null || booking.mileageEnd == null) return null
+  return booking.mileageEnd - booking.mileageStart
 }
 
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("ALL")
-  const [showDetailModal, setShowDetailModal] = useState(false)
+  const [activeModal, setActiveModal] = useState<ModalType>(null)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [editForm, setEditForm] = useState({ id: "", startDate: "", endDate: "", purpose: "" })
-  const [showPickupModal, setShowPickupModal] = useState(false)
-  const [showReturnModal, setShowReturnModal] = useState(false)
+  const [editForm, setEditForm] = useState<EditForm>(INITIAL_EDIT_FORM)
   const [mileageInput, setMileageInput] = useState("")
-  const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, cancelled: 0, in_progress: 0, completed: 0 })
+  const [stats, setStats] = useState<BookingStats>(INITIAL_STATS)
 
-  const fetchBookings = async () => {
+  const closeModal = useCallback(() => {
+    setActiveModal(null)
+    setSelectedBooking(null)
+    setMileageInput("")
+    setEditForm(INITIAL_EDIT_FORM)
+  }, [])
+
+  const fetchBookings = useCallback(async () => {
     try {
-      setLoading(true); setError("")
-      const response = await api.get("/api/booking?action=my-bookings")
+      setLoading(true)
+      setError("")
+      const response = await api.get<Booking[]>("/api/booking?action=my-bookings")
       setBookings(response.data)
-      const s = response.data.reduce((acc: any, b: Booking) => {
-        acc.total++
-        acc[b.status.toLowerCase()]++
-        return acc
-      }, { total: 0, pending: 0, approved: 0, rejected: 0, cancelled: 0, in_progress: 0, completed: 0 })
-      setStats(s)
-    } catch { setError("ไม่สามารถโหลดข้อมูลได้") }
-    finally { setLoading(false) }
+      setStats(buildStats(response.data))
+    } catch {
+      setError("ไม่สามารถโหลดข้อมูลการจองได้")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const cancelBooking = async (booking: Booking) => {
+    const confirmed = confirm(
+      `ต้องการยกเลิกการจองรถ "${booking.vehicle.plateNumber}" ใช่หรือไม่?`,
+    )
+    if (!confirmed) return
+
+    try {
+      setLoading(true)
+      setError("")
+      setSuccess("")
+      await api.put("/api/booking", { id: booking.id, status: "CANCELLED" })
+      setSuccess("ยกเลิกการจองเรียบร้อยแล้ว")
+      await fetchBookings()
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "ไม่สามารถยกเลิกการจองได้"))
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const cancelBooking = async (bookingId: string) => {
-    if (!confirm("คุณแน่ใจที่จะยกเลิกการจองนี้หรือไม่?")) return
-    try { setLoading(true); await api.put("/api/booking", { id: bookingId, status: "CANCELLED" }); fetchBookings() }
-    catch { setError("ไม่สามารถยกเลิกการจองได้") }
-    finally { setLoading(false) }
+  const openDetailModal = (booking: Booking) => {
+    setSelectedBooking(booking)
+    setActiveModal("detail")
   }
 
   const openEditModal = (booking: Booking) => {
-    const toLocalISO = (dateStr: string) => { const dt = new Date(dateStr); dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset()); return dt.toISOString().slice(0, 16) }
-    setEditForm({ id: booking.id, startDate: toLocalISO(booking.startDate), endDate: toLocalISO(booking.endDate), purpose: booking.purpose })
-    setShowEditModal(true)
+    setSelectedBooking(booking)
+    setEditForm({
+      id: booking.id,
+      startDate: toLocalDateTimeInputValue(booking.startDate),
+      endDate: toLocalDateTimeInputValue(booking.endDate),
+      purpose: booking.purpose,
+    })
+    setError("")
+    setSuccess("")
+    setActiveModal("edit")
+  }
+
+  const openMileageModal = (booking: Booking, modal: "pickup" | "return") => {
+    setSelectedBooking(booking)
+    setMileageInput("")
+    setError("")
+    setSuccess("")
+    setActiveModal(modal)
   }
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    try { setLoading(true); setError(""); await api.patch("/api/booking", editForm); setShowEditModal(false); fetchBookings() }
-    catch (err: any) { alert(err.response?.data?.message || "ไม่สามารถแก้ไขการจองได้") }
-    finally { setLoading(false) }
+
+    try {
+      setLoading(true)
+      setError("")
+      setSuccess("")
+      await api.patch("/api/booking", editForm)
+      setSuccess("บันทึกการแก้ไขการจองเรียบร้อยแล้ว")
+      closeModal()
+      await fetchBookings()
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "ไม่สามารถแก้ไขการจองได้"))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handlePickup = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedBooking) return
+
     try {
       setLoading(true)
+      setError("")
+      setSuccess("")
       await api.put("/api/booking/pickup", {
         bookingId: selectedBooking.id,
-        mileageStart: Number(mileageInput)
+        mileageStart: Number(mileageInput),
       })
-      setShowPickupModal(false)
-      fetchBookings()
-    } catch (err: any) {
-      alert(err.response?.data?.message || "ไม่สามารถรับรถได้")
+      setSuccess("บันทึกการรับรถเรียบร้อยแล้ว")
+      closeModal()
+      await fetchBookings()
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "ไม่สามารถรับรถได้"))
     } finally {
       setLoading(false)
     }
@@ -91,229 +289,820 @@ export default function MyBookingsPage() {
   const handleReturn = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedBooking) return
+
     try {
       setLoading(true)
+      setError("")
+      setSuccess("")
       await api.put("/api/booking/return", {
         bookingId: selectedBooking.id,
-        mileageEnd: Number(mileageInput)
+        mileageEnd: Number(mileageInput),
       })
-      setShowReturnModal(false)
-      fetchBookings()
-    } catch (err: any) {
-      alert(err.response?.data?.message || "ไม่สามารถคืนรถได้")
+      setSuccess("บันทึกการคืนรถเรียบร้อยแล้ว")
+      closeModal()
+      await fetchBookings()
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "ไม่สามารถคืนรถได้"))
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredBookings = selectedStatus === "ALL" ? bookings : bookings.filter(b => b.status === selectedStatus)
+  const filteredBookings = useMemo(() => {
+    if (selectedStatus === "ALL") return bookings
+    return bookings.filter((booking) => booking.status === selectedStatus)
+  }, [bookings, selectedStatus])
 
-  useEffect(() => { fetchBookings() }, [])
+  const minEditEndDateTime = useMemo(() => {
+    if (!editForm.startDate) return ""
+    const start = new Date(editForm.startDate)
+    start.setHours(start.getHours() + 1)
+    return getLocalDateTimeInputValue(start)
+  }, [editForm.startDate])
+
+  useEffect(() => {
+    fetchBookings()
+  }, [fetchBookings])
+
+  useEffect(() => {
+    if (!activeModal) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeModal()
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [activeModal, closeModal])
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">การจองของฉัน</h1>
-          <p className="text-gray-600">ดูการจองรถของฉัน</p>
-        </div>
-
-        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}
-
-        {/* Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
-          {[
-            { key: "ALL", label: "ทั้งหมด", value: stats.total, color: "text-gray-900", ring: "ring-blue-500" },
-            { key: "PENDING", label: "รออนุมัติ", value: stats.pending, color: "text-yellow-600", ring: "ring-yellow-500" },
-            { key: "APPROVED", label: "อนุมัติแล้ว", value: stats.approved, color: "text-green-600", ring: "ring-green-500" },
-            { key: "IN_PROGRESS", label: "กำลังใช้งาน", value: stats.in_progress, color: "text-indigo-600", ring: "ring-indigo-500" },
-            { key: "COMPLETED", label: "เสร็จสิ้น", value: stats.completed, color: "text-teal-600", ring: "ring-teal-500" },
-            { key: "REJECTED", label: "ปฏิเสธ", value: stats.rejected, color: "text-red-600", ring: "ring-red-500" },
-            { key: "CANCELLED", label: "ยกเลิก", value: stats.cancelled, color: "text-gray-600", ring: "ring-gray-500" },
-          ].map(s => (
-            <div key={s.key} className={`bg-white p-4 rounded-lg shadow cursor-pointer hover:shadow-md transition-shadow ${selectedStatus === s.key ? `ring-2 ${s.ring}` : ""}`} onClick={() => setSelectedStatus(s.key)}>
-              <h3 className="text-sm font-medium text-gray-500">{s.label}</h3>
-              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+    <main className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <header className="mb-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="mb-2 text-sm font-medium text-blue-700">
+                ผู้ใช้งาน
+              </p>
+              <h1 className="text-2xl font-bold leading-tight text-gray-950">
+                การจองของฉัน
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
+                ตรวจสอบสถานะ แก้ไขคำขอที่รออนุมัติ และบันทึกการรับหรือคืนรถเมื่อถึงเวลาใช้งาน
+              </p>
             </div>
-          ))}
-        </div>
 
-        {/* Bookings List */}
-        <div className="space-y-4">
-          {loading ? (
-            <div className="text-center py-8 text-gray-500">กำลังโหลด...</div>
-          ) : filteredBookings.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">ไม่พบข้อมูลการจอง</div>
-          ) : filteredBookings.map((booking) => (
-            <div key={booking.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{booking.vehicle.plateNumber}</h3>
-                    <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getBookingStatusColor(booking.status)}`}>
-                      {getBookingStatusText(booking.status)}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div><p className="text-sm text-gray-600">ประเภทรถ</p><p className="text-gray-900 font-medium">{booking.vehicle.type.name}</p></div>
-                    <div><p className="text-sm text-gray-600">วันที่จอง</p><p className="text-gray-900 font-medium">{formatDateTime(booking.createdAt)}</p></div>
-                    <div><p className="text-sm text-gray-600">เริ่มใช้รถ</p><p className="text-gray-900 font-medium">{formatDateTime(booking.startDate)}</p></div>
-                    <div><p className="text-sm text-gray-600">คืนรถ</p><p className="text-gray-900 font-medium">{formatDateTime(booking.endDate)}</p></div>
-                    <div className="md:col-span-2"><p className="text-sm text-gray-600">วัตถุประสงค์</p><p className="text-gray-900">{booking.purpose}</p></div>
+            <div className="rounded-lg bg-blue-50 px-4 py-3 ring-1 ring-blue-100">
+              <div className="flex items-start gap-3">
+                <Car
+                  className="mt-0.5 h-5 w-5 text-blue-700"
+                  aria-hidden="true"
+                />
+                <div>
+                  <p className="text-sm font-medium text-blue-900">
+                    รายการทั้งหมด
+                  </p>
+                  <p className="mt-1 text-sm text-blue-800">
+                    {stats.total} รายการในบัญชีของคุณ
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
 
-                    {/* Mileage Info */}
-                    {(booking.mileageStart != null || booking.mileageEnd != null) && (
-                      <div className="md:col-span-2 bg-indigo-50 p-3 rounded-md border border-indigo-100">
-                        <p className="text-sm font-medium text-indigo-800 mb-1">ข้อมูลไมล์</p>
-                        <div className="grid grid-cols-3 gap-2 text-sm">
-                          {booking.mileageStart != null && <div><span className="text-indigo-600">เริ่มต้น:</span> <span className="font-medium text-gray-900">{booking.mileageStart.toLocaleString()} km</span></div>}
-                          {booking.mileageEnd != null && <div><span className="text-indigo-600">สิ้นสุด:</span> <span className="font-medium text-gray-900">{booking.mileageEnd.toLocaleString()} km</span></div>}
-                          {booking.mileageStart != null && booking.mileageEnd != null && (
-                            <div><span className="text-indigo-600">ระยะทาง:</span> <span className="font-bold text-indigo-800">{(booking.mileageEnd - booking.mileageStart).toLocaleString()} km</span></div>
-                          )}
+        {success && (
+          <div
+            role="status"
+            className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
+          >
+            {success}
+          </div>
+        )}
+
+        {error && (
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          >
+            {error}
+          </div>
+        )}
+
+        <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+          {STATUS_FILTERS.map((item) => {
+            const Icon = item.icon
+            const value = stats[item.stat]
+            const selected = selectedStatus === item.key
+
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setSelectedStatus(item.key)}
+                className={`rounded-xl bg-white p-4 text-left shadow-sm ring-1 ring-gray-200 transition-colors duration-150 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-600/25 ${
+                  selected ? "ring-2 ring-blue-600" : ""
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-gray-600">
+                    {item.label}
+                  </p>
+                  <Icon className="h-4 w-4 text-gray-500" aria-hidden="true" />
+                </div>
+                <p className={`mt-2 text-2xl font-bold ${item.color}`}>
+                  {value}
+                </p>
+              </button>
+            )
+          })}
+        </section>
+
+        <section
+          className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200"
+          aria-labelledby="my-bookings-list-title"
+        >
+          <div className="border-b border-gray-200 px-6 py-4">
+            <h2
+              id="my-bookings-list-title"
+              className="text-lg font-semibold text-gray-950"
+            >
+              รายการจอง
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              แสดง {filteredBookings.length} รายการ
+            </p>
+          </div>
+
+          <div className="divide-y divide-gray-200">
+            {loading && bookings.length === 0 ? (
+              <div className="px-6 py-10">
+                <div className="h-5 w-48 animate-pulse rounded bg-gray-200" />
+                <div className="mt-3 h-4 w-72 max-w-full animate-pulse rounded bg-gray-100" />
+              </div>
+            ) : filteredBookings.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <CalendarDays
+                  className="mx-auto h-10 w-10 text-gray-400"
+                  aria-hidden="true"
+                />
+                <h3 className="mt-4 text-lg font-semibold text-gray-950">
+                  ไม่พบข้อมูลการจอง
+                </h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  ไม่มีรายการในสถานะที่เลือก
+                </p>
+              </div>
+            ) : (
+              filteredBookings.map((booking) => {
+                const distance = getDistance(booking)
+
+                return (
+                  <article key={booking.id} className="px-6 py-5">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h3 className="text-lg font-semibold text-gray-950">
+                            {booking.vehicle.plateNumber}
+                          </h3>
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getBookingStatusColor(booking.status)}`}
+                          >
+                            {getBookingStatusText(booking.status)}
+                          </span>
                         </div>
-                        {booking.pickedUpAt && <p className="text-xs text-gray-500 mt-1">รับรถ: {formatDateTime(booking.pickedUpAt)}</p>}
-                        {booking.returnedAt && <p className="text-xs text-gray-500">คืนรถ: {formatDateTime(booking.returnedAt)}</p>}
-                      </div>
-                    )}
 
-                    {booking.approver && <div className="md:col-span-2"><p className="text-sm text-gray-600">ผู้อนุมัติ</p><p className="text-gray-900">{booking.approver.name}</p></div>}
-                    {booking.status === "REJECTED" && booking.rejectionReason && (
-                      <div className="md:col-span-2 bg-red-50 p-3 rounded-md border border-red-100">
-                        <p className="text-sm font-medium text-red-800">เหตุผลที่ปฏิเสธ</p>
-                        <p className="text-sm text-red-600 mt-1">{booking.rejectionReason}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 ml-4">
-                  <button onClick={() => { setSelectedBooking(booking); setShowDetailModal(true) }} className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100">ดูรายละเอียด</button>
-                  {booking.status === "PENDING" && (
-                    <>
-                      <button onClick={() => openEditModal(booking)} disabled={loading} className="px-4 py-2 text-sm font-medium text-amber-600 bg-amber-50 rounded-md hover:bg-amber-100 disabled:opacity-50">แก้ไข</button>
-                      <button onClick={() => cancelBooking(booking.id)} disabled={loading} className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 disabled:opacity-50">ยกเลิก</button>
-                    </>
-                  )}
-                  {booking.status === "APPROVED" && (
-                    <button onClick={() => { setSelectedBooking(booking); setMileageInput(""); setShowPickupModal(true) }} disabled={loading} className="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 disabled:opacity-50">🚗 รับรถ</button>
-                  )}
-                  {booking.status === "IN_PROGRESS" && (
-                    <button onClick={() => { setSelectedBooking(booking); setMileageInput(""); setShowReturnModal(true) }} disabled={loading} className="px-4 py-2 text-sm font-medium text-teal-600 bg-teal-50 rounded-md hover:bg-teal-100 disabled:opacity-50">📥 คืนรถ</button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+                        <dl className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-2 xl:grid-cols-4">
+                          <div>
+                            <dt className="font-medium text-gray-600">
+                              ประเภทรถ
+                            </dt>
+                            <dd className="mt-1 text-gray-950">
+                              {booking.vehicle.type.name}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="font-medium text-gray-600">
+                              วันที่จอง
+                            </dt>
+                            <dd className="mt-1 text-gray-950">
+                              {formatDateTime(booking.createdAt)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="font-medium text-gray-600">
+                              เริ่มใช้รถ
+                            </dt>
+                            <dd className="mt-1 text-gray-950">
+                              {formatDateTime(booking.startDate)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="font-medium text-gray-600">คืนรถ</dt>
+                            <dd className="mt-1 text-gray-950">
+                              {formatDateTime(booking.endDate)}
+                            </dd>
+                          </div>
+                          <div className="md:col-span-2 xl:col-span-4">
+                            <dt className="font-medium text-gray-600">
+                              วัตถุประสงค์
+                            </dt>
+                            <dd className="mt-1 text-gray-950">
+                              {booking.purpose}
+                            </dd>
+                          </div>
+                          {booking.destination && (
+                            <div className="md:col-span-2 xl:col-span-4">
+                              <dt className="font-medium text-gray-600">
+                                ปลายทาง
+                              </dt>
+                              <dd className="mt-1 text-gray-950">
+                                {booking.destination}
+                              </dd>
+                            </div>
+                          )}
+                        </dl>
 
-        {/* Detail Modal */}
-        {showDetailModal && selectedBooking && (
-          <div className="fixed inset-0 bg-gray-600/50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">รายละเอียดการจอง</h3>
-                <button onClick={() => setShowDetailModal(false)} className="text-gray-400 hover:text-gray-600"><span className="text-2xl">×</span></button>
-              </div>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div><p className="text-sm font-medium text-gray-500">สถานะ</p><span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getBookingStatusColor(selectedBooking.status)}`}>{getBookingStatusText(selectedBooking.status)}</span></div>
-                  <div><p className="text-sm font-medium text-gray-500">วันที่จอง</p><p className="text-gray-900">{formatDateTime(selectedBooking.createdAt)}</p></div>
-                </div>
-                <hr />
-                <div><h4 className="text-lg font-semibold text-gray-900 mb-3">ข้อมูลรถ</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><p className="text-sm font-medium text-gray-500">ทะเบียนรถ</p><p className="text-gray-900">{selectedBooking.vehicle.plateNumber}</p></div>
-                    <div><p className="text-sm font-medium text-gray-500">ประเภทรถ</p><p className="text-gray-900">{selectedBooking.vehicle.type.name}</p></div>
-                  </div>
-                </div>
-                <hr />
-                <div><h4 className="text-lg font-semibold text-gray-900 mb-3">ระยะเวลาการใช้รถ</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><p className="text-sm font-medium text-gray-500">เริ่มใช้รถ</p><p className="text-gray-900">{formatDateTime(selectedBooking.startDate)}</p></div>
-                    <div><p className="text-sm font-medium text-gray-500">คืนรถ</p><p className="text-gray-900">{formatDateTime(selectedBooking.endDate)}</p></div>
-                  </div>
-                </div>
-                {(selectedBooking.mileageStart != null || selectedBooking.mileageEnd != null) && (
-                  <><hr /><div><h4 className="text-lg font-semibold text-gray-900 mb-3">ข้อมูลไมล์</h4>
-                    <div className="grid grid-cols-3 gap-4">
-                      {selectedBooking.mileageStart != null && <div><p className="text-sm font-medium text-gray-500">ไมล์เริ่มต้น</p><p className="text-gray-900 font-medium">{selectedBooking.mileageStart.toLocaleString()} km</p></div>}
-                      {selectedBooking.mileageEnd != null && <div><p className="text-sm font-medium text-gray-500">ไมล์สิ้นสุด</p><p className="text-gray-900 font-medium">{selectedBooking.mileageEnd.toLocaleString()} km</p></div>}
-                      {selectedBooking.mileageStart != null && selectedBooking.mileageEnd != null && <div><p className="text-sm font-medium text-gray-500">ระยะทาง</p><p className="text-indigo-600 font-bold">{(selectedBooking.mileageEnd - selectedBooking.mileageStart).toLocaleString()} km</p></div>}
+                        {(booking.mileageStart != null ||
+                          booking.mileageEnd != null) && (
+                          <div className="mt-4 rounded-lg bg-indigo-50 p-4 ring-1 ring-indigo-100">
+                            <div className="mb-3 flex items-center gap-2">
+                              <Gauge
+                                className="h-4 w-4 text-indigo-700"
+                                aria-hidden="true"
+                              />
+                              <p className="text-sm font-semibold text-indigo-900">
+                                ข้อมูลไมล์
+                              </p>
+                            </div>
+                            <dl className="grid gap-3 text-sm sm:grid-cols-3">
+                              {booking.mileageStart != null && (
+                                <div>
+                                  <dt className="font-medium text-indigo-700">
+                                    เริ่มต้น
+                                  </dt>
+                                  <dd className="mt-1 text-gray-950">
+                                    {booking.mileageStart.toLocaleString()} km
+                                  </dd>
+                                </div>
+                              )}
+                              {booking.mileageEnd != null && (
+                                <div>
+                                  <dt className="font-medium text-indigo-700">
+                                    สิ้นสุด
+                                  </dt>
+                                  <dd className="mt-1 text-gray-950">
+                                    {booking.mileageEnd.toLocaleString()} km
+                                  </dd>
+                                </div>
+                              )}
+                              {distance != null && (
+                                <div>
+                                  <dt className="font-medium text-indigo-700">
+                                    ระยะทาง
+                                  </dt>
+                                  <dd className="mt-1 font-semibold text-indigo-900">
+                                    {distance.toLocaleString()} km
+                                  </dd>
+                                </div>
+                              )}
+                            </dl>
+                            {booking.pickedUpAt && (
+                              <p className="mt-3 text-sm text-indigo-800">
+                                รับรถจริง: {formatDateTime(booking.pickedUpAt)}
+                              </p>
+                            )}
+                            {booking.returnedAt && (
+                              <p className="mt-1 text-sm text-indigo-800">
+                                คืนรถจริง: {formatDateTime(booking.returnedAt)}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {booking.approver && (
+                          <p className="mt-4 text-sm text-gray-600">
+                            ผู้อนุมัติ:{" "}
+                            <span className="font-medium text-gray-950">
+                              {booking.approver.name}
+                            </span>
+                          </p>
+                        )}
+
+                        {booking.status === "REJECTED" &&
+                          booking.rejectionReason && (
+                            <div className="mt-4 rounded-lg bg-red-50 p-4 ring-1 ring-red-100">
+                              <p className="text-sm font-semibold text-red-900">
+                                เหตุผลที่ปฏิเสธ
+                              </p>
+                              <p className="mt-1 text-sm text-red-800">
+                                {booking.rejectionReason}
+                              </p>
+                            </div>
+                          )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 lg:w-40 lg:flex-col">
+                        <button
+                          type="button"
+                          onClick={() => openDetailModal(booking)}
+                          className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-blue-50 px-3.5 py-2 text-sm font-medium text-blue-700 transition-colors duration-150 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                        >
+                          <Eye className="h-4 w-4" aria-hidden="true" />
+                          ดูรายละเอียด
+                        </button>
+                        {booking.status === "PENDING" && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(booking)}
+                              disabled={loading}
+                              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-amber-50 px-3.5 py-2 text-sm font-medium text-amber-700 transition-colors duration-150 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-600/25 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden="true" />
+                              แก้ไข
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => cancelBooking(booking)}
+                              disabled={loading}
+                              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-red-50 px-3.5 py-2 text-sm font-medium text-red-700 transition-colors duration-150 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600/25 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
+                              ยกเลิก
+                            </button>
+                          </>
+                        )}
+                        {booking.status === "APPROVED" && (
+                          <button
+                            type="button"
+                            onClick={() => openMileageModal(booking, "pickup")}
+                            disabled={loading}
+                            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-indigo-50 px-3.5 py-2 text-sm font-medium text-indigo-700 transition-colors duration-150 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-600/25 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <Car className="h-4 w-4" aria-hidden="true" />
+                            รับรถ
+                          </button>
+                        )}
+                        {booking.status === "IN_PROGRESS" && (
+                          <button
+                            type="button"
+                            onClick={() => openMileageModal(booking, "return")}
+                            disabled={loading}
+                            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-teal-50 px-3.5 py-2 text-sm font-medium text-teal-700 transition-colors duration-150 hover:bg-teal-100 focus:outline-none focus:ring-2 focus:ring-teal-600/25 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <Undo2 className="h-4 w-4" aria-hidden="true" />
+                            คืนรถ
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {selectedBooking.pickedUpAt && <p className="text-sm text-gray-500 mt-2">รับรถจริง: {formatDateTime(selectedBooking.pickedUpAt)}</p>}
-                    {selectedBooking.returnedAt && <p className="text-sm text-gray-500">คืนรถจริง: {formatDateTime(selectedBooking.returnedAt)}</p>}
-                  </div></>
-                )}
-                <hr />
-                <div><h4 className="text-lg font-semibold text-gray-900 mb-3">รายละเอียดการใช้งาน</h4>
-                  <div><p className="text-sm font-medium text-gray-500">วัตถุประสงค์</p><p className="text-gray-900">{selectedBooking.purpose}</p></div>
+                  </article>
+                )
+              })
+            )}
+          </div>
+        </section>
+
+        {activeModal === "detail" && selectedBooking && (
+          <div
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-900/50 px-4 py-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="booking-detail-title"
+          >
+            <div className="w-full max-w-2xl rounded-xl bg-white shadow-lg ring-1 ring-gray-200">
+              <ModalHeader
+                id="booking-detail-title"
+                title="รายละเอียดการจอง"
+                description="ข้อมูลรถ ช่วงเวลา สถานะ และผลการดำเนินการ"
+                onClose={closeModal}
+              />
+
+              <div className="space-y-5 px-6 py-6">
+                <BookingDetailPanel booking={selectedBooking} />
+                <div className="flex justify-end">
+                  <PrimaryButton onClick={closeModal}>ปิด</PrimaryButton>
                 </div>
-                {selectedBooking.approver && (<><hr /><div><h4 className="text-lg font-semibold text-gray-900 mb-3">ผู้อนุมัติ</h4><p className="text-gray-900">{selectedBooking.approver.name}</p><p className="text-sm text-gray-500">{selectedBooking.approver.email}</p></div></>)}
               </div>
-              <div className="mt-6 flex justify-end"><button onClick={() => setShowDetailModal(false)} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">ปิด</button></div>
             </div>
           </div>
         )}
 
-        {/* Edit Modal */}
-        {showEditModal && (
-          <div className="fixed inset-0 bg-gray-600/50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">แก้ไขการจอง</h3>
-                <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600"><span className="text-2xl">×</span></button>
+        {activeModal === "edit" && selectedBooking && (
+          <div
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-900/50 px-4 py-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="booking-edit-title"
+          >
+            <div className="w-full max-w-lg rounded-xl bg-white shadow-lg ring-1 ring-gray-200">
+              <ModalHeader
+                id="booking-edit-title"
+                title="แก้ไขการจอง"
+                description="แก้ไขได้เฉพาะคำขอที่ยังรออนุมัติ"
+                onClose={closeModal}
+              />
+
+              <form onSubmit={handleEditSubmit} className="space-y-5 px-6 py-6">
+                <div>
+                  <label
+                    htmlFor="edit-start-date"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    วันที่และเวลาเริ่ม
+                  </label>
+                  <input
+                    id="edit-start-date"
+                    type="datetime-local"
+                    required
+                    value={editForm.startDate}
+                    min={getLocalDateTimeInputValue()}
+                    onChange={(e) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        startDate: e.target.value,
+                        endDate:
+                          current.endDate && current.endDate <= e.target.value
+                            ? ""
+                            : current.endDate,
+                      }))
+                    }
+                    className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="edit-end-date"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    วันที่และเวลาสิ้นสุด
+                  </label>
+                  <input
+                    id="edit-end-date"
+                    type="datetime-local"
+                    required
+                    value={editForm.endDate}
+                    min={minEditEndDateTime}
+                    disabled={!editForm.startDate}
+                    onChange={(e) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        endDate: e.target.value,
+                      }))
+                    }
+                    className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="edit-purpose"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    วัตถุประสงค์
+                  </label>
+                  <textarea
+                    id="edit-purpose"
+                    required
+                    rows={4}
+                    value={editForm.purpose}
+                    onChange={(e) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        purpose: e.target.value,
+                      }))
+                    }
+                    className="min-h-28 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                  />
+                </div>
+                <ModalActions
+                  loading={loading}
+                  loadingLabel="กำลังบันทึก..."
+                  submitLabel="บันทึกการแก้ไข"
+                  onCancel={closeModal}
+                />
+              </form>
+            </div>
+          </div>
+        )}
+
+        {activeModal === "pickup" && selectedBooking && (
+          <MileageModal
+            id="booking-pickup-title"
+            title={`รับรถ: ${selectedBooking.vehicle.plateNumber}`}
+            description="ระบุเลขไมล์เริ่มต้นก่อนเปลี่ยนสถานะเป็นกำลังใช้งาน"
+            label="เลขไมล์เริ่มต้น (km)"
+            value={mileageInput}
+            min={0}
+            loading={loading}
+            loadingLabel="กำลังบันทึก..."
+            submitLabel="ยืนยันการรับรถ"
+            tone="indigo"
+            onChange={setMileageInput}
+            onClose={closeModal}
+            onSubmit={handlePickup}
+          />
+        )}
+
+        {activeModal === "return" && selectedBooking && (
+          <MileageModal
+            id="booking-return-title"
+            title={`คืนรถ: ${selectedBooking.vehicle.plateNumber}`}
+            description={`เลขไมล์เริ่มต้น: ${(selectedBooking.mileageStart || 0).toLocaleString()} km`}
+            label="เลขไมล์สิ้นสุด (km)"
+            value={mileageInput}
+            min={selectedBooking.mileageStart || 0}
+            loading={loading}
+            loadingLabel="กำลังบันทึก..."
+            submitLabel="ยืนยันการคืนรถ"
+            tone="teal"
+            onChange={setMileageInput}
+            onClose={closeModal}
+            onSubmit={handleReturn}
+          />
+        )}
+      </div>
+    </main>
+  )
+}
+
+function ModalHeader({
+  id,
+  title,
+  description,
+  onClose,
+}: {
+  id: string
+  title: string
+  description: string
+  onClose: () => void
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
+      <div>
+        <h3 id={id} className="text-lg font-semibold text-gray-950">
+          {title}
+        </h3>
+        <p className="mt-1 text-sm text-gray-600">{description}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+        aria-label="ปิดหน้าต่าง"
+      >
+        <X className="h-5 w-5" aria-hidden="true" />
+      </button>
+    </div>
+  )
+}
+
+function BookingDetailPanel({ booking }: { booking: Booking }) {
+  const distance = getDistance(booking)
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-200">
+          <p className="text-sm font-medium text-gray-600">สถานะ</p>
+          <span
+            className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getBookingStatusColor(booking.status)}`}
+          >
+            {getBookingStatusText(booking.status)}
+          </span>
+        </div>
+        <div className="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-200">
+          <p className="text-sm font-medium text-gray-600">วันที่จอง</p>
+          <p className="mt-2 text-sm text-gray-950">
+            {formatDateTime(booking.createdAt)}
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-200">
+        <dl className="grid gap-4 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="font-medium text-gray-600">ทะเบียนรถ</dt>
+            <dd className="mt-1 text-gray-950">{booking.vehicle.plateNumber}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-gray-600">ประเภทรถ</dt>
+            <dd className="mt-1 text-gray-950">{booking.vehicle.type.name}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-gray-600">เริ่มใช้รถ</dt>
+            <dd className="mt-1 text-gray-950">
+              {formatDateTime(booking.startDate)}
+            </dd>
+          </div>
+          <div>
+            <dt className="font-medium text-gray-600">คืนรถ</dt>
+            <dd className="mt-1 text-gray-950">
+              {formatDateTime(booking.endDate)}
+            </dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="font-medium text-gray-600">วัตถุประสงค์</dt>
+            <dd className="mt-1 text-gray-950">{booking.purpose}</dd>
+          </div>
+          {booking.destination && (
+            <div className="sm:col-span-2">
+              <dt className="font-medium text-gray-600">ปลายทาง</dt>
+              <dd className="mt-1 text-gray-950">{booking.destination}</dd>
+            </div>
+          )}
+        </dl>
+      </div>
+
+      {(booking.mileageStart != null || booking.mileageEnd != null) && (
+        <div className="rounded-lg bg-indigo-50 p-4 ring-1 ring-indigo-100">
+          <h4 className="text-sm font-semibold text-indigo-900">ข้อมูลไมล์</h4>
+          <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
+            {booking.mileageStart != null && (
+              <div>
+                <dt className="font-medium text-indigo-700">ไมล์เริ่มต้น</dt>
+                <dd className="mt-1 text-gray-950">
+                  {booking.mileageStart.toLocaleString()} km
+                </dd>
               </div>
-              <form onSubmit={handleEditSubmit} className="space-y-4">
-                <div><label className="block text-sm font-medium text-gray-700">วันที่และเวลาเริ่ม</label><input type="datetime-local" required value={editForm.startDate} onChange={e => setEditForm(prev => ({ ...prev, startDate: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" /></div>
-                <div><label className="block text-sm font-medium text-gray-700">วันที่และเวลาสิ้นสุด</label><input type="datetime-local" required value={editForm.endDate} onChange={e => setEditForm(prev => ({ ...prev, endDate: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" /></div>
-                <div><label className="block text-sm font-medium text-gray-700">วัตถุประสงค์</label><textarea required rows={3} value={editForm.purpose} onChange={e => setEditForm(prev => ({ ...prev, purpose: e.target.value }))} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"></textarea></div>
-                <div className="mt-6 flex justify-end gap-3">
-                  <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">ยกเลิก</button>
-                  <button type="submit" disabled={loading} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50">{loading ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+            )}
+            {booking.mileageEnd != null && (
+              <div>
+                <dt className="font-medium text-indigo-700">ไมล์สิ้นสุด</dt>
+                <dd className="mt-1 text-gray-950">
+                  {booking.mileageEnd.toLocaleString()} km
+                </dd>
+              </div>
+            )}
+            {distance != null && (
+              <div>
+                <dt className="font-medium text-indigo-700">ระยะทาง</dt>
+                <dd className="mt-1 font-semibold text-indigo-900">
+                  {distance.toLocaleString()} km
+                </dd>
+              </div>
+            )}
+          </dl>
+          {booking.pickedUpAt && (
+            <p className="mt-3 text-sm text-indigo-800">
+              รับรถจริง: {formatDateTime(booking.pickedUpAt)}
+            </p>
+          )}
+          {booking.returnedAt && (
+            <p className="mt-1 text-sm text-indigo-800">
+              คืนรถจริง: {formatDateTime(booking.returnedAt)}
+            </p>
+          )}
+        </div>
+      )}
 
-        {/* Pickup Modal */}
-        {showPickupModal && selectedBooking && (
-          <div className="fixed inset-0 bg-gray-600/50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">รับรถ: {selectedBooking.vehicle.plateNumber}</h3>
-              <form onSubmit={handlePickup}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">เลขไมล์เริ่มต้น (km) *</label>
-                  <input type="number" required min="0" value={mileageInput} onChange={(e) => setMileageInput(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="เช่น 15000" />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => setShowPickupModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">ยกเลิก</button>
-                  <button type="submit" disabled={loading || !mileageInput} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50">{loading ? "กำลังบันทึก..." : "ยืนยันการรับรถ"}</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+      {booking.approver && (
+        <div className="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-200">
+          <p className="text-sm font-medium text-gray-600">ผู้อนุมัติ</p>
+          <p className="mt-1 text-sm text-gray-950">{booking.approver.name}</p>
+          <p className="mt-1 text-sm text-gray-600">{booking.approver.email}</p>
+        </div>
+      )}
+    </div>
+  )
+}
 
-        {/* Return Modal */}
-        {showReturnModal && selectedBooking && (
-          <div className="fixed inset-0 bg-gray-600/50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">คืนรถ: {selectedBooking.vehicle.plateNumber}</h3>
-              <form onSubmit={handleReturn}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">เลขไมล์สิ้นสุด (km) *</label>
-                  <p className="text-sm text-gray-500 mb-2">เลขไมล์เริ่มต้น: {selectedBooking.mileageStart?.toLocaleString() || 0} km</p>
-                  <input type="number" required min={selectedBooking.mileageStart || 0} value={mileageInput} onChange={(e) => setMileageInput(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="เช่น 15200" />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => setShowReturnModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">ยกเลิก</button>
-                  <button type="submit" disabled={loading || !mileageInput} className="px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 disabled:opacity-50">{loading ? "กำลังบันทึก..." : "ยืนยันการคืนรถ"}</button>
-                </div>
-              </form>
-            </div>
+function PrimaryButton({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+    >
+      {children}
+    </button>
+  )
+}
+
+function ModalActions({
+  loading,
+  loadingLabel,
+  submitLabel,
+  onCancel,
+}: {
+  loading: boolean
+  loadingLabel: string
+  submitLabel: string
+  onCancel: () => void
+}) {
+  return (
+    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+      >
+        ยกเลิก
+      </button>
+      <button
+        type="submit"
+        disabled={loading}
+        className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {loading ? loadingLabel : submitLabel}
+      </button>
+    </div>
+  )
+}
+
+function MileageModal({
+  id,
+  title,
+  description,
+  label,
+  value,
+  min,
+  loading,
+  loadingLabel,
+  submitLabel,
+  tone,
+  onChange,
+  onClose,
+  onSubmit,
+}: {
+  id: string
+  title: string
+  description: string
+  label: string
+  value: string
+  min: number
+  loading: boolean
+  loadingLabel: string
+  submitLabel: string
+  tone: "indigo" | "teal"
+  onChange: (value: string) => void
+  onClose: () => void
+  onSubmit: (e: React.FormEvent) => void
+}) {
+  const toneClasses =
+    tone === "indigo"
+      ? "bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-600/25"
+      : "bg-teal-600 hover:bg-teal-700 focus:ring-teal-600/25"
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-900/50 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={id}
+    >
+      <div className="w-full max-w-md rounded-xl bg-white shadow-lg ring-1 ring-gray-200">
+        <ModalHeader
+          id={id}
+          title={title}
+          description={description}
+          onClose={onClose}
+        />
+
+        <form onSubmit={onSubmit} className="space-y-5 px-6 py-6">
+          <div>
+            <label
+              htmlFor={`${id}-mileage`}
+              className="mb-1.5 block text-sm font-medium text-gray-700"
+            >
+              {label} <span className="text-red-700">*</span>
+            </label>
+            <input
+              id={`${id}-mileage`}
+              type="number"
+              required
+              min={min}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 placeholder:text-gray-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+              placeholder="เช่น 15000"
+            />
           </div>
-        )}
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !value}
+              className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors duration-150 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${toneClasses}`}
+            >
+              {loading ? loadingLabel : submitLabel}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )

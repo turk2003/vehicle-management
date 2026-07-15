@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import {usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
+import { LogOut } from "lucide-react"
+import { usePathname } from "next/navigation"
 import axios from "axios"
 import { getRoleColor, getRoleDisplayName } from "@/lib/format"
 
@@ -23,24 +24,31 @@ export default function Navbar() {
       return
     }
 
+    let active = true
+
     const fetchUser = async () => {
       try {
-        const response = await axios.get("/api/auth/me", {
+        setLoading(true)
+        const response = await axios.get<{ user: User }>("/api/auth/me", {
           withCredentials: true,
           headers: {
-            'Content-Type': 'application/json',
-          }
+            "Content-Type": "application/json",
+          },
         })
-        
-        setUser(response.data.user)
-      } catch (error) {
-        console.error("Failed to fetch user:", error)
+
+        if (active) setUser(response.data.user)
+      } catch {
+        if (active) setUser(null)
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
 
     fetchUser()
+
+    return () => {
+      active = false
+    }
   }, [pathname])
 
   if (pathname === "/") {
@@ -50,21 +58,21 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await axios.post("/api/auth/logout")
+    } finally {
       window.location.href = "/"
-    } catch (error) {
-      console.error("Logout error:", error)
     }
   }
 
   if (loading) {
     return (
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="animate-pulse">
-              <div className="h-6 bg-gray-300 rounded w-48 mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded w-32"></div>
+      <header className="bg-white shadow-sm ring-1 ring-gray-200">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex min-h-20 items-center justify-between gap-4 py-4">
+            <div className="min-w-0 flex-1">
+              <div className="h-6 w-48 animate-pulse rounded bg-gray-200" />
+              <div className="mt-2 h-4 w-64 max-w-full animate-pulse rounded bg-gray-100" />
             </div>
+            <div className="hidden h-10 w-28 animate-pulse rounded-lg bg-gray-100 sm:block" />
           </div>
         </div>
       </header>
@@ -76,38 +84,39 @@ export default function Navbar() {
   }
 
   return (
-    <header className="bg-white shadow-sm border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+    <header className="bg-white shadow-sm ring-1 ring-gray-200">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold leading-tight text-gray-950 sm:text-2xl">
               ระบบจัดการยานพาหนะ
             </h1>
-            <div className="flex items-center gap-3 mt-1">
-              <p className="text-gray-600">
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <span className="max-w-full truncate text-gray-600">
                 ยินดีต้อนรับ, {user.name}
-              </p>
+              </span>
               <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}
+                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getRoleColor(user.role)}`}
               >
                 {getRoleDisplayName(user.role)}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-900">{user.name}</p>
-              <p className="text-sm text-gray-500">{user.email}</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="min-w-0 rounded-lg bg-gray-50 px-3 py-2 ring-1 ring-gray-200 sm:max-w-64 sm:text-right">
+              <p className="truncate text-sm font-medium text-gray-950">
+                {user.name}
+              </p>
+              <p className="truncate text-sm text-gray-600">{user.email}</p>
             </div>
-            
+
             <button
+              type="button"
               onClick={handleLogout}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-colors duration-150 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600/25"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013 3v1" />
-              </svg>
+              <LogOut className="h-4 w-4" aria-hidden="true" />
               ออกจากระบบ
             </button>
           </div>

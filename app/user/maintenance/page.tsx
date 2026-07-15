@@ -1,16 +1,21 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Plus, Wrench, X, History } from "lucide-react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import type { AxiosError } from "axios"
+import { CalendarDays, History, Plus, Wrench, X } from "lucide-react"
 import api from "@/lib/api"
-import { getMaintenanceStatusColor, getMaintenanceStatusText, formatDateTime } from "@/lib/format"
+import {
+  formatDateTime,
+  getMaintenanceStatusColor,
+  getMaintenanceStatusText,
+} from "@/lib/format"
 
 type Maintenance = {
   id: string
   description: string
   status: string
   startDate: string
-  endDate?: string
+  endDate?: string | null
   createdAt: string
   vehicle: {
     id: string
@@ -26,6 +31,58 @@ type Vehicle = {
   type: { name: string }
 }
 
+type MaintenanceForm = {
+  vehicleId: string
+  description: string
+  startDate: string
+}
+
+type MaintenanceStats = {
+  total: number
+  reported: number
+  in_progress: number
+  completed: number
+}
+
+const INITIAL_STATS: MaintenanceStats = {
+  total: 0,
+  reported: 0,
+  in_progress: 0,
+  completed: 0,
+}
+
+function getLocalDateTimeInputValue(date = new Date()) {
+  const localDate = new Date(date)
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset())
+  return localDate.toISOString().slice(0, 16)
+}
+
+function getInitialFormData(): MaintenanceForm {
+  return {
+    vehicleId: "",
+    description: "",
+    startDate: getLocalDateTimeInputValue(),
+  }
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  const axiosError = error as AxiosError<{ message?: string }>
+  return axiosError.response?.data?.message || fallback
+}
+
+function buildStats(maintenances: Maintenance[]): MaintenanceStats {
+  return maintenances.reduce<MaintenanceStats>((acc, maintenance) => {
+    acc.total += 1
+    const key = maintenance.status.toLowerCase() as keyof MaintenanceStats
+
+    if (key in acc && key !== "total") {
+      acc[key] += 1
+    }
+
+    return acc
+  }, { ...INITIAL_STATS })
+}
+
 export default function UserMaintenancePage() {
   const [maintenances, setMaintenances] = useState<Maintenance[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -33,24 +90,53 @@ export default function UserMaintenancePage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [showModal, setShowModal] = useState(false)
-  
-  const [formData, setFormData] = useState({
-    vehicleId: "",
-    description: "",
-    startDate: new Date().toISOString().slice(0, 16)
-  })
+  const [formData, setFormData] =
+    useState<MaintenanceForm>(getInitialFormData)
 
-  const fetchData = async () => {
+  const stats = useMemo(() => buildStats(maintenances), [maintenances])
+
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
+      setError("")
       const [maintenanceRes, vehicleRes] = await Promise.all([
-        api.get("/api/user/maintenance"),
-        api.get("/api/verhicle")
+        api.get<Maintenance[]>("/api/user/maintenance"),
+        api.get<Vehicle[]>("/api/verhicle"),
       ])
       setMaintenances(maintenanceRes.data)
       setVehicles(vehicleRes.data)
-    } catch (err: any) {
-      setError("ไม่สามารถโหลดข้อมูลได้")
+    } catch {
+      setError("ไม่สามารถโหลดข้อมูลซ่อมบำรุงได้")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const openReportModal = () => {
+    setFormData(getInitialFormData())
+    setError("")
+    setSuccess("")
+    setShowModal(true)
+  }
+
+  const closeReportModal = useCallback(() => {
+    setShowModal(false)
+    setFormData(getInitialFormData())
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    try {
+      setLoading(true)
+      setError("")
+
+      await api.post("/api/user/maintenance", formData)
+      setSuccess("แจ้งซ่อมเรียบร้อยแล้ว")
+      closeReportModal()
+      await fetchData()
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "เกิดข้อผิดพลาด"))
     } finally {
       setLoading(false)
     }
@@ -58,115 +144,193 @@ export default function UserMaintenancePage() {
 
   useEffect(() => {
     fetchData()
-  }, [])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      setLoading(true)
-      setError("")
-
-      await api.post("/api/user/maintenance", formData)
-      
-      setSuccess("แจ้งซ่อมเรียบร้อยแล้ว")
-      setShowModal(false)
-      setFormData({
-        vehicleId: "",
-        description: "",
-        startDate: new Date().toISOString().slice(0, 16)
-      })
-      fetchData()
-    } catch (err: any) {
-      setError(err.response?.data?.message || "เกิดข้อผิดพลาด")
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [fetchData])
 
   useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(""), 3000)
-      return () => clearTimeout(timer)
+    if (!showModal) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeReportModal()
     }
-  }, [success])
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [closeReportModal, showModal])
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Wrench className="w-6 h-6 text-orange-500" />
-              แจ้งซ่อมบำรุงรถ
-            </h1>
-            <p className="text-gray-600 mt-1">รายงานปัญหารถและติดตามสถานะการซ่อมบำรุง</p>
-          </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
-          >
-            <Plus className="w-5 h-5" />
-            แจ้งซ่อม
-          </button>
-        </div>
+    <main className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <header className="mb-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="mb-2 text-sm font-medium text-blue-700">
+                ผู้ใช้งาน
+              </p>
+              <h1 className="text-2xl font-bold leading-tight text-gray-950">
+                แจ้งซ่อมบำรุงรถ
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
+                รายงานปัญหารถที่พบระหว่างใช้งาน และติดตามสถานะการซ่อมบำรุงของรายการที่คุณแจ้ง
+              </p>
+            </div>
 
-        {/* Alerts */}
+            <button
+              type="button"
+              onClick={openReportModal}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              แจ้งซ่อม
+            </button>
+          </div>
+        </header>
+
         {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-6 flex justify-between items-center">
-            <span>{success}</span>
-            <button onClick={() => setSuccess("")}><X className="w-4 h-4" /></button>
-          </div>
-        )}
-        {error && !showModal && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6 flex justify-between items-center">
-            <span>{error}</span>
-            <button onClick={() => setError("")}><X className="w-4 h-4" /></button>
+          <div
+            role="status"
+            className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
+          >
+            {success}
           </div>
         )}
 
-        {/* History Table */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-            <History className="w-5 h-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-900">ประวัติการแจ้งซ่อมของฉัน</h2>
+        {error && !showModal && (
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          >
+            {error}
           </div>
-          
+        )}
+
+        <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[
+            {
+              label: "ทั้งหมด",
+              value: stats.total,
+              color: "text-gray-950",
+              icon: History,
+            },
+            {
+              label: "แจ้งแล้ว",
+              value: stats.reported,
+              color: "text-yellow-700",
+              icon: Wrench,
+            },
+            {
+              label: "กำลังซ่อม",
+              value: stats.in_progress,
+              color: "text-blue-700",
+              icon: Wrench,
+            },
+            {
+              label: "เสร็จสิ้น",
+              value: stats.completed,
+              color: "text-green-700",
+              icon: CalendarDays,
+            },
+          ].map((item) => {
+            const Icon = item.icon
+
+            return (
+              <div
+                key={item.label}
+                className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-gray-600">
+                    {item.label}
+                  </p>
+                  <Icon className="h-4 w-4 text-gray-500" aria-hidden="true" />
+                </div>
+                <p className={`mt-2 text-2xl font-bold ${item.color}`}>
+                  {item.value}
+                </p>
+              </div>
+            )
+          })}
+        </section>
+
+        <section
+          className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200"
+          aria-labelledby="maintenance-history-title"
+        >
+          <div className="flex items-center gap-2 border-b border-gray-200 px-6 py-4">
+            <History className="h-5 w-5 text-blue-700" aria-hidden="true" />
+            <div>
+              <h2
+                id="maintenance-history-title"
+                className="text-lg font-semibold text-gray-950"
+              >
+                ประวัติการแจ้งซ่อมของฉัน
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                ทั้งหมด {maintenances.length} รายการ
+              </p>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[860px]">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รถ</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายละเอียดปัญหา</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่แจ้งซ่อม</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
+                    รถ
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
+                    รายละเอียดปัญหา
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
+                    วันที่พบปัญหา
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
+                    สถานะ
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 bg-white">
                 {loading && maintenances.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">กำลังโหลดข้อมูล...</td>
+                    <td colSpan={4} className="px-6 py-10 text-center">
+                      <div className="mx-auto h-5 w-48 animate-pulse rounded bg-gray-200" />
+                    </td>
                   </tr>
                 ) : maintenances.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">คุณยังไม่มีประวัติการแจ้งซ่อม</td>
+                    <td
+                      colSpan={4}
+                      className="px-6 py-12 text-center text-sm text-gray-600"
+                    >
+                      คุณยังไม่มีประวัติการแจ้งซ่อม
+                    </td>
                   </tr>
                 ) : (
                   maintenances.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                    <tr
+                      key={item.id}
+                      className="transition-colors duration-150 hover:bg-gray-50"
+                    >
                       <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{item.vehicle.plateNumber}</div>
-                        <div className="text-sm text-gray-500">{item.vehicle.type.name}</div>
+                        <div className="text-sm font-medium text-gray-950">
+                          {item.vehicle.plateNumber}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {item.vehicle.type.name}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 max-w-md">{item.description}</div>
+                        <p className="max-w-md text-sm leading-6 text-gray-950">
+                          {item.description}
+                        </p>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 text-sm text-gray-700">
                         {formatDateTime(item.startDate)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getMaintenanceStatusColor(item.status)}`}>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getMaintenanceStatusColor(item.status)}`}
+                        >
                           {getMaintenanceStatusText(item.status)}
                         </span>
                       </td>
@@ -176,86 +340,137 @@ export default function UserMaintenancePage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        {/* Report Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 text-gray-500 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-auto">
-              <div className="flex justify-between items-center px-6 py-4 border-b">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Wrench className="w-5 h-5 text-orange-500" />
-                  แจ้งรถเสีย / ส่งซ่อม
-                </h3>
-                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                  <X className="w-5 h-5" />
+          <div
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-900/50 px-4 py-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="maintenance-report-title"
+          >
+            <div className="w-full max-w-lg rounded-xl bg-white shadow-lg ring-1 ring-gray-200">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
+                <div>
+                  <h3
+                    id="maintenance-report-title"
+                    className="text-lg font-semibold text-gray-950"
+                  >
+                    แจ้งรถเสีย / ส่งซ่อม
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    ระบุรถและรายละเอียดปัญหาเพื่อส่งเข้าคิวซ่อมบำรุง
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeReportModal}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                  aria-label="ปิดหน้าต่าง"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
                 {error && (
-                  <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm border border-red-100">{error}</div>
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                  >
+                    {error}
+                  </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    เลือกรถที่พบปัญหา <span className="text-red-500">*</span>
+                  <label
+                    htmlFor="maintenance-vehicle"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    เลือกรถที่พบปัญหา{" "}
+                    <span className="text-red-700">*</span>
                   </label>
                   <select
+                    id="maintenance-vehicle"
                     required
                     value={formData.vehicleId}
-                    onChange={(e) => setFormData({ ...formData, vehicleId: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                    onChange={(e) =>
+                      setFormData((current) => ({
+                        ...current,
+                        vehicleId: e.target.value,
+                      }))
+                    }
+                    className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
                   >
-                    <option value="">-- เลือกรถ --</option>
-                    {vehicles.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.plateNumber} ({v.type.name})
+                    <option value="">เลือกรถ</option>
+                    {vehicles.map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>
+                        {vehicle.plateNumber} ({vehicle.type.name})
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    รายละเอียดปัญหา <span className="text-red-500">*</span>
+                  <label
+                    htmlFor="maintenance-description"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    รายละเอียดปัญหา <span className="text-red-700">*</span>
                   </label>
                   <textarea
+                    id="maintenance-description"
                     required
                     rows={4}
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="เช่น แอร์ไม่เย็น, ยางแบน, ไฟหน้าไม่ติด..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                    onChange={(e) =>
+                      setFormData((current) => ({
+                        ...current,
+                        description: e.target.value,
+                      }))
+                    }
+                    placeholder="เช่น แอร์ไม่เย็น, ยางแบน, ไฟหน้าไม่ติด"
+                    className="min-h-28 w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 placeholder:text-gray-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    วันที่พบปัญหา <span className="text-red-500">*</span>
+                  <label
+                    htmlFor="maintenance-start-date"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    วันที่พบปัญหา <span className="text-red-700">*</span>
                   </label>
                   <input
+                    id="maintenance-start-date"
                     type="datetime-local"
                     required
                     value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    onChange={(e) =>
+                      setFormData((current) => ({
+                        ...current,
+                        startDate: e.target.value,
+                      }))
+                    }
+                    max={getLocalDateTimeInputValue()}
+                    className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
                   />
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    onClick={closeReportModal}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors shadow-sm"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25 disabled:cursor-not-allowed disabled:opacity-60"
                   >
+                    <Wrench className="h-4 w-4" aria-hidden="true" />
                     {loading ? "กำลังบันทึก..." : "ยืนยันแจ้งซ่อม"}
                   </button>
                 </div>
@@ -264,6 +479,6 @@ export default function UserMaintenancePage() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   )
 }

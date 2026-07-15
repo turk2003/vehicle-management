@@ -1,8 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
+import { CalendarDays, CheckCircle2, Eye, X, XCircle } from "lucide-react"
 import api from "@/lib/api"
-import { getBookingStatusColor, getBookingStatusText, formatDateTime } from "@/lib/format"
+import {
+  formatDateTime,
+  getBookingStatusColor,
+  getBookingStatusText,
+} from "@/lib/format"
 
 type Booking = {
   id: string
@@ -34,6 +39,61 @@ type Booking = {
   }
 }
 
+type BookingStats = {
+  total: number
+  approved: number
+  rejected: number
+}
+
+type DateFilter = {
+  startDate: string
+  endDate: string
+}
+
+const INITIAL_DATE_FILTER: DateFilter = {
+  startDate: "",
+  endDate: "",
+}
+
+const INITIAL_STATS: BookingStats = {
+  total: 0,
+  approved: 0,
+  rejected: 0,
+}
+
+const STATUS_FILTERS = [
+  { value: "ALL", label: "ทั้งหมด", icon: CalendarDays },
+  { value: "APPROVED", label: "อนุมัติแล้ว", icon: CheckCircle2 },
+  { value: "REJECTED", label: "ปฏิเสธ", icon: XCircle },
+]
+
+function buildStats(bookings: Booking[]): BookingStats {
+  return bookings.reduce<BookingStats>((acc, booking) => {
+    acc.total += 1
+    if (booking.status === "APPROVED") acc.approved += 1
+    if (booking.status === "REJECTED") acc.rejected += 1
+    return acc
+  }, { ...INITIAL_STATS })
+}
+
+function filterByDate(bookings: Booking[], dateFilter: DateFilter) {
+  if (!dateFilter.startDate && !dateFilter.endDate) return bookings
+
+  const start = dateFilter.startDate
+    ? new Date(`${dateFilter.startDate}T00:00:00`)
+    : null
+  const end = dateFilter.endDate
+    ? new Date(`${dateFilter.endDate}T23:59:59`)
+    : null
+
+  return bookings.filter((booking) => {
+    const updated = new Date(booking.updatedAt)
+    if (start && updated < start) return false
+    if (end && updated > end) return false
+    return true
+  })
+}
+
 export default function ApprovalHistoryPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(false)
@@ -41,351 +101,496 @@ export default function ApprovalHistoryPage() {
   const [selectedStatus, setSelectedStatus] = useState("ALL")
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
-  const [dateFilter, setDateFilter] = useState({
-    startDate: "",
-    endDate: ""
-  })
+  const [dateFilter, setDateFilter] =
+    useState<DateFilter>(INITIAL_DATE_FILTER)
+  const [stats, setStats] = useState<BookingStats>(INITIAL_STATS)
 
-  // Statistics
-  const [stats, setStats] = useState({
-    total: 0,
-    approved: 0,
-    rejected: 0,
-    pending: 0
-  })
-
-  // Fetch approval history
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
       setLoading(true)
       setError("")
 
-      // Fetch all non-pending bookings for stats separately
-      const allBookingsResponse = await api.get(`/api/approver?status=ALL`)
-      const allBookingsForStats = allBookingsResponse.data.filter(
-        (b: Booking) => b.status === "APPROVED" || b.status === "REJECTED"
+      const response = await api.get<Booking[]>("/api/approver?status=ALL")
+      const decidedBookings = response.data.filter(
+        (booking) =>
+          booking.status === "APPROVED" || booking.status === "REJECTED",
       )
+      const dateFilteredBookings = filterByDate(decidedBookings, dateFilter)
+      const statusFilteredBookings =
+        selectedStatus === "ALL"
+          ? dateFilteredBookings
+          : dateFilteredBookings.filter(
+              (booking) => booking.status === selectedStatus,
+            )
 
-      // Calculate stats based on ALL data (ignoring current tab filter)
-      let statsToCalculate = allBookingsForStats
-      if (dateFilter.startDate && dateFilter.endDate) {
-        const start = new Date(dateFilter.startDate)
-        const end = new Date(dateFilter.endDate)
-        statsToCalculate = allBookingsForStats.filter((b: Booking) => {
-          const updated = new Date(b.updatedAt)
-          return updated >= start && updated <= end
-        })
-      }
-
-      const bookingStats = statsToCalculate.reduce((acc: any, booking: Booking) => {
-        acc.total++
-        if (booking.status === "APPROVED") acc.approved++
-        if (booking.status === "REJECTED") acc.rejected++
-        return acc
-      }, { total: 0, approved: 0, rejected: 0, pending: 0 })
-
-      setStats(bookingStats)
-
-      // Now filter table data based on selected tab
-      let filteredForTable = statsToCalculate
-      if (selectedStatus !== "ALL") {
-        filteredForTable = statsToCalculate.filter(
-          (b: Booking) => b.status === selectedStatus
-        )
-      }
-
-      setBookings(filteredForTable)
-
-    } catch (error: any) {
-      setError("ไม่สามารถโหลดข้อมูลได้")
-      console.error("Fetch history error:", error)
+      setStats(buildStats(dateFilteredBookings))
+      setBookings(statusFilteredBookings)
+    } catch {
+      setError("ไม่สามารถโหลดข้อมูลประวัติการอนุมัติได้")
     } finally {
       setLoading(false)
     }
-  }
+  }, [dateFilter, selectedStatus])
 
-  // View booking details
   const viewDetails = (booking: Booking) => {
     setSelectedBooking(booking)
     setShowDetailModal(true)
   }
 
+  const closeDetailModal = () => {
+    setShowDetailModal(false)
+    setSelectedBooking(null)
+  }
+
+  const approvalRate =
+    stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0
+
+  const statItems = [
+    {
+      label: "ทั้งหมด",
+      value: stats.total,
+      status: "ALL",
+      color: "text-gray-950",
+      icon: CalendarDays,
+    },
+    {
+      label: "อนุมัติแล้ว",
+      value: stats.approved,
+      status: "APPROVED",
+      color: "text-green-700",
+      icon: CheckCircle2,
+    },
+    {
+      label: "ปฏิเสธแล้ว",
+      value: stats.rejected,
+      status: "REJECTED",
+      color: "text-red-700",
+      icon: XCircle,
+    },
+    {
+      label: "อัตราอนุมัติ",
+      value: `${approvalRate}%`,
+      status: null,
+      color: "text-blue-700",
+      icon: CheckCircle2,
+    },
+  ]
+
   useEffect(() => {
     fetchHistory()
-  }, [selectedStatus, dateFilter])
+  }, [fetchHistory])
+
+  useEffect(() => {
+    if (!showDetailModal) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeDetailModal()
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [showDetailModal])
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">ประวัติการอนุมัติ</h1>
-          <p className="text-gray-600">ดูประวัติการอนุมัติคำขอจองรถทั้งหมด</p>
-        </div>
+    <main className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <header className="mb-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="mb-2 text-sm font-medium text-blue-700">
+                ผู้อนุมัติ
+              </p>
+              <h1 className="text-2xl font-bold leading-tight text-gray-950">
+                ประวัติการอนุมัติ
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
+                ตรวจสอบผลการพิจารณาคำขอจองรถย้อนหลังตามสถานะและช่วงวันที่
+              </p>
+            </div>
 
-        {/* Error Message */}
+            <div
+              className="flex flex-wrap gap-2"
+              role="tablist"
+              aria-label="กรองสถานะประวัติการอนุมัติ"
+            >
+              {STATUS_FILTERS.map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedStatus === value}
+                  onClick={() => setSelectedStatus(value)}
+                  className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-600/25 ${
+                    selectedStatus === value
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </header>
+
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          >
             {error}
           </div>
         )}
 
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div 
-            className={`bg-white p-4 rounded-lg shadow cursor-pointer hover:shadow-md transition-shadow ${selectedStatus === "ALL" ? "ring-2 ring-blue-500" : ""}`}
-            onClick={() => setSelectedStatus("ALL")}
-          >
-            <h3 className="text-sm font-medium text-gray-500">ทั้งหมด</h3>
-            <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-          </div>
-          <div 
-            className={`bg-white p-4 rounded-lg shadow cursor-pointer hover:shadow-md transition-shadow ${selectedStatus === "APPROVED" ? "ring-2 ring-green-500" : ""}`}
-            onClick={() => setSelectedStatus("APPROVED")}
-          >
-            <h3 className="text-sm font-medium text-gray-500">อนุมัติแล้ว</h3>
-            <p className="text-2xl font-bold text-green-600">{stats.approved}</p>
-          </div>
-          <div 
-            className={`bg-white p-4 rounded-lg shadow cursor-pointer hover:shadow-md transition-shadow ${selectedStatus === "REJECTED" ? "ring-2 ring-red-500" : ""}`}
-            onClick={() => setSelectedStatus("REJECTED")}
-          >
-            <h3 className="text-sm font-medium text-gray-500">ปฏิเสธแล้ว</h3>
-            <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">อัตราอนุมัติ</h3>
-            <p className="text-2xl font-bold text-blue-600">
-              {stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0}%
-            </p>
-          </div>
-        </div>
+        <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {statItems.map((item) => {
+            const Icon = item.icon
+            const selected = item.status === selectedStatus
+            const clickable = item.status !== null
 
-        {/* Date Filter */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">กรองตามวันที่</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            return (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  if (item.status) setSelectedStatus(item.status)
+                }}
+                disabled={!clickable}
+                className={`rounded-xl bg-white p-4 text-left shadow-sm ring-1 ring-gray-200 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-600/25 ${
+                  selected ? "ring-2 ring-blue-600" : ""
+                } ${
+                  clickable
+                    ? "hover:bg-gray-50"
+                    : "cursor-default disabled:opacity-100"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-gray-600">
+                    {item.label}
+                  </p>
+                  <Icon className="h-4 w-4 text-gray-500" aria-hidden="true" />
+                </div>
+                <p className={`mt-2 text-2xl font-bold ${item.color}`}>
+                  {item.value}
+                </p>
+              </button>
+            )
+          })}
+        </section>
+
+        <section
+          className="mb-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200"
+          aria-labelledby="history-filter-title"
+        >
+          <div className="mb-4 flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-blue-700" aria-hidden="true" />
+            <h2
+              id="history-filter-title"
+              className="text-lg font-semibold text-gray-950"
+            >
+              กรองตามวันที่
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="history-start-date"
+                className="mb-1.5 block text-sm font-medium text-gray-700"
+              >
                 วันที่เริ่มต้น
               </label>
               <input
+                id="history-start-date"
                 type="date"
                 value={dateFilter.startDate}
-                onChange={(e) => setDateFilter({...dateFilter, startDate: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                onChange={(e) =>
+                  setDateFilter((current) => ({
+                    ...current,
+                    startDate: e.target.value,
+                  }))
+                }
+                className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="history-end-date"
+                className="mb-1.5 block text-sm font-medium text-gray-700"
+              >
                 วันที่สิ้นสุด
               </label>
               <input
+                id="history-end-date"
                 type="date"
                 value={dateFilter.endDate}
-                onChange={(e) => setDateFilter({...dateFilter, endDate: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                onChange={(e) =>
+                  setDateFilter((current) => ({
+                    ...current,
+                    endDate: e.target.value,
+                  }))
+                }
+                className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
               />
             </div>
             <div className="flex items-end">
               <button
-                onClick={() => setDateFilter({ startDate: "", endDate: "" })}
-                className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                type="button"
+                onClick={() => setDateFilter(INITIAL_DATE_FILTER)}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
               >
                 ล้างตัวกรอง
               </button>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* History Table */}
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  วันที่อนุมัติ
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ผู้ขอจอง
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  รถ
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  วัตถุประสงค์
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  สถานะ
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  การดำเนินการ
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
+        <section
+          className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200"
+          aria-labelledby="history-table-title"
+        >
+          <div className="border-b border-gray-200 px-6 py-4">
+            <h2
+              id="history-table-title"
+              className="text-lg font-semibold text-gray-950"
+            >
+              รายการประวัติ
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              ทั้งหมด {bookings.length} รายการ
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1040px]">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    กำลังโหลด...
-                  </td>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
+                    วันที่พิจารณา
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
+                    ผู้ขอจอง
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
+                    รถ
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
+                    รายละเอียด
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
+                    สถานะ
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-600">
+                    การดำเนินการ
+                  </th>
                 </tr>
-              ) : bookings.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    ไม่พบประวัติการอนุมัติ
-                  </td>
-                </tr>
-              ) : (
-                bookings.map((booking) => (
-                  <tr key={booking.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {formatDateTime(booking.updatedAt)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {booking.user.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {booking.user.email}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {booking.vehicle.plateNumber}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {booking.vehicle.type.name}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 max-w-xs truncate" title={booking.purpose}>
-                        {booking.purpose}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getBookingStatusColor(booking.status)}`}>
-                        {getBookingStatusText(booking.status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <button
-                        onClick={() => viewDetails(booking)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        ดูรายละเอียด
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-10 text-center">
+                      <div className="mx-auto h-5 w-48 animate-pulse rounded bg-gray-200" />
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : bookings.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-12 text-center text-sm text-gray-600"
+                    >
+                      ไม่พบประวัติการอนุมัติในเงื่อนไขนี้
+                    </td>
+                  </tr>
+                ) : (
+                  bookings.map((booking) => (
+                    <tr
+                      key={booking.id}
+                      className="transition-colors duration-150 hover:bg-gray-50"
+                    >
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {formatDateTime(booking.updatedAt)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-950">
+                          {booking.user.name}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {booking.user.email}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-950">
+                          {booking.vehicle.plateNumber}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {booking.vehicle.type.name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div
+                          className="max-w-xs truncate text-sm font-medium text-gray-950"
+                          title={booking.purpose}
+                        >
+                          {booking.purpose}
+                        </div>
+                        {booking.destination && (
+                          <div
+                            className="mt-1 max-w-xs truncate text-sm text-gray-600"
+                            title={booking.destination}
+                          >
+                            ปลายทาง: {booking.destination}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getBookingStatusColor(booking.status)}`}
+                        >
+                          {getBookingStatusText(booking.status)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => viewDetails(booking)}
+                            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-blue-50 px-3.5 py-2 text-sm font-medium text-blue-700 transition-colors duration-150 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                          >
+                            <Eye className="h-4 w-4" aria-hidden="true" />
+                            ดูรายละเอียด
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-        {/* Detail Modal */}
         {showDetailModal && selectedBooking && (
-          <div className="fixed inset-0 bg-gray-600/50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
-              <div className="mt-3">
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-xl font-semibold text-gray-900">
+          <div
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-900/50 px-4 py-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="history-modal-title"
+          >
+            <div className="w-full max-w-2xl rounded-xl bg-white shadow-lg ring-1 ring-gray-200">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
+                <div>
+                  <h3
+                    id="history-modal-title"
+                    className="text-lg font-semibold text-gray-950"
+                  >
                     รายละเอียดการอนุมัติ
                   </h3>
-                  <button
-                    onClick={() => setShowDetailModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <span className="text-2xl">×</span>
-                  </button>
+                  <p className="mt-1 text-sm text-gray-600">
+                    ข้อมูลคำขอจองและผลการพิจารณา
+                  </p>
                 </div>
-                
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={closeDetailModal}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                  aria-label="ปิดหน้าต่าง"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="space-y-5 px-6 py-6">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-200">
+                    <p className="text-sm font-medium text-gray-600">สถานะ</p>
+                    <span
+                      className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getBookingStatusColor(selectedBooking.status)}`}
+                    >
+                      {getBookingStatusText(selectedBooking.status)}
+                    </span>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-200">
+                    <p className="text-sm font-medium text-gray-600">
+                      วันที่พิจารณา
+                    </p>
+                    <p className="mt-2 text-sm text-gray-950">
+                      {formatDateTime(selectedBooking.updatedAt)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-200">
+                  <dl className="grid gap-4 text-sm sm:grid-cols-2">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">สถานะ</p>
-                      <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getBookingStatusColor(selectedBooking.status)}`}>
-                        {getBookingStatusText(selectedBooking.status)}
-                      </span>
+                      <dt className="font-medium text-gray-600">ผู้ขอจอง</dt>
+                      <dd className="mt-1 text-gray-950">
+                        {selectedBooking.user.name}
+                      </dd>
+                      <dd className="mt-1 text-gray-600">
+                        {selectedBooking.user.email}
+                      </dd>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">วันที่อนุมัติ</p>
-                      <p className="text-gray-900">{formatDateTime(selectedBooking.updatedAt)}</p>
-                    </div>
-                  </div>
-                  
-                  <hr />
-                  
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-3">ผู้ขอจอง</h4>
-                    <div className="space-y-1">
-                      <p className="text-gray-900 font-medium">{selectedBooking.user.name}</p>
-                      <p className="text-sm text-gray-500">{selectedBooking.user.email}</p>
-                      <p className="text-xs text-gray-400">{selectedBooking.user.role}</p>
-                    </div>
-                  </div>
-                  
-                  <hr />
-                  
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-3">ข้อมูลรถ</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">ทะเบียนรถ</p>
-                        <p className="text-gray-900">{selectedBooking.vehicle.plateNumber}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">ประเภทรถ</p>
-                        <p className="text-gray-900">{selectedBooking.vehicle.type.name}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <hr />
-                  
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-3">ระยะเวลาการใช้รถ</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">เริ่มใช้รถ</p>
-                        <p className="text-gray-900">{formatDateTime(selectedBooking.startDate)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">คืนรถ</p>
-                        <p className="text-gray-900">{formatDateTime(selectedBooking.endDate)}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <hr />
-                  
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-3">รายละเอียด</h4>
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">วัตถุประสงค์</p>
-                        <p className="text-gray-900">{selectedBooking.purpose}</p>
-                      </div>
-                      {selectedBooking.destination && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">ปลายทาง</p>
-                          <p className="text-gray-900">{selectedBooking.destination}</p>
-                        </div>
+                      <dt className="font-medium text-gray-600">ผู้พิจารณา</dt>
+                      <dd className="mt-1 text-gray-950">
+                        {selectedBooking.approver?.name || "-"}
+                      </dd>
+                      {selectedBooking.approver?.email && (
+                        <dd className="mt-1 text-gray-600">
+                          {selectedBooking.approver.email}
+                        </dd>
                       )}
                     </div>
-                  </div>
+                    <div>
+                      <dt className="font-medium text-gray-600">ทะเบียนรถ</dt>
+                      <dd className="mt-1 text-gray-950">
+                        {selectedBooking.vehicle.plateNumber}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-600">ประเภทรถ</dt>
+                      <dd className="mt-1 text-gray-950">
+                        {selectedBooking.vehicle.type.name}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-600">เริ่มใช้รถ</dt>
+                      <dd className="mt-1 text-gray-950">
+                        {formatDateTime(selectedBooking.startDate)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-600">คืนรถ</dt>
+                      <dd className="mt-1 text-gray-950">
+                        {formatDateTime(selectedBooking.endDate)}
+                      </dd>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <dt className="font-medium text-gray-600">
+                        วัตถุประสงค์
+                      </dt>
+                      <dd className="mt-1 text-gray-950">
+                        {selectedBooking.purpose}
+                      </dd>
+                    </div>
+                    {selectedBooking.destination && (
+                      <div className="sm:col-span-2">
+                        <dt className="font-medium text-gray-600">ปลายทาง</dt>
+                        <dd className="mt-1 text-gray-950">
+                          {selectedBooking.destination}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
                 </div>
-                
-                <div className="mt-6 flex justify-end">
+
+                <div className="flex justify-end">
                   <button
-                    onClick={() => setShowDetailModal(false)}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                    type="button"
+                    onClick={closeDetailModal}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
                   >
                     ปิด
                   </button>
@@ -395,6 +600,6 @@ export default function ApprovalHistoryPage() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   )
 }

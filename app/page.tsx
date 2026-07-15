@@ -2,15 +2,42 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Mail, Lock, LogIn, Eye, EyeOff } from "lucide-react"
-import api from "@/lib/api"
+import { Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck } from "lucide-react"
+import axios from "axios"
 import Image from "next/image"
+import api from "@/lib/api"
 
 const TEST_ACCOUNTS = [
-  { role: "Admin", email: "admin@system.com", password: "admin123", color: "bg-red-50 border-red-200 text-red-700", dot: "bg-red-500" },
-  { role: "Approver", email: "ap1@gmain.com", password: "1234", color: "bg-blue-50 border-blue-200 text-blue-700", dot: "bg-blue-500" },
-  { role: "User", email: "test01@gmail.con", password: "1234", color: "bg-green-50 border-green-200 text-green-700", dot: "bg-green-500" },
+  {
+    role: "ผู้ดูแลระบบ",
+    email: "admin@system.com",
+    password: "admin123",
+    color: "bg-red-50 text-red-800 border-red-200 hover:bg-red-100",
+    dot: "bg-red-500",
+  },
+  {
+    role: "ผู้อนุมัติ",
+    email: "ap1@gmain.com",
+    password: "1234",
+    color: "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100",
+    dot: "bg-blue-500",
+  },
+  {
+    role: "ผู้ใช้งาน",
+    email: "test01@gmail.con",
+    password: "1234",
+    color: "bg-green-50 text-green-800 border-green-200 hover:bg-green-100",
+    dot: "bg-green-500",
+  },
 ]
+
+function getLoginErrorMessage(error: unknown) {
+  if (axios.isAxiosError<{ message?: string }>(error)) {
+    return error.response?.data?.message || "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
+  }
+
+  return "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -24,119 +51,166 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError("")
+
     try {
       const response = await api.post("/api/auth/login", { email, password })
       const role = response.data.user.role
+
       if (role === "ADMIN") router.push("/admin")
       else if (role === "APPROVER") router.push("/approver")
       else router.push("/user")
-    } catch (err: any) {
-      setError(err.response?.data?.message || "อีเมลหรือรหัสผ่านไม่ถูกต้อง")
+    } catch (err) {
+      setError(getLoginErrorMessage(err))
     } finally {
       setLoading(false)
     }
   }
 
-  const fillAccount = (acc: typeof TEST_ACCOUNTS[0]) => {
+  const fillAccount = (acc: (typeof TEST_ACCOUNTS)[number]) => {
     setEmail(acc.email)
     setPassword(acc.password)
     setError("")
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
-
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative w-full max-w-md">
-
-        {/* Card */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden">
-
-          {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-8 text-center">
-            <div className="inline-flex items-center justify-center w-32 h-32  rounded-2xl mb-4">
-              <Image src="/pea_logo.png" alt="Logo" width={128} height={128} />
-
-            </div>
-            <h1 className="text-2xl font-bold text-white">ระบบจัดการยานพาหนะ</h1>
-            <p className="text-blue-100 text-sm mt-1">Vehicle Management System</p>
+    <main className="min-h-screen bg-gray-50 text-gray-900">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-4 py-8 sm:px-6 lg:grid lg:grid-cols-[1fr_440px] lg:gap-12 lg:px-8">
+        <section className="mb-8 flex flex-col justify-center lg:mb-0">
+          <div className="mb-8 inline-flex h-20 w-20 items-center justify-center rounded-xl bg-white shadow-md ring-1 ring-gray-200">
+            <Image
+              src="/pea_logo.png"
+              alt="PEA logo"
+              width={64}
+              height={64}
+              priority
+            />
           </div>
 
-          {/* Form */}
-          <div className="px-8 py-8">
-            <form onSubmit={handleLogin} className="space-y-5">
+          <div className="max-w-xl">
+            <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-800 ring-1 ring-blue-100">
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              ระบบภายในสำหรับงานยานพาหนะ
+            </p>
+            <h1 className="text-3xl font-bold leading-tight text-gray-950 sm:text-4xl">
+              ระบบจัดการยานพาหนะ
+            </h1>
+            <p className="mt-4 max-w-lg text-base leading-7 text-gray-600">
+              เข้าสู่ระบบเพื่อจองรถ ตรวจคำขออนุมัติ และจัดการข้อมูลยานพาหนะขององค์กรอย่างเป็นระบบ
+            </p>
+          </div>
+        </section>
 
-              {/* Error */}
+        <section
+          className="rounded-xl bg-white shadow-lg ring-1 ring-gray-200"
+          aria-labelledby="login-title"
+        >
+          <div className="border-b border-gray-200 px-6 py-6 sm:px-8">
+            <h2 id="login-title" className="text-2xl font-bold text-gray-950">
+              เข้าสู่ระบบ
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-gray-600">
+              ใช้อีเมลและรหัสผ่านที่ได้รับสิทธิ์ในระบบ
+            </p>
+          </div>
+
+          <div className="px-6 py-6 sm:px-8 sm:py-8">
+            <form onSubmit={handleLogin} className="space-y-5">
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-lg flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center flex-shrink-0">!</span>
-                  {error}
+                <div
+                  role="alert"
+                  aria-live="polite"
+                  className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                >
+                  <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
+                    !
+                  </span>
+                  <span>{error}</span>
                 </div>
               )}
 
-              {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">อีเมล</label>
+                <label
+                  htmlFor="email"
+                  className="mb-1.5 block text-sm font-medium text-gray-700"
+                >
+                  อีเมล
+                </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Mail
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                    aria-hidden="true"
+                  />
                   <input
+                    id="email"
                     type="email"
+                    autoComplete="email"
                     placeholder="กรอกอีเมล"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                    className="min-h-11 w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-gray-950 placeholder:text-gray-500 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
                   />
                 </div>
               </div>
 
-              {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">รหัสผ่าน</label>
+                <label
+                  htmlFor="password"
+                  className="mb-1.5 block text-sm font-medium text-gray-700"
+                >
+                  รหัสผ่าน
+                </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Lock
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                    aria-hidden="true"
+                  />
                   <input
+                    id="password"
                     type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
                     placeholder="กรอกรหัสผ่าน"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                    className="min-h-11 w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-12 text-gray-950 placeholder:text-gray-500 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                    aria-pressed={showPassword}
+                    className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
                   </button>
                 </div>
               </div>
 
-              {/* Submit */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span
+                    className="h-5 w-5 rounded-full border-2 border-white/40 border-t-white motion-safe:animate-spin motion-reduce:border-white"
+                    aria-hidden="true"
+                  />
                 ) : (
-                  <LogIn className="w-4 h-4" />
+                  <LogIn className="h-4 w-4" aria-hidden="true" />
                 )}
                 {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
               </button>
             </form>
 
-            {/* Test accounts */}
-            <div className="mt-6">
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider text-center mb-3">
-                บัญชีทดสอบ — คลิกเพื่อกรอกอัตโนมัติ
+            <div className="mt-8 border-t border-gray-200 pt-6">
+              <p className="mb-3 text-sm font-medium text-gray-700">
+                บัญชีทดสอบ
               </p>
               <div className="space-y-2">
                 {TEST_ACCOUNTS.map((acc) => (
@@ -144,24 +218,27 @@ export default function LoginPage() {
                     key={acc.role}
                     type="button"
                     onClick={() => fillAccount(acc)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg border text-sm transition-all hover:shadow-sm ${acc.color}`}
+                    disabled={loading}
+                    className={`flex min-h-11 w-full items-center gap-3 rounded-lg border px-4 py-2.5 text-left text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-600/25 disabled:cursor-not-allowed disabled:opacity-60 ${acc.color}`}
                   >
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${acc.dot}`} />
-                    <span className="font-semibold w-16 text-left">{acc.role}</span>
-                    <span className="text-xs opacity-75 truncate">{acc.email}</span>
-                    <span className="ml-auto text-xs opacity-60 flex-shrink-0">รหัส: {acc.password}</span>
+                    <span
+                      className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${acc.dot}`}
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-20 font-semibold">{acc.role}</span>
+                    <span className="truncate text-xs opacity-90">
+                      {acc.email}
+                    </span>
+                    <span className="ml-auto flex-shrink-0 text-xs opacity-80">
+                      รหัส: {acc.password}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
           </div>
-        </div>
-
-        <p className="text-center text-white/30 text-xs mt-6">
-          © 2026 Vehicle Management System
-        </p>
+        </section>
       </div>
-    </div>
+    </main>
   )
 }
-
