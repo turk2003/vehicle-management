@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyToken } from "@/lib/auth"
+import { isAuthError, verifyToken } from "@/lib/auth"
 import { MaintenanceStatus } from "@/app/generated/prisma/client"
+import { emailAdminsAboutMaintenanceReport } from "@/lib/email/maintenanceNotifications"
 
 // GET: Fetch maintenance history for the logged-in user
 export async function GET(req: NextRequest) {
@@ -17,8 +18,8 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json(maintenances)
-  } catch (error: any) {
-    if (error.message === "No token" || error.message === "Not authorized") {
+  } catch (error: unknown) {
+    if (isAuthError(error)) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })
@@ -37,22 +38,48 @@ export async function POST(req: NextRequest) {
 
     const start = new Date(startDate)
 
-    const maintenance = await prisma.maintenance.create({
-      data: {
-        vehicleId,
-        reporterId: decoded.userId,
-        description,
-        startDate: start,
-        status: MaintenanceStatus.REPORTED
-      },
-      include: {
-        vehicle: { include: { type: true } }
+    const { maintenance, admins } = await prisma.$transaction(async (tx) => {
+      const createdMaintenance = await tx.maintenance.create({
+        data: {
+          vehicleId,
+          reporterId: decoded.userId,
+          description,
+          startDate: start,
+          status: MaintenanceStatus.REPORTED
+        },
+        include: {
+          vehicle: { include: { type: true } },
+          reporter: { select: { name: true, email: true } }
+        }
+      })
+
+      const adminRecipients = await tx.user.findMany({
+        where: { role: "ADMIN" },
+        select: { id: true, name: true, email: true }
+      })
+
+      if (adminRecipients.length > 0) {
+        await tx.notification.createMany({
+          data: adminRecipients.map((admin) => ({
+            userId: admin.id,
+            type: "MAINTENANCE" as const,
+            message: `มีรายงานรถเสีย ${createdMaintenance.vehicle.plateNumber}: ${description}`,
+            maintenanceId: createdMaintenance.id
+          }))
+        })
+      }
+
+      return {
+        maintenance: createdMaintenance,
+        admins: adminRecipients.map(({ name, email }) => ({ name, email }))
       }
     })
 
+    await emailAdminsAboutMaintenanceReport(maintenance, admins)
+
     return NextResponse.json(maintenance, { status: 201 })
-  } catch (error: any) {
-    if (error.message === "No token" || error.message === "Not authorized") {
+  } catch (error: unknown) {
+    if (isAuthError(error)) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })

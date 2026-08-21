@@ -81,6 +81,11 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
   return fallback
 }
 
+const isAffectedBookingsConflict = (error: unknown) =>
+  axios.isAxiosError<{ code?: string }>(error) &&
+  error.response?.status === 409 &&
+  error.response.data?.code === "AFFECTED_BOOKINGS"
+
 const getVehicleStatusText = (status: string) => {
   if (status === "AVAILABLE") return "จองได้"
   if (status === "MAINTENANCE") return "ซ่อมบำรุง"
@@ -197,17 +202,41 @@ export default function AdminMaintenancePage() {
       setLoading(true)
       setError("")
 
-      if (editingItem) {
-        await api.put("/api/admin/maintenance", {
-          id: editingItem.id,
-          ...formData,
-        })
-        setSuccess("อัปเดตรายการบำรุงรักษาเรียบร้อยแล้ว")
-      } else {
-        await api.post("/api/admin/maintenance", formData)
-        setSuccess("เพิ่มรายการบำรุงรักษาเรียบร้อยแล้ว")
+      const saveMaintenance = (allowBookingConflicts = false) => {
+        const payload = { ...formData, allowBookingConflicts }
+        return editingItem
+          ? api.put("/api/admin/maintenance", {
+              id: editingItem.id,
+              ...payload,
+            })
+          : api.post("/api/admin/maintenance", payload)
       }
 
+      try {
+        await saveMaintenance()
+      } catch (err) {
+        if (!isAffectedBookingsConflict(err)) throw err
+
+        const affectedCount = axios.isAxiosError<{
+          affectedBookings?: unknown[]
+        }>(err)
+          ? err.response?.data?.affectedBookings?.length || 0
+          : 0
+        const confirmed = window.confirm(
+          `ช่วงซ่อมนี้กระทบการจอง ${affectedCount} รายการ ต้องการยืนยันและดำเนินการเปลี่ยนรถให้ผู้จองต่อหรือไม่?`,
+        )
+        if (!confirmed) {
+          setError("ยกเลิกการบันทึกเพื่อหลีกเลี่ยงผลกระทบต่อการจอง")
+          return
+        }
+        await saveMaintenance(true)
+      }
+
+      setSuccess(
+        editingItem
+          ? "อัปเดตรายการบำรุงรักษาเรียบร้อยแล้ว"
+          : "เพิ่มรายการบำรุงรักษาเรียบร้อยแล้ว",
+      )
       closeModal()
       fetchData()
     } catch (err) {

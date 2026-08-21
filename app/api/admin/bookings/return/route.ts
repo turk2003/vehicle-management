@@ -98,7 +98,7 @@ export async function PUT(req: NextRequest) {
       const activeApprovedBooking = await prisma.booking.findFirst({
         where: {
           vehicleId: booking.vehicleId,
-          status: "APPROVED",
+          status: { in: ["APPROVED", "CHANGED"] },
           startDate: { lte: now },
           endDate: { gte: now }
         }

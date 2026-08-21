@@ -41,9 +41,9 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: "ไม่มีสิทธิ์ทำรายการนี้" }, { status: 403 })
     }
 
-    if (booking.status !== "APPROVED") {
+    if (!["APPROVED", "CHANGED"].includes(booking.status)) {
       return NextResponse.json(
-        { message: "สามารถรับรถได้เฉพาะการจองที่อนุมัติแล้วเท่านั้น" },
+        { message: "สามารถรับรถได้เฉพาะการจองที่อนุมัติแล้วหรือเปลี่ยนรถแล้วเท่านั้น" },
         { status: 400 }
       )
     }

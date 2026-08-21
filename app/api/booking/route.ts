@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       // เช็ค booking ที่ทับช่วงเวลา
       const conflictingBookings = await prisma.booking.findMany({
         where: {
-          status: { in: ["PENDING", "APPROVED"] },
+          status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
           startDate: { lte: end },
           endDate: { gte: start }
         },
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(availableVehicles)
-  } catch (error) {
+  } catch {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
 }
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     const conflictingBooking = await prisma.booking.findFirst({
       where: {
         vehicleId,
-        status: { in: ["PENDING", "APPROVED"] },
+        status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
         startDate: { lte: end },
         endDate: { gte: start }
       }
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
     })
 
     return NextResponse.json(booking)
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Create booking error:", error)
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
@@ -222,7 +222,7 @@ export async function PUT(req: NextRequest) {
     })
 
     return NextResponse.json(updated)
-  } catch (error) {
+  } catch {
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -231,7 +231,7 @@ export async function PUT(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const decoded = verifyUser(req)
-    const { id, startDate, endDate, purpose, destination } = await req.json()
+    const { id, startDate, endDate, purpose } = await req.json()
 
     if (!id || !startDate || !endDate || !purpose) {
       return NextResponse.json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" }, { status: 400 })
@@ -267,7 +267,7 @@ export async function PATCH(req: NextRequest) {
       where: {
         vehicleId: booking.vehicleId,
         id: { not: id },
-        status: { in: ["PENDING", "APPROVED"] },
+        status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
         startDate: { lte: end },
         endDate: { gte: start }
       }

@@ -634,7 +634,7 @@ export default function MyBookingsPage() {
                             </button>
                           </>
                         )}
-                        {booking.status === "APPROVED" && (
+                        {["APPROVED", "CHANGED"].includes(booking.status) && (
                           <button
                             type="button"
                             onClick={() => openMileageModal(booking, "pickup")}

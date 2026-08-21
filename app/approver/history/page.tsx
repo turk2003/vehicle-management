@@ -70,7 +70,7 @@ const STATUS_FILTERS = [
 function buildStats(bookings: Booking[]): BookingStats {
   return bookings.reduce<BookingStats>((acc, booking) => {
     acc.total += 1
-    if (booking.status === "APPROVED") acc.approved += 1
+    if (booking.status === "APPROVED" || booking.status === "CHANGED") acc.approved += 1
     if (booking.status === "REJECTED") acc.rejected += 1
     return acc
   }, { ...INITIAL_STATS })
@@ -113,7 +113,9 @@ export default function ApprovalHistoryPage() {
       const response = await api.get<Booking[]>("/api/approver?status=ALL")
       const decidedBookings = response.data.filter(
         (booking) =>
-          booking.status === "APPROVED" || booking.status === "REJECTED",
+          booking.status === "APPROVED" ||
+          booking.status === "CHANGED" ||
+          booking.status === "REJECTED",
       )
       const dateFilteredBookings = filterByDate(decidedBookings, dateFilter)
       const statusFilteredBookings =

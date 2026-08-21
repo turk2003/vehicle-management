@@ -21,7 +21,7 @@ export function getBookingStatusText(status: string): string {
     case "APPROVED":    return "อนุมัติแล้ว"
     case "REJECTED":    return "ปฏิเสธ"
     case "CANCELLED":   return "ยกเลิก"
-    case "CHANGED":     return "เปลี่ยนแปลง"
+    case "CHANGED":     return "เปลี่ยนรถแล้ว"
     case "IN_PROGRESS": return "กำลังใช้งาน"
     case "COMPLETED":   return "เสร็จสิ้น"
     default:            return status

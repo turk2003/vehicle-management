@@ -33,6 +33,7 @@ export type BookingEmailOptions = {
   comment?: string | null
   previousVehiclePlate?: string | null
   newVehiclePlate?: string | null
+  reason?: string | null
 }
 
 export type BookingEmailTemplate = {
@@ -99,7 +100,7 @@ function getActionDetail(
       return `ระบบบันทึกการคืนรถแล้ว เลขไมล์สิ้นสุด: ${booking.mileageEnd ?? "-"} km${distance !== null ? ` ระยะทาง: ${distance} km` : ""}`
     }
     case "VEHICLE_CHANGED":
-      return `รถสำหรับการจองถูกเปลี่ยนจาก ${options.previousVehiclePlate || "-"} เป็น ${options.newVehiclePlate || booking.vehicle.plateNumber}`
+      return `รถสำหรับการจองถูกเปลี่ยนจาก ${options.previousVehiclePlate || "-"} เป็น ${options.newVehiclePlate || booking.vehicle.plateNumber}${options.reason ? ` เนื่องจาก ${options.reason}` : ""}`
   }
 }
 
@@ -159,4 +160,3 @@ export function buildBookingEmail(
     `
   }
 }
-

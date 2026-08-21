@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyAdmin } from "@/lib/auth"
+import { isAuthError } from "@/lib/auth"
 import { MaintenanceStatus } from "@/app/generated/prisma/client"
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
 
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     const maintenances = await prisma.maintenance.findMany({
       where: {
-        ...(status && { status: status as any }),
+        ...(status && { status: status as MaintenanceStatus }),
         ...(vehicleId && { vehicleId })
       },
       include: {
@@ -28,8 +29,8 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json(maintenances)
-  } catch (error: any) {
-    if (error.message === "No token" || error.message === "Not authorized") {
+  } catch (error: unknown) {
+    if (isAuthError(error)) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })
@@ -40,25 +41,43 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const decoded = verifyAdmin(req)
-    const { vehicleId, description, startDate, endDate, status } = await req.json()
+    const {
+      vehicleId,
+      description,
+      startDate,
+      endDate,
+      status,
+      allowBookingConflicts
+    } = await req.json()
 
     if (!vehicleId || !description || !startDate) {
       return NextResponse.json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" }, { status: 400 })
     }
 
-    const conflictBooking = await prisma.booking.findFirst({
+    const affectedBookings = await prisma.booking.findMany({
       where: {
         vehicleId,
-        status: { in: ["PENDING", "APPROVED"] },
-        startDate: { lte: endDate ? new Date(endDate) : new Date(startDate) },
+        status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
+        ...(endDate && { startDate: { lte: new Date(endDate) } }),
         endDate: { gte: new Date(startDate) }
+      },
+      select: {
+        id: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        user: { select: { name: true } }
       }
     })
 
-    if (conflictBooking) {
+    if (affectedBookings.length > 0 && allowBookingConflicts !== true) {
       return NextResponse.json(
-        { message: "รถคันนี้มีการจองในช่วงเวลาดังกล่าว กรุณาเลือกเวลาอื่น" },
-        { status: 400 }
+        {
+          message: `รถคันนี้มีการจองที่ได้รับผลกระทบ ${affectedBookings.length} รายการ`,
+          code: "AFFECTED_BOOKINGS",
+          affectedBookings
+        },
+        { status: 409 }
       )
     }
 
@@ -97,8 +116,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(maintenance, { status: 201 })
-  } catch (error: any) {
-    if (error.message === "No token" || error.message === "Not authorized") {
+  } catch (error: unknown) {
+    if (isAuthError(error)) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })
@@ -109,7 +128,14 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     verifyAdmin(req)
-    const { id, description, startDate, endDate, status } = await req.json()
+    const {
+      id,
+      description,
+      startDate,
+      endDate,
+      status,
+      allowBookingConflicts
+    } = await req.json()
 
     if (!id) return NextResponse.json({ message: "Missing ID" }, { status: 400 })
 
@@ -130,6 +156,38 @@ export async function PUT(req: NextRequest) {
 
     if (status === "REPORTED" && newStart <= now) {
       resolvedStatus = MaintenanceStatus.IN_PROGRESS
+    }
+
+    if (
+      resolvedStatus === MaintenanceStatus.IN_PROGRESS &&
+      existing.status !== MaintenanceStatus.IN_PROGRESS
+    ) {
+      const affectedBookings = await prisma.booking.findMany({
+        where: {
+          vehicleId: existing.vehicleId,
+          status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
+          ...(endDate && { startDate: { lte: new Date(endDate) } }),
+          endDate: { gte: newStart }
+        },
+        select: {
+          id: true,
+          startDate: true,
+          endDate: true,
+          status: true,
+          user: { select: { name: true } }
+        }
+      })
+
+      if (affectedBookings.length > 0 && allowBookingConflicts !== true) {
+        return NextResponse.json(
+          {
+            message: `รถคันนี้มีการจองที่ได้รับผลกระทบ ${affectedBookings.length} รายการ`,
+            code: "AFFECTED_BOOKINGS",
+            affectedBookings
+          },
+          { status: 409 }
+        )
+      }
     }
 
     const updated = await prisma.maintenance.update({
@@ -160,7 +218,7 @@ export async function PUT(req: NextRequest) {
         const activeBooking = await prisma.booking.findFirst({
           where: {
             vehicleId: existing.vehicleId,
-            status: "APPROVED",
+            status: { in: ["APPROVED", "CHANGED"] },
             startDate: { lte: now },
             endDate: { gte: now }
           }
@@ -178,8 +236,8 @@ export async function PUT(req: NextRequest) {
     }
 
     return NextResponse.json(updated)
-  } catch (error: any) {
-    if (error.message === "No token" || error.message === "Not authorized") {
+  } catch (error: unknown) {
+    if (isAuthError(error)) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })
@@ -214,7 +272,7 @@ export async function DELETE(req: NextRequest) {
       const activeBooking = await prisma.booking.findFirst({
         where: {
           vehicleId: existing.vehicleId,
-          status: "APPROVED",
+          status: { in: ["APPROVED", "CHANGED"] },
           startDate: { lte: now },
           endDate: { gte: now }
         }
@@ -226,8 +284,8 @@ export async function DELETE(req: NextRequest) {
     }
 
     return NextResponse.json({ message: "ลบเรียบร้อยแล้ว" })
-  } catch (error: any) {
-    if (error.message === "No token" || error.message === "Not authorized") {
+  } catch (error: unknown) {
+    if (isAuthError(error)) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
     return NextResponse.json({ message: "Server error" }, { status: 500 })

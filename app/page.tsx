@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck } from "lucide-react"
-import axios from "axios"
-import Image from "next/image"
-import api from "@/lib/api"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import axios from "axios";
+import Image from "next/image";
+import api from "@/lib/api";
 
 const TEST_ACCOUNTS = [
   {
@@ -29,54 +29,65 @@ const TEST_ACCOUNTS = [
     color: "bg-green-50 text-green-800 border-green-200 hover:bg-green-100",
     dot: "bg-green-500",
   },
-]
+];
 
 function getLoginErrorMessage(error: unknown) {
   if (axios.isAxiosError<{ message?: string }>(error)) {
-    return error.response?.data?.message || "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
+    return error.response?.data?.message || "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
   }
 
-  return "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
+  return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
 }
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
     try {
-      const response = await api.post("/api/auth/login", { email, password })
-      const role = response.data.user.role
+      const response = await api.post("/api/auth/login", { email, password });
+      const role = response.data.user.role;
 
-      if (role === "ADMIN") router.push("/admin")
-      else if (role === "APPROVER") router.push("/approver")
-      else router.push("/user")
+      if (role === "ADMIN") router.push("/admin");
+      else if (role === "APPROVER") router.push("/approver");
+      else router.push("/user");
     } catch (err) {
-      setError(getLoginErrorMessage(err))
+      setError(getLoginErrorMessage(err));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const fillAccount = (acc: (typeof TEST_ACCOUNTS)[number]) => {
-    setEmail(acc.email)
-    setPassword(acc.password)
-    setError("")
-  }
+    setEmail(acc.email);
+    setPassword(acc.password);
+    setError("");
+  };
 
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900">
+    <main className="relative isolate min-h-screen overflow-hidden bg-[#750064] text-gray-900">
+      <Image
+        src="/wall2.jpg"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="-z-20 object-cover object-[42%_center] lg:object-center"
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 -z-10 bg-black/40" aria-hidden="true" />
+
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-4 py-8 sm:px-6 lg:grid lg:grid-cols-[1fr_440px] lg:gap-12 lg:px-8">
         <section className="mb-8 flex flex-col justify-center lg:mb-0">
-          <div className="mb-8 inline-flex h-20 w-20 items-center justify-center rounded-xl bg-white shadow-md ring-1 ring-gray-200">
+          <div className="mb-8 inline-flex h-20 w-20 items-center justify-center rounded-xl bg-white shadow-md">
             <Image
               src="/pea_logo.png"
               alt="PEA logo"
@@ -87,21 +98,22 @@ export default function LoginPage() {
           </div>
 
           <div className="max-w-xl">
-            <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-800 ring-1 ring-blue-100">
+            <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-medium text-purple-900">
               <ShieldCheck className="h-4 w-4" aria-hidden="true" />
               ระบบภายในสำหรับงานยานพาหนะ
             </p>
-            <h1 className="text-3xl font-bold leading-tight text-gray-950 sm:text-4xl">
+            <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl">
               ระบบจัดการยานพาหนะ
             </h1>
-            <p className="mt-4 max-w-lg text-base leading-7 text-gray-600">
-              เข้าสู่ระบบเพื่อจองรถ ตรวจคำขออนุมัติ และจัดการข้อมูลยานพาหนะขององค์กรอย่างเป็นระบบ
+            <p className="mt-4 max-w-lg text-base leading-7 text-white/90">
+              เข้าสู่ระบบเพื่อจองรถ ตรวจคำขออนุมัติ
+              และจัดการข้อมูลยานพาหนะขององค์กรอย่างเป็นระบบ
             </p>
           </div>
         </section>
 
         <section
-          className="rounded-xl bg-white shadow-lg ring-1 ring-gray-200"
+          className="rounded-xl bg-white shadow-xl"
           aria-labelledby="login-title"
         >
           <div className="border-b border-gray-200 px-6 py-6 sm:px-8">
@@ -240,5 +252,5 @@ export default function LoginPage() {
         </section>
       </div>
     </main>
-  )
+  );
 }

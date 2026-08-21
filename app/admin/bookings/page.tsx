@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import axios from "axios"
-import { Pencil, SlidersHorizontal, Trash2, X } from "lucide-react"
+import { Pencil, RefreshCw, SlidersHorizontal, Trash2, X } from "lucide-react"
 import api from "@/lib/api"
 import {
   formatDateTime,
@@ -38,6 +38,16 @@ type Booking = {
 type User = { id: string; name: string; email: string }
 type Vehicle = { id: string; plateNumber: string; type: { name: string } }
 
+type ReplacementVehicle = {
+  id: string
+  plateNumber: string
+  status: string
+  currentMileage: number
+  sameType: boolean
+  recommended: boolean
+  type: { id: string; name: string }
+}
+
 type BookingFilters = {
   status: string
   userId: string
@@ -52,6 +62,7 @@ type BookingStats = {
   approved: number
   rejected: number
   cancelled: number
+  changed: number
   in_progress: number
   completed: number
 }
@@ -70,6 +81,7 @@ const INITIAL_STATS: BookingStats = {
   approved: 0,
   rejected: 0,
   cancelled: 0,
+  changed: 0,
   in_progress: 0,
   completed: 0,
 }
@@ -77,11 +89,16 @@ const INITIAL_STATS: BookingStats = {
 const BOOKING_STATUS_OPTIONS = [
   { value: "PENDING", label: "รออนุมัติ" },
   { value: "APPROVED", label: "อนุมัติแล้ว" },
+  { value: "CHANGED", label: "เปลี่ยนรถแล้ว" },
   { value: "IN_PROGRESS", label: "กำลังใช้งาน" },
   { value: "COMPLETED", label: "เสร็จสิ้น" },
   { value: "REJECTED", label: "ปฏิเสธ" },
   { value: "CANCELLED", label: "ยกเลิก" },
 ]
+
+const STATUS_UPDATE_OPTIONS = BOOKING_STATUS_OPTIONS.filter(
+  (status) => status.value !== "CHANGED",
+)
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError<{ message?: string }>(error)) {
@@ -116,6 +133,14 @@ export default function AdminBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [newStatus, setNewStatus] = useState("")
   const [stats, setStats] = useState<BookingStats>(INITIAL_STATS)
+  const [showChangeModal, setShowChangeModal] = useState(false)
+  const [replacementVehicles, setReplacementVehicles] = useState<
+    ReplacementVehicle[]
+  >([])
+  const [selectedReplacementId, setSelectedReplacementId] = useState("")
+  const [changeReason, setChangeReason] = useState("")
+  const [changeLoading, setChangeLoading] = useState(false)
+  const [changeError, setChangeError] = useState("")
 
   const fetchData = useCallback(async () => {
     try {
@@ -201,6 +226,77 @@ export default function AdminBookingsPage() {
     setNewStatus("")
   }
 
+  const openChangeVehicleModal = async (booking: Booking) => {
+    setSelectedBooking(booking)
+    setShowChangeModal(true)
+    setReplacementVehicles([])
+    setSelectedReplacementId("")
+    setChangeReason("")
+    setChangeError("")
+    setChangeLoading(true)
+
+    try {
+      const response = await api.get<{
+        candidates: ReplacementVehicle[]
+      }>(
+        `/api/admin/bookings/change-vehicle?bookingId=${encodeURIComponent(booking.id)}`,
+      )
+      setReplacementVehicles(response.data.candidates)
+      const recommended = response.data.candidates.find(
+        (vehicle) => vehicle.recommended,
+      )
+      setSelectedReplacementId(recommended?.id || "")
+    } catch (error) {
+      setChangeError(
+        getErrorMessage(error, "ไม่สามารถโหลดรายการรถทดแทนได้"),
+      )
+    } finally {
+      setChangeLoading(false)
+    }
+  }
+
+  const closeChangeVehicleModal = () => {
+    setShowChangeModal(false)
+    setSelectedBooking(null)
+    setReplacementVehicles([])
+    setSelectedReplacementId("")
+    setChangeReason("")
+    setChangeError("")
+  }
+
+  const changeVehicle = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!selectedBooking || !selectedReplacementId || !changeReason.trim()) {
+      setChangeError("กรุณาเลือกรถทดแทนและระบุเหตุผล")
+      return
+    }
+
+    try {
+      setChangeLoading(true)
+      setChangeError("")
+      setError("")
+      setSuccess("")
+      const response = await api.put<{
+        booking: Booking
+        previousVehiclePlate: string
+        newVehiclePlate: string
+      }>("/api/admin/bookings/change-vehicle", {
+        bookingId: selectedBooking.id,
+        newVehicleId: selectedReplacementId,
+        reason: changeReason.trim(),
+      })
+      setSuccess(
+        `เปลี่ยนรถจาก ${response.data.previousVehiclePlate} เป็น ${response.data.newVehiclePlate} และแจ้งผู้จองแล้ว`,
+      )
+      closeChangeVehicleModal()
+      await fetchData()
+    } catch (error) {
+      setChangeError(getErrorMessage(error, "ไม่สามารถเปลี่ยนรถได้"))
+    } finally {
+      setChangeLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchData()
   }, [fetchData])
@@ -209,6 +305,7 @@ export default function AdminBookingsPage() {
     { label: "ทั้งหมด", value: stats.total, color: "text-gray-950" },
     { label: "รออนุมัติ", value: stats.pending, color: "text-yellow-700" },
     { label: "อนุมัติแล้ว", value: stats.approved, color: "text-green-700" },
+    { label: "เปลี่ยนรถแล้ว", value: stats.changed, color: "text-blue-700" },
     { label: "กำลังใช้งาน", value: stats.in_progress, color: "text-indigo-700" },
     { label: "เสร็จสิ้น", value: stats.completed, color: "text-teal-700" },
     { label: "ปฏิเสธ", value: stats.rejected, color: "text-red-700" },
@@ -231,7 +328,7 @@ export default function AdminBookingsPage() {
             </p>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+          <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
             {statItems.map((item) => (
               <div
                 key={item.label}
@@ -540,7 +637,23 @@ export default function AdminBookingsPage() {
                           )}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {["APPROVED", "CHANGED"].includes(booking.status) &&
+                            !booking.pickedUpAt &&
+                            booking.vehicle.status === "MAINTENANCE" &&
+                            new Date(booking.endDate) >= new Date() && (
+                              <button
+                                type="button"
+                                onClick={() => openChangeVehicleModal(booking)}
+                                className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-orange-50 px-3 py-1.5 text-sm font-medium text-orange-800 transition-colors duration-150 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-600/25"
+                              >
+                                <RefreshCw
+                                  className="h-4 w-4"
+                                  aria-hidden="true"
+                                />
+                                เปลี่ยนรถ
+                              </button>
+                            )}
                           <button
                             type="button"
                             onClick={() => openStatusModal(booking)}
@@ -642,7 +755,7 @@ export default function AdminBookingsPage() {
                     required
                     className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
                   >
-                    {BOOKING_STATUS_OPTIONS.map((status) => (
+                    {STATUS_UPDATE_OPTIONS.map((status) => (
                       <option key={status.value} value={status.value}>
                         {status.label}
                       </option>
@@ -664,6 +777,166 @@ export default function AdminBookingsPage() {
                     className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {loading ? "กำลังบันทึก..." : "บันทึกสถานะ"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {showChangeModal && selectedBooking && (
+          <div
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-900/50 px-4 py-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="change-vehicle-modal-title"
+          >
+            <div className="w-full max-w-2xl rounded-xl bg-white shadow-lg">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
+                <div>
+                  <h3
+                    id="change-vehicle-modal-title"
+                    className="text-lg font-semibold text-gray-950"
+                  >
+                    เปลี่ยนรถกรณีฉุกเฉิน
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-gray-600">
+                    เลือกรถที่ว่างตลอดช่วงการจอง ระบบจะแจ้งผู้จองทั้งในระบบและทางอีเมล
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeChangeVehicleModal}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                  aria-label="ปิดหน้าต่าง"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+
+              <form onSubmit={changeVehicle} className="space-y-5 px-6 py-6">
+                <dl className="grid gap-4 rounded-lg bg-orange-50 p-4 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="font-medium text-orange-900">ผู้จอง</dt>
+                    <dd className="mt-1 text-gray-950">
+                      {selectedBooking.user.name}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-orange-900">รถเดิม</dt>
+                    <dd className="mt-1 text-gray-950">
+                      {selectedBooking.vehicle.plateNumber} (
+                      {selectedBooking.vehicle.type.name})
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="font-medium text-orange-900">ช่วงการจอง</dt>
+                    <dd className="mt-1 text-gray-950">
+                      {formatDateTime(selectedBooking.startDate)} –{" "}
+                      {formatDateTime(selectedBooking.endDate)}
+                    </dd>
+                  </div>
+                </dl>
+
+                {changeError && (
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                  >
+                    {changeError}
+                  </div>
+                )}
+
+                <div>
+                  <label
+                    htmlFor="replacement-vehicle"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    รถทดแทน
+                  </label>
+                  {changeLoading && replacementVehicles.length === 0 ? (
+                    <div className="space-y-2" aria-label="กำลังโหลดรถทดแทน">
+                      <div className="h-11 animate-pulse rounded-lg bg-gray-200" />
+                      <div className="h-4 w-2/3 animate-pulse rounded bg-gray-100" />
+                    </div>
+                  ) : replacementVehicles.length === 0 ? (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-5 text-center">
+                      <p className="text-sm font-medium text-gray-800">
+                        ไม่มีรถทดแทนที่ว่างในช่วงเวลานี้
+                      </p>
+                      <p className="mt-1 text-sm text-gray-600">
+                        ตรวจสอบช่วงเวลา หรือจัดการตารางรถก่อนลองใหม่
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        id="replacement-vehicle"
+                        value={selectedReplacementId}
+                        onChange={(event) =>
+                          setSelectedReplacementId(event.target.value)
+                        }
+                        required
+                        className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                      >
+                        <option value="">เลือกรถทดแทน</option>
+                        {replacementVehicles.map((vehicle) => (
+                          <option key={vehicle.id} value={vehicle.id}>
+                            {vehicle.recommended ? "แนะนำ — " : ""}
+                            {vehicle.plateNumber} ({vehicle.type.name}) ·{" "}
+                            {vehicle.currentMileage.toLocaleString()} km
+                            {!vehicle.sameType ? " · ต่างประเภท" : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1.5 text-sm text-gray-600">
+                        ระบบเรียงรถประเภทเดียวกันก่อน และตรวจสอบการจองกับงานซ่อมที่ทับช่วงเวลาแล้ว
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="change-reason"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    เหตุผลในการเปลี่ยนรถ
+                  </label>
+                  <textarea
+                    id="change-reason"
+                    value={changeReason}
+                    onChange={(event) => setChangeReason(event.target.value)}
+                    maxLength={500}
+                    rows={4}
+                    required
+                    placeholder="เช่น รถเดิมระบบเบรกขัดข้องและต้องเข้าซ่อมฉุกเฉิน"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 placeholder:text-gray-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                  />
+                  <p className="mt-1 text-right text-sm text-gray-500">
+                    {changeReason.length}/500
+                  </p>
+                </div>
+
+                <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={closeChangeVehicleModal}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={
+                      changeLoading ||
+                      !selectedReplacementId ||
+                      !changeReason.trim()
+                    }
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                    {changeLoading ? "กำลังเปลี่ยนรถ..." : "ยืนยันเปลี่ยนรถ"}
                   </button>
                 </div>
               </form>

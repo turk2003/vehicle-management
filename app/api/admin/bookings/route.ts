@@ -119,7 +119,7 @@ export async function PUT(req: NextRequest) {
       where: { id },
       data: {
         status,
-        approverId: status === "APPROVED" ? decoded.userId : null
+        approverId: status === "APPROVED" ? decoded.userId : existingBooking.approverId
       },
       include: {
         user: {
@@ -151,7 +151,10 @@ export async function PUT(req: NextRequest) {
         where: { id: existingBooking.vehicleId },
         data: { status: "BOOKED" }
       })
-    } else if (existingBooking.status === "APPROVED" && status !== "APPROVED") {
+    } else if (
+      ["APPROVED", "CHANGED"].includes(existingBooking.status) &&
+      !["APPROVED", "CHANGED"].includes(status)
+    ) {
       // If changing from approved to something else, make vehicle available
       await prisma.vehicle.update({
         where: { id: existingBooking.vehicleId },
@@ -225,7 +228,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // If booking was approved, make vehicle available again
-    if (existingBooking.status === "APPROVED") {
+    if (["APPROVED", "CHANGED"].includes(existingBooking.status)) {
       await prisma.vehicle.update({
         where: { id: existingBooking.vehicleId },
         data: { status: "AVAILABLE" }

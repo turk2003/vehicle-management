@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       // เช็ค booking ที่ทับช่วงเวลา
       const conflictingBookings = await prisma.booking.findMany({
         where: {
-          status: { in: ["PENDING", "APPROVED", "IN_PROGRESS"] },
+          status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
           startDate: { lte: end },
           endDate: { gte: start }
         },
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
     }))
 
     return NextResponse.json(result)
-  } catch (error) {
+  } catch {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
   }
 }

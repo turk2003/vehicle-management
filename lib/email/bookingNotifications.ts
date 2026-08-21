@@ -54,6 +54,14 @@ export async function notifyBookingEvent({
     }
   })
 
+  await sendBookingEventEmail(event, booking, emailOptions)
+}
+
+export async function sendBookingEventEmail(
+  event: BookingEmailEvent,
+  booking: BookingEmailData,
+  emailOptions: BookingEmailOptions = {}
+): Promise<void> {
   const email = buildBookingEmail(event, booking, emailOptions)
   await sendEmail({
     to: booking.user.email,
@@ -62,4 +70,3 @@ export async function notifyBookingEvent({
     html: email.html
   })
 }
-

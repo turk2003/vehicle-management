@@ -59,7 +59,7 @@ export async function syncAllVehicleStatuses() {
   // ────────────────────────────────────────────────────────────
   const activeBookings = await prisma.booking.findMany({
     where: {
-      status: "APPROVED",
+      status: { in: ["APPROVED", "CHANGED"] },
       startDate: { lte: now },
       endDate: { gte: now }
     },
@@ -110,7 +110,7 @@ export async function syncAllVehicleStatuses() {
     const hasActiveBooking = await prisma.booking.findFirst({
       where: {
         vehicleId: v.id,
-        status: "APPROVED",
+        status: { in: ["APPROVED", "CHANGED"] },
         startDate: { lte: now },
         endDate: { gte: now }
       }
@@ -143,4 +143,3 @@ export async function syncAllVehicleStatuses() {
     }
   }
 }
-
