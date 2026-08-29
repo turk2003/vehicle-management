@@ -10,9 +10,12 @@ import {
   getMaintenanceStatusText,
 } from "@/lib/format"
 
+type MaintenanceType = "BREAKDOWN" | "PREVENTIVE" | "OTHER" | "UNSPECIFIED"
+
 type Maintenance = {
   id: string
   description: string
+  maintenanceType: MaintenanceType
   status: string
   startDate: string
   endDate?: string | null
@@ -34,6 +37,7 @@ type Vehicle = {
 type MaintenanceForm = {
   vehicleId: string
   description: string
+  maintenanceType: "" | Exclude<MaintenanceType, "UNSPECIFIED">
   startDate: string
 }
 
@@ -61,6 +65,7 @@ function getInitialFormData(): MaintenanceForm {
   return {
     vehicleId: "",
     description: "",
+    maintenanceType: "",
     startDate: getLocalDateTimeInputValue(),
   }
 }
@@ -81,6 +86,13 @@ function buildStats(maintenances: Maintenance[]): MaintenanceStats {
 
     return acc
   }, { ...INITIAL_STATS })
+}
+
+const maintenanceTypeLabels: Record<MaintenanceType, string> = {
+  BREAKDOWN: "ซ่อมจากความขัดข้อง",
+  PREVENTIVE: "บำรุงรักษาตามรอบ",
+  OTHER: "งานซ่อมอื่น",
+  UNSPECIFIED: "ยังไม่ระบุประเภท",
 }
 
 export default function UserMaintenancePage() {
@@ -272,7 +284,7 @@ export default function UserMaintenancePage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px]">
+            <table className="w-full min-w-[980px]">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
@@ -280,6 +292,9 @@ export default function UserMaintenancePage() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
                     รายละเอียดปัญหา
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
+                    ประเภท
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
                     วันที่พบปัญหา
@@ -292,14 +307,14 @@ export default function UserMaintenancePage() {
               <tbody className="divide-y divide-gray-200 bg-white">
                 {loading && maintenances.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-10 text-center">
+                    <td colSpan={5} className="px-6 py-10 text-center">
                       <div className="mx-auto h-5 w-48 animate-pulse rounded bg-gray-200" />
                     </td>
                   </tr>
                 ) : maintenances.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="px-6 py-12 text-center text-sm text-gray-600"
                     >
                       คุณยังไม่มีประวัติการแจ้งซ่อม
@@ -323,6 +338,9 @@ export default function UserMaintenancePage() {
                         <p className="max-w-md text-sm leading-6 text-gray-950">
                           {item.description}
                         </p>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {maintenanceTypeLabels[item.maintenanceType]}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700">
                         {formatDateTime(item.startDate)}
@@ -409,6 +427,35 @@ export default function UserMaintenancePage() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="maintenance-type"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    ประเภทงานซ่อม <span className="text-red-700">*</span>
+                  </label>
+                  <select
+                    id="maintenance-type"
+                    required
+                    value={formData.maintenanceType}
+                    onChange={(e) =>
+                      setFormData((current) => ({
+                        ...current,
+                        maintenanceType: e.target.value as MaintenanceForm["maintenanceType"],
+                      }))
+                    }
+                    className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                  >
+                    <option value="">เลือกประเภทงานซ่อม</option>
+                    <option value="BREAKDOWN">ซ่อมจากความขัดข้อง</option>
+                    <option value="PREVENTIVE">บำรุงรักษาตามรอบ</option>
+                    <option value="OTHER">งานซ่อมอื่น</option>
+                  </select>
+                  <p className="mt-1.5 text-sm text-gray-600">
+                    ช่วยให้รายงานแยกเหตุขัดข้องออกจากการดูแลรถตามแผน
+                  </p>
                 </div>
 
                 <div>

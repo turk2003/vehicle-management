@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isAuthError, verifyToken } from "@/lib/auth"
-import { MaintenanceStatus } from "@/app/generated/prisma/client"
+import { MaintenanceStatus, MaintenanceType } from "@/app/generated/prisma/client"
 import { emailAdminsAboutMaintenanceReport } from "@/lib/email/maintenanceNotifications"
 
 // GET: Fetch maintenance history for the logged-in user
@@ -30,9 +30,20 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const decoded = verifyToken(req)
-    const { vehicleId, description, startDate } = await req.json()
+    const { vehicleId, description, startDate, maintenanceType } = await req.json()
 
-    if (!vehicleId || !description || !startDate) {
+    const allowedTypes = new Set<MaintenanceType>([
+      MaintenanceType.BREAKDOWN,
+      MaintenanceType.PREVENTIVE,
+      MaintenanceType.OTHER
+    ])
+
+    if (
+      !vehicleId ||
+      !description ||
+      !startDate ||
+      !allowedTypes.has(maintenanceType as MaintenanceType)
+    ) {
       return NextResponse.json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" }, { status: 400 })
     }
 
@@ -44,6 +55,7 @@ export async function POST(req: NextRequest) {
           vehicleId,
           reporterId: decoded.userId,
           description,
+          maintenanceType: maintenanceType as MaintenanceType,
           startDate: start,
           status: MaintenanceStatus.REPORTED
         },

@@ -6,6 +6,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as RechartsT
 import { BarChart3, Car, Filter, Route, RotateCcw, Wrench } from "lucide-react"
 import api from "@/lib/api"
 import { formatDateTime, getVehicleStatusColor, getVehicleStatusText } from "@/lib/format"
+import AiUsageSummaryCard from "./AiUsageSummaryCard"
 
 type VehicleOption = {
   id: string
@@ -44,10 +45,20 @@ type ChartMetric = {
   fill: string
 }
 
+const getBangkokToday = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date())
+
+const bangkokToday = getBangkokToday()
+
 const defaultFilters: Filters = {
   vehicleId: "",
-  startDate: "",
-  endDate: "",
+  startDate: `${bangkokToday.slice(0, 8)}01`,
+  endDate: bangkokToday,
 }
 
 const fieldClass =
@@ -149,7 +160,10 @@ export default function AdminVehicleHistoryPage() {
     )
   }, [items])
 
-  const hasFilters = Boolean(filters.vehicleId || filters.startDate || filters.endDate)
+  const hasFilters =
+    filters.vehicleId !== defaultFilters.vehicleId ||
+    filters.startDate !== defaultFilters.startDate ||
+    filters.endDate !== defaultFilters.endDate
   const selectedVehicle = vehicleOptions.find((vehicle) => vehicle.id === filters.vehicleId)
 
   useEffect(() => {
@@ -172,6 +186,12 @@ export default function AdminVehicleHistoryPage() {
 
   useEffect(() => {
     const fetchHistory = async () => {
+      if (Boolean(filters.startDate) !== Boolean(filters.endDate)) {
+        setItems([])
+        setError("กรุณาระบุวันที่เริ่มต้นและวันที่สิ้นสุดให้ครบ")
+        return
+      }
+
       try {
         setLoading(true)
         setError("")
@@ -298,7 +318,9 @@ export default function AdminVehicleHistoryPage() {
               <input
                 id="history-start-date"
                 type="date"
+                required
                 value={filters.startDate}
+                max={filters.endDate || bangkokToday}
                 onChange={(event) => setFilters((prev) => ({ ...prev, startDate: event.target.value }))}
                 className={fieldClass}
               />
@@ -310,13 +332,22 @@ export default function AdminVehicleHistoryPage() {
               <input
                 id="history-end-date"
                 type="date"
+                required
                 value={filters.endDate}
+                min={filters.startDate || undefined}
+                max={bangkokToday}
                 onChange={(event) => setFilters((prev) => ({ ...prev, endDate: event.target.value }))}
                 className={fieldClass}
               />
             </div>
           </div>
         </section>
+
+        <AiUsageSummaryCard
+          filters={filters}
+          historyLoading={loading}
+          hasUsageData={summary.totalTrips > 0}
+        />
 
         {items.length > 0 && (
           <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">

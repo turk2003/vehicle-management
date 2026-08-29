@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyAdmin } from "@/lib/auth"
 import { isAuthError } from "@/lib/auth"
-import { MaintenanceStatus } from "@/app/generated/prisma/client"
+import { MaintenanceStatus, MaintenanceType } from "@/app/generated/prisma/client"
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
 
 // GET
@@ -44,13 +44,25 @@ export async function POST(req: NextRequest) {
     const {
       vehicleId,
       description,
+      maintenanceType,
       startDate,
       endDate,
       status,
       allowBookingConflicts
     } = await req.json()
 
-    if (!vehicleId || !description || !startDate) {
+    const allowedTypes = new Set<MaintenanceType>([
+      MaintenanceType.BREAKDOWN,
+      MaintenanceType.PREVENTIVE,
+      MaintenanceType.OTHER
+    ])
+
+    if (
+      !vehicleId ||
+      !description ||
+      !startDate ||
+      !allowedTypes.has(maintenanceType as MaintenanceType)
+    ) {
       return NextResponse.json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" }, { status: 400 })
     }
 
@@ -98,6 +110,7 @@ export async function POST(req: NextRequest) {
         vehicleId,
         reporterId: decoded.userId,
         description,
+        maintenanceType: maintenanceType as MaintenanceType,
         startDate: start,
         endDate: endDate ? new Date(endDate) : null,
         status: resolvedStatus  // ✅ ไม่มี error แล้ว
@@ -131,6 +144,7 @@ export async function PUT(req: NextRequest) {
     const {
       id,
       description,
+      maintenanceType,
       startDate,
       endDate,
       status,
@@ -138,6 +152,13 @@ export async function PUT(req: NextRequest) {
     } = await req.json()
 
     if (!id) return NextResponse.json({ message: "Missing ID" }, { status: 400 })
+
+    if (
+      maintenanceType &&
+      !Object.values(MaintenanceType).includes(maintenanceType as MaintenanceType)
+    ) {
+      return NextResponse.json({ message: "ประเภทงานซ่อมไม่ถูกต้อง" }, { status: 400 })
+    }
 
     const existing = await prisma.maintenance.findUnique({
       where: { id },
@@ -194,6 +215,9 @@ export async function PUT(req: NextRequest) {
       where: { id },
       data: {
         ...(description && { description }),
+        ...(maintenanceType && {
+          maintenanceType: maintenanceType as MaintenanceType
+        }),
         ...(startDate && { startDate: newStart }),
         endDate: endDate ? new Date(endDate) : null,
         ...(resolvedStatus && { status: resolvedStatus })  // ✅ ไม่มี error แล้ว

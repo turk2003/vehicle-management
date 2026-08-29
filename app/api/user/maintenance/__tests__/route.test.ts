@@ -38,6 +38,7 @@ describe("POST /api/user/maintenance", () => {
       vehicleId: "vehicle-1",
       reporterId: "user-1",
       description: "ระบบเบรกขัดข้อง",
+      maintenanceType: "BREAKDOWN",
       startDate: new Date("2050-05-01T09:00:00.000Z"),
       status: "REPORTED",
       vehicle: {
@@ -73,12 +74,18 @@ describe("POST /api/user/maintenance", () => {
         body: JSON.stringify({
           vehicleId: "vehicle-1",
           description: "ระบบเบรกขัดข้อง",
+          maintenanceType: "BREAKDOWN",
           startDate: "2050-05-01T09:00:00.000Z"
         })
       }) as Parameters<typeof POST>[0]
     )
 
     expect(response.status).toBe(201)
+    expect(prismaMock.maintenance.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ maintenanceType: "BREAKDOWN" })
+      })
+    )
     expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
@@ -108,6 +115,7 @@ describe("POST /api/user/maintenance", () => {
       vehicleId: "vehicle-1",
       reporterId: "user-1",
       description: "ยางแบน",
+      maintenanceType: "BREAKDOWN",
       startDate: new Date("2050-05-01T09:00:00.000Z"),
       status: "REPORTED",
       vehicle: {
@@ -128,6 +136,7 @@ describe("POST /api/user/maintenance", () => {
         body: JSON.stringify({
           vehicleId: "vehicle-1",
           description: "ยางแบน",
+          maintenanceType: "BREAKDOWN",
           startDate: "2050-05-01T09:00:00.000Z"
         })
       }) as Parameters<typeof POST>[0]
@@ -139,5 +148,21 @@ describe("POST /api/user/maintenance", () => {
       expect.any(Object),
       []
     )
+  })
+
+  it("rejects a new report without a maintenance type", async () => {
+    const response = await POST(
+      new Request("http://localhost:3000/api/user/maintenance", {
+        method: "POST",
+        body: JSON.stringify({
+          vehicleId: "vehicle-1",
+          description: "ยางแบน",
+          startDate: "2050-05-01T09:00:00.000Z"
+        })
+      }) as Parameters<typeof POST>[0]
+    )
+
+    expect(response.status).toBe(400)
+    expect(prismaMock.$transaction).not.toHaveBeenCalled()
   })
 })

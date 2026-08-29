@@ -21,9 +21,12 @@ vi.mock('jsonwebtoken', () => ({
 }))
 
 describe('POST /api/auth/login', () => {
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>
+
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.JWT_SECRET = 'test-secret'
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
   it('should return 401 if user not found', async () => {
@@ -93,5 +96,8 @@ describe('POST /api/auth/login', () => {
     expect(setCookieHeader).toBeDefined()
     expect(setCookieHeader).toContain('token=mocked-token')
     expect(setCookieHeader).toContain('HttpOnly')
+    expect(setCookieHeader).toContain('Max-Age=86400')
+    expect(setCookieHeader).not.toContain('Max-Age=86400000')
+    expect(consoleLogSpy).not.toHaveBeenCalled()
   })
 })

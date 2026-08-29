@@ -37,6 +37,13 @@ enum MaintenanceStatus {
   COMPLETED
 }
 
+enum MaintenanceType {
+  BREAKDOWN
+  PREVENTIVE
+  OTHER
+  UNSPECIFIED
+}
+
 enum NotificationType {
   BOOKING
   MAINTENANCE
@@ -140,6 +147,7 @@ model Maintenance {
   repairDetails     String?
   serviceCenterName String?
   cost              Float?
+  maintenanceType   MaintenanceType   @default(UNSPECIFIED)
   status            MaintenanceStatus @default(REPORTED)
   startDate         DateTime
   endDate           DateTime?
@@ -171,6 +179,7 @@ model Log {
   id        String   @id @default(uuid())
   userId    String
   action    String
+  metadata  Json?
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])

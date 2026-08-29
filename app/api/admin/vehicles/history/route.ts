@@ -1,157 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { verifyPermission, isPermissionError } from "@/lib/permissions";
-
-type HistoryItem = {
-  vehicleId: string;
-  plateNumber: string;
-  vehicleType: string;
-  currentStatus: string;
-  currentMileage: number;
-  usageCount: number;
-  maintenanceCount: number;
-  uniqueUsersCount: number;
-  totalDistanceKm: number;
-  avgDistancePerTripKm: number;
-  lastUsedAt: string | null;
-};
+import { NextRequest, NextResponse } from "next/server"
+import { verifyPermission, isPermissionError } from "@/lib/permissions"
+import {
+  AnalysisInputError,
+  calculateVehicleUsageAnalysis,
+} from "@/lib/vehicle-usage-analysis"
 
 export async function GET(req: NextRequest) {
   try {
-    await verifyPermission(req, "REPORT_VIEW");
+    await verifyPermission(req, "REPORT_VIEW")
 
-    const { searchParams } = new URL(req.url);
-    const vehicleId = searchParams.get("vehicleId") || undefined;
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
+    const { searchParams } = new URL(req.url)
+    const analysis = await calculateVehicleUsageAnalysis({
+      vehicleId: searchParams.get("vehicleId") || undefined,
+      startDate: searchParams.get("startDate") || undefined,
+      endDate: searchParams.get("endDate") || undefined,
+    })
 
-    const rangeStart = startDate ? new Date(startDate) : undefined;
-    const rangeEnd = endDate ? new Date(endDate) : undefined;
-
-    const vehicles = await prisma.vehicle.findMany({
-      where: {
-        ...(vehicleId && { id: vehicleId }),
-      },
-      include: { type: true },
-      orderBy: { plateNumber: "asc" },
-    });
-
-    if (vehicles.length === 0) {
-      return NextResponse.json({
-        items: [] as HistoryItem[],
-      });
-    }
-
-    const targetVehicleIds = vehicles.map((v) => v.id);
-
-    const completedBookings = await prisma.booking.findMany({
-      where: {
-        vehicleId: { in: targetVehicleIds },
-        status: "COMPLETED",
-        ...(rangeStart && rangeEnd
-          ? {
-              startDate: { lte: rangeEnd },
-              endDate: { gte: rangeStart },
-            }
-          : {}),
-      },
-      select: {
-        vehicleId: true,
-        userId: true,
-        mileageStart: true,
-        mileageEnd: true,
-        returnedAt: true,
-        endDate: true,
-      },
-    });
-
-    const maintenances = await prisma.maintenance.findMany({
-      where: {
-        vehicleId: { in: targetVehicleIds },
-        ...(rangeStart && rangeEnd
-          ? {
-              startDate: { lte: rangeEnd },
-              OR: [{ endDate: null }, { endDate: { gte: rangeStart } }],
-            }
-          : {}),
-      },
-      select: {
-        vehicleId: true,
-      },
-    });
-
-    const usageCountByVehicle = new Map<string, number>();
-    const maintenanceCountByVehicle = new Map<string, number>();
-    const totalDistanceByVehicle = new Map<string, number>();
-    const userSetByVehicle = new Map<string, Set<string>>();
-    const lastUsedAtByVehicle = new Map<string, Date>();
-
-    for (const booking of completedBookings) {
-      const usageCount = usageCountByVehicle.get(booking.vehicleId) || 0;
-      usageCountByVehicle.set(booking.vehicleId, usageCount + 1);
-
-      if (!userSetByVehicle.has(booking.vehicleId)) {
-        userSetByVehicle.set(booking.vehicleId, new Set<string>());
-      }
-      userSetByVehicle.get(booking.vehicleId)?.add(booking.userId);
-
-      const mileageStart = booking.mileageStart;
-      const mileageEnd = booking.mileageEnd;
-      const hasMileage =
-        mileageStart !== null &&
-        mileageEnd !== null &&
-        mileageEnd >= mileageStart;
-
-      if (hasMileage) {
-        const distance = mileageEnd - mileageStart;
-        const currentDistance =
-          totalDistanceByVehicle.get(booking.vehicleId) || 0;
-        totalDistanceByVehicle.set(
-          booking.vehicleId,
-          currentDistance + distance,
-        );
-      }
-
-      const candidateDate = booking.returnedAt || booking.endDate;
-      const latestDate = lastUsedAtByVehicle.get(booking.vehicleId);
-      if (!latestDate || candidateDate > latestDate) {
-        lastUsedAtByVehicle.set(booking.vehicleId, candidateDate);
-      }
-    }
-
-    for (const maintenance of maintenances) {
-      const count = maintenanceCountByVehicle.get(maintenance.vehicleId) || 0;
-      maintenanceCountByVehicle.set(maintenance.vehicleId, count + 1);
-    }
-
-    const items: HistoryItem[] = vehicles.map((vehicle) => {
-      const usageCount = usageCountByVehicle.get(vehicle.id) || 0;
-      const totalDistanceKm = totalDistanceByVehicle.get(vehicle.id) || 0;
-      const maintenanceCount = maintenanceCountByVehicle.get(vehicle.id) || 0;
-      const uniqueUsersCount = userSetByVehicle.get(vehicle.id)?.size || 0;
-      const lastUsedAtDate = lastUsedAtByVehicle.get(vehicle.id);
-
-      return {
-        vehicleId: vehicle.id,
-        plateNumber: vehicle.plateNumber,
-        vehicleType: vehicle.type.name,
-        currentStatus: vehicle.status,
-        currentMileage: vehicle.currentMileage,
-        usageCount,
-        maintenanceCount,
-        uniqueUsersCount,
-        totalDistanceKm,
-        avgDistancePerTripKm:
-          usageCount > 0 ? Math.round(totalDistanceKm / usageCount) : 0,
-        lastUsedAt: lastUsedAtDate ? lastUsedAtDate.toISOString() : null,
-      };
-    });
-
-    return NextResponse.json({ items });
+    return NextResponse.json({
+      items: analysis.vehicles,
+      totals: analysis.totals,
+      period: analysis.period,
+      dataCompleteness: analysis.dataCompleteness,
+      dataLimitations: analysis.dataLimitations,
+    })
   } catch (error) {
-    if (isPermissionError(error)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    if (error instanceof AnalysisInputError) {
+      return NextResponse.json({ message: error.message }, { status: 400 })
     }
-    return NextResponse.json({ message: "Server error" }, { status: 500 });
+    if (isPermissionError(error)) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+    return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

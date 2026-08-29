@@ -7,10 +7,12 @@ import api from "@/lib/api"
 import { formatDateTime, getMaintenanceStatusColor, getMaintenanceStatusText } from "@/lib/format"
 
 type MaintenanceStatus = "REPORTED" | "IN_PROGRESS" | "COMPLETED"
+type MaintenanceType = "BREAKDOWN" | "PREVENTIVE" | "OTHER" | "UNSPECIFIED"
 
 type Maintenance = {
   id: string
   description: string
+  maintenanceType: MaintenanceType
   status: MaintenanceStatus
   startDate: string
   endDate?: string | null
@@ -41,6 +43,7 @@ type Vehicle = {
 type FormData = {
   vehicleId: string
   description: string
+  maintenanceType: "" | MaintenanceType
   repairDetails: string
   serviceCenterName: string
   cost: string
@@ -52,6 +55,7 @@ type FormData = {
 const defaultForm: FormData = {
   vehicleId: "",
   description: "",
+  maintenanceType: "",
   repairDetails: "",
   serviceCenterName: "",
   cost: "",
@@ -96,6 +100,20 @@ const getVehicleStatusClass = (status: string) => {
   if (status === "AVAILABLE") return "bg-emerald-50 text-emerald-700 ring-emerald-200"
   if (status === "MAINTENANCE") return "bg-orange-50 text-orange-700 ring-orange-200"
   return "bg-rose-50 text-rose-700 ring-rose-200"
+}
+
+const maintenanceTypeLabels: Record<MaintenanceType, string> = {
+  BREAKDOWN: "ซ่อมจากความขัดข้อง",
+  PREVENTIVE: "บำรุงรักษาตามรอบ",
+  OTHER: "งานซ่อมอื่น",
+  UNSPECIFIED: "ยังไม่ระบุประเภท",
+}
+
+const getMaintenanceTypeClass = (type: MaintenanceType) => {
+  if (type === "BREAKDOWN") return "bg-rose-50 text-rose-700 ring-rose-200"
+  if (type === "PREVENTIVE") return "bg-emerald-50 text-emerald-700 ring-emerald-200"
+  if (type === "OTHER") return "bg-blue-50 text-blue-700 ring-blue-200"
+  return "bg-slate-100 text-slate-700 ring-slate-200"
 }
 
 export default function AdminMaintenancePage() {
@@ -151,6 +169,7 @@ export default function AdminMaintenancePage() {
     setFormData({
       vehicleId: item.vehicle.id,
       description: item.description,
+      maintenanceType: item.maintenanceType,
       repairDetails: item.repairDetails || "",
       serviceCenterName: item.serviceCenterName || "",
       cost: item.cost ? item.cost.toString() : "",
@@ -172,6 +191,8 @@ export default function AdminMaintenancePage() {
   const validateForm = () => {
     const now = new Date()
     const start = new Date(formData.startDate)
+
+    if (!formData.maintenanceType) return "กรุณาเลือกประเภทงานซ่อม"
 
     if (formData.status === "COMPLETED") {
       if (!formData.endDate) return "กรุณาระบุวันที่เสร็จสิ้นเมื่อสถานะเป็นเสร็จสิ้น"
@@ -383,10 +404,10 @@ export default function AdminMaintenancePage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-[1120px] w-full divide-y divide-slate-200">
+            <table className="min-w-[1240px] w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  {["รถ", "รายละเอียด", "ศูนย์บริการ/ช่าง", "ค่าใช้จ่าย", "วันที่เริ่ม", "วันที่เสร็จ", "สถานะ", "ผู้รายงาน", "การดำเนินการ"].map((heading) => (
+                  {["รถ", "ประเภท", "รายละเอียด", "ศูนย์บริการ/ช่าง", "ค่าใช้จ่าย", "วันที่เริ่ม", "วันที่เสร็จ", "สถานะ", "ผู้รายงาน", "การดำเนินการ"].map((heading) => (
                     <th key={heading} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                       {heading}
                     </th>
@@ -396,13 +417,13 @@ export default function AdminMaintenancePage() {
               <tbody className="divide-y divide-slate-100 bg-white">
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="px-5 py-12 text-center text-sm text-slate-500">
+                    <td colSpan={10} className="px-5 py-12 text-center text-sm text-slate-500">
                       กำลังโหลดข้อมูล...
                     </td>
                   </tr>
                 ) : filteredMaintenances.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-5 py-12 text-center text-sm text-slate-500">
+                    <td colSpan={10} className="px-5 py-12 text-center text-sm text-slate-500">
                       ไม่พบรายการบำรุงรักษาตามตัวกรองนี้
                     </td>
                   </tr>
@@ -414,6 +435,11 @@ export default function AdminMaintenancePage() {
                         <p className="text-sm text-slate-500">{item.vehicle.type.name}</p>
                         <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${getVehicleStatusClass(item.vehicle.status)}`}>
                           {getVehicleStatusText(item.vehicle.status)}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-4 align-top">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${getMaintenanceTypeClass(item.maintenanceType)}`}>
+                          {maintenanceTypeLabels[item.maintenanceType]}
                         </span>
                       </td>
                       <td className="px-5 py-4 align-top">
@@ -535,6 +561,33 @@ export default function AdminMaintenancePage() {
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label htmlFor="maintenance-type" className="mb-1.5 block text-sm font-medium text-slate-700">
+                        ประเภทงานซ่อม <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        id="maintenance-type"
+                        required
+                        value={formData.maintenanceType}
+                        onChange={(event) => setFormData({
+                          ...formData,
+                          maintenanceType: event.target.value as FormData["maintenanceType"],
+                        })}
+                        className={fieldClass}
+                      >
+                        <option value="">เลือกประเภทงานซ่อม</option>
+                        <option value="BREAKDOWN">ซ่อมจากความขัดข้อง</option>
+                        <option value="PREVENTIVE">บำรุงรักษาตามรอบ</option>
+                        <option value="OTHER">งานซ่อมอื่น</option>
+                        {editingItem?.maintenanceType === "UNSPECIFIED" && (
+                          <option value="UNSPECIFIED">ยังไม่ระบุประเภท (ข้อมูลเดิม)</option>
+                        )}
+                      </select>
+                      <p className="mt-1.5 text-sm text-slate-600">
+                        ประเภทนี้ใช้แยกเหตุขัดข้องออกจากการบำรุงรักษาตามแผนในรายงาน
+                      </p>
                     </div>
 
                     <div className="sm:col-span-2">
