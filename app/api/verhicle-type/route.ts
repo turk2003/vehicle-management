@@ -5,7 +5,7 @@ import { verifyAdmin, verifyUser, isAuthError } from "@/lib/auth"
 // GET: list vehicle types
 export async function GET(req: NextRequest) {
   try {
-    verifyUser(req)
+    await verifyUser(req)
     const vehicleTypes = await prisma.vehicleType.findMany({ orderBy: { name: "asc" } })
     return NextResponse.json(vehicleTypes)
   } catch (error) {
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 // POST: create vehicle type (admin only)
 export async function POST(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyAdmin(req)
     const { name } = await req.json()
     const vehicleType = await prisma.vehicleType.create({ data: { name } })
     return NextResponse.json(vehicleType)
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 // PUT: update vehicle type (admin only)
 export async function PUT(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyAdmin(req)
     const { id, name } = await req.json()
     const vehicleType = await prisma.vehicleType.update({ where: { id }, data: { name } })
     return NextResponse.json(vehicleType)
@@ -42,7 +42,7 @@ export async function PUT(req: NextRequest) {
 // DELETE: delete vehicle type (admin only)
 export async function DELETE(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyAdmin(req)
     const { searchParams } = new URL(req.url)
     const id = searchParams.get("id")
 

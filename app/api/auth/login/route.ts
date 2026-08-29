@@ -16,6 +16,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Invalid password" }, { status: 401 })
   }
 
+  if (!user.isActive) {
+    return NextResponse.json(
+      { message: "บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ", code: "ACCOUNT_INACTIVE" },
+      { status: 403 },
+    )
+  }
+
   const token = jwt.sign(
     { userId: user.id, role: user.role },
     process.env.JWT_SECRET!,

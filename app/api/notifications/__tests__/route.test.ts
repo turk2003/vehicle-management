@@ -20,7 +20,7 @@ vi.mock("@/lib/auth", () => ({
 describe("/api/notifications", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyUser).mockReturnValue({ userId: "user-1", role: "USER" })
+    vi.mocked(verifyUser).mockResolvedValue({ userId: "user-1", role: "USER", isActive: true })
   })
 
   it("returns only the signed-in user's notifications and unread count", async () => {

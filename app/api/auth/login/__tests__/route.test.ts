@@ -47,11 +47,10 @@ describe('POST /api/auth/login', () => {
   it('should return 401 if password does not match', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: '1', email: 'test@example.com', password: 'hashedpassword',
-      name: 'Test', role: 'USER', createdAt: new Date()
-    } as any)
+      name: 'Test', role: 'USER', isActive: true, createdAt: new Date()
+    })
 
-    // @ts-ignore
-    vi.mocked(bcrypt.compare).mockResolvedValue(false)
+    vi.mocked(bcrypt.compare).mockResolvedValue(false as never)
 
     const req = new Request('http://localhost:3000/api/auth/login', {
       method: 'POST',
@@ -68,13 +67,11 @@ describe('POST /api/auth/login', () => {
   it('should return 200 and set cookie on successful login', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: '1', email: 'test@example.com', password: 'hashedpassword',
-      name: 'Test', role: 'USER', createdAt: new Date()
-    } as any)
+      name: 'Test', role: 'USER', isActive: true, createdAt: new Date()
+    })
 
-    // @ts-ignore
-    vi.mocked(bcrypt.compare).mockResolvedValue(true)
-    // @ts-ignore
-    vi.mocked(jwt.sign).mockReturnValue('mocked-token')
+    vi.mocked(bcrypt.compare).mockResolvedValue(true as never)
+    vi.mocked(jwt.sign).mockReturnValue('mocked-token' as never)
 
     const req = new Request('http://localhost:3000/api/auth/login', {
       method: 'POST',
@@ -99,5 +96,23 @@ describe('POST /api/auth/login', () => {
     expect(setCookieHeader).toContain('Max-Age=86400')
     expect(setCookieHeader).not.toContain('Max-Age=86400000')
     expect(consoleLogSpy).not.toHaveBeenCalled()
+  })
+
+  it('returns ACCOUNT_INACTIVE when the password is valid but the account is disabled', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: '1', email: 'inactive@example.com', password: 'hashedpassword',
+      name: 'Inactive', role: 'USER', isActive: false, createdAt: new Date()
+    })
+    vi.mocked(bcrypt.compare).mockResolvedValue(true as never)
+
+    const req = new Request('http://localhost:3000/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'inactive@example.com', password: 'correctpassword' })
+    })
+
+    const response = await POST(req)
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toMatchObject({ code: 'ACCOUNT_INACTIVE' })
+    expect(jwt.sign).not.toHaveBeenCalled()
   })
 })

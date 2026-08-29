@@ -45,12 +45,7 @@ export default function Navbar() {
     const fetchUser = async () => {
       try {
         setLoading(true)
-        const response = await axios.get<{ user: User }>("/api/auth/me", {
-          withCredentials: true,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
+        const response = await api.get<{ user: User }>("/api/auth/me")
 
         if (active) setUser(response.data.user)
       } catch {

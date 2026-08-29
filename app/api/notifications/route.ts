@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
   try {
-    const decoded = verifyUser(req)
+    const decoded = await verifyUser(req)
     const { searchParams } = new URL(req.url)
     const requestedLimit = Number(searchParams.get("limit") || "10")
     const limit = Number.isFinite(requestedLimit)
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const decoded = verifyUser(req)
+    const decoded = await verifyUser(req)
     const { id, markAll } = await req.json()
 
     if (!id && markAll !== true) {

@@ -30,7 +30,7 @@ describe('Booking API', () => {
     vi.clearAllMocks()
     // Default valid user
     // @ts-ignore
-    vi.mocked(verifyUser).mockReturnValue({ userId: 'user1', role: 'USER' })
+    vi.mocked(verifyUser).mockResolvedValue({ userId: 'user1', role: 'USER', isActive: true })
   })
 
   describe('GET /api/booking', () => {

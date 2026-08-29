@@ -8,7 +8,7 @@ import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
 // GET
 export async function GET(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyAdmin(req)
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
     const vehicleId = searchParams.get("vehicleId")
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 // POST
 export async function POST(req: NextRequest) {
   try {
-    const decoded = verifyAdmin(req)
+    const decoded = await verifyAdmin(req)
     const {
       vehicleId,
       description,
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 // PUT
 export async function PUT(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyAdmin(req)
     const {
       id,
       description,
@@ -271,7 +271,7 @@ export async function PUT(req: NextRequest) {
 // DELETE
 export async function DELETE(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyAdmin(req)
     const { searchParams } = new URL(req.url)
     const id = searchParams.get("id")
 

@@ -8,7 +8,7 @@ import { BookingStatus } from "@/app/generated/prisma/client"
 // GET: list all bookings with filters
 export async function GET(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyAdmin(req)
     const { searchParams } = new URL(req.url)
 
     const status = searchParams.get('status')
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
 // PUT: update booking status (Admin override)
 export async function PUT(req: NextRequest) {
   try {
-    const decoded = verifyAdmin(req)
+    const decoded = await verifyAdmin(req)
     const { id, status, comment } = await req.json()
 
     if (!id || !status) {
@@ -209,7 +209,7 @@ export async function PUT(req: NextRequest) {
 // DELETE: delete booking
 export async function DELETE(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyAdmin(req)
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
 

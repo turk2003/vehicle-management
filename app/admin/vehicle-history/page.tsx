@@ -7,6 +7,7 @@ import { BarChart3, Car, Filter, Route, RotateCcw, Wrench } from "lucide-react"
 import api from "@/lib/api"
 import { formatDateTime, getVehicleStatusColor, getVehicleStatusText } from "@/lib/format"
 import AiUsageSummaryCard from "./AiUsageSummaryCard"
+import VehicleHistoryDetails from "./VehicleHistoryDetails"
 
 type VehicleOption = {
   id: string
@@ -438,6 +439,8 @@ export default function AdminVehicleHistoryPage() {
             </table>
           </div>
         </section>
+
+        <VehicleHistoryDetails filters={filters} />
       </div>
     </div>
   )

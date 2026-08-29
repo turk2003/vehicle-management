@@ -19,7 +19,7 @@ const LOCKED_ADMIN_PERMISSIONS = ["USER_MANAGE", "BOOKING_VIEW", "VEHICLE_VIEW"]
 // GET: ดึง permissions ทั้งหมดของทุก role
 export async function GET(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyAdmin(req)
 
     const rows = await prisma.rolePermission.findMany()
 
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 // PUT: อัพเดท permissions ของ role
 export async function PUT(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyAdmin(req)
     const { role, permissions } = await req.json()
 
     if (!ROLES.includes(role)) {

@@ -29,7 +29,7 @@ const bookingInclude = {
 // GET: list pending bookings for approval
 export async function GET(req: NextRequest) {
   try {
-    verifyApprover(req)
+    await verifyApprover(req)
     const { searchParams } = new URL(req.url)
     const statusParam = searchParams.get('status') || 'PENDING'
 
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
 // PUT: approve or reject booking
 export async function PUT(req: NextRequest) {
   try {
-    const decoded = verifyApprover(req)
+    const decoded = await verifyApprover(req)
     const { id, action, comment } = await req.json()
 
     if (!id || !action) {

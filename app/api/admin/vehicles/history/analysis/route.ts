@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   let model = process.env.OPENAI_VEHICLE_SUMMARY_MODEL || "gpt-5.6-luna"
 
   try {
-    const admin = verifyAdmin(req)
+    const admin = await verifyAdmin(req)
     adminId = admin.userId
 
     if (activeAdmins.has(admin.userId)) {

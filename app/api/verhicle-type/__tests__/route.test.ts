@@ -21,9 +21,9 @@ describe('Vehicle Type API', () => {
     
     // Default: simulate a valid admin for write operations and valid user for reads
     // @ts-ignore
-    vi.mocked(verifyUser).mockReturnValue({ userId: '1', role: 'USER' })
+    vi.mocked(verifyUser).mockResolvedValue({ userId: '1', role: 'USER', isActive: true })
     // @ts-ignore
-    vi.mocked(verifyAdmin).mockReturnValue({ userId: 'admin1', role: 'ADMIN' })
+    vi.mocked(verifyAdmin).mockResolvedValue({ userId: 'admin1', role: 'ADMIN', isActive: true })
     // @ts-ignore
     vi.mocked(isAuthError).mockImplementation((error) => (error as Error).message === 'Not authorized')
   })

@@ -9,7 +9,7 @@ import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
  */
 export async function PUT(req: NextRequest) {
   try {
-    const decoded = verifyAdmin(req)
+    const decoded = await verifyAdmin(req)
     const { bookingId, mileageStart } = await req.json()
 
     if (!bookingId || mileageStart === undefined || mileageStart === null) {

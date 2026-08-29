@@ -7,7 +7,7 @@ import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
 // GET
 export async function GET(req: NextRequest) {
   try {
-    const decoded = verifyUser(req)
+    const decoded = await verifyUser(req)
     const { searchParams } = new URL(req.url)
     const action = searchParams.get("action")
 
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
 // POST
 export async function POST(req: NextRequest) {
   try {
-    const decoded = verifyUser(req)
+    const decoded = await verifyUser(req)
     const { vehicleId, startDate, endDate, purpose, destination } = await req.json()
 
     if (!vehicleId || !startDate || !endDate || !purpose) {
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
 // PUT: user cancel booking
 export async function PUT(req: NextRequest) {
   try {
-    const decoded = verifyUser(req)
+    const decoded = await verifyUser(req)
     const { id, status } = await req.json()
 
     if (!id || status !== "CANCELLED") {
@@ -230,7 +230,7 @@ export async function PUT(req: NextRequest) {
 // PATCH: Edit pending booking
 export async function PATCH(req: NextRequest) {
   try {
-    const decoded = verifyUser(req)
+    const decoded = await verifyUser(req)
     const { id, startDate, endDate, purpose } = await req.json()
 
     if (!id || !startDate || !endDate || !purpose) {

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import axios from "axios"
-import { Pencil, Trash2, UserPlus, X } from "lucide-react"
+import Link from "next/link"
+import { Pencil, Power, PowerOff, Trash2, UserPlus, X } from "lucide-react"
 import api from "@/lib/api"
 import { formatDate, getRoleColor, getRoleDisplayName } from "@/lib/format"
 
@@ -11,8 +12,15 @@ type User = {
   name: string
   email: string
   role: string
+  isActive: boolean
+  deactivatedAt: string | null
+  activeBookingCount: number
+  canDelete: boolean
   createdAt: string
 }
+
+type CurrentUser = Pick<User, "id" | "role">
+type StatusFilter = "ALL" | "ACTIVE" | "INACTIVE"
 
 type UserFormData = {
   name: string
@@ -47,13 +55,20 @@ export default function AdminUsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [error, setError] = useState("")
   const [formData, setFormData] = useState<UserFormData>(INITIAL_FORM_DATA)
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL")
+  const [statusMessage, setStatusMessage] = useState("")
 
   const fetchUsers = async () => {
     try {
       setLoading(true)
       setError("")
-      const response = await api.get<User[]>("/api/user")
-      setUsers(response.data)
+      const [usersResponse, meResponse] = await Promise.all([
+        api.get<User[]>("/api/user"),
+        api.get<{ user: CurrentUser }>("/api/auth/me"),
+      ])
+      setUsers(usersResponse.data)
+      setCurrentUser(meResponse.data.user)
     } catch (error) {
       setError(getErrorMessage(error, "ไม่สามารถโหลดข้อมูลผู้ใช้ได้"))
     } finally {
@@ -130,6 +145,45 @@ export default function AdminUsersPage() {
     }
   }
 
+  const toggleUserStatus = async (user: User) => {
+    const nextActive = !user.isActive
+    const bookingNotice = user.activeBookingCount > 0
+      ? `\nผู้ใช้นี้มีการจองที่ยังดำเนินการอยู่ ${user.activeBookingCount} รายการ ซึ่งจะไม่ถูกยกเลิกอัตโนมัติ`
+      : ""
+    const confirmed = confirm(
+      nextActive
+        ? `ต้องการเปิดใช้งานบัญชี "${user.name}" ใช่หรือไม่?`
+        : `ต้องการปิดใช้งานบัญชี "${user.name}" ใช่หรือไม่?${bookingNotice}`,
+    )
+    if (!confirmed) return
+
+    try {
+      setLoading(true)
+      setError("")
+      setStatusMessage("")
+      const response = await api.patch<User & { affectedBookingCount: number }>(
+        "/api/user",
+        { id: user.id, isActive: nextActive },
+      )
+      setUsers((currentUsers) =>
+        currentUsers.map((item) =>
+          item.id === user.id
+            ? { ...item, ...response.data, canDelete: item.canDelete }
+            : item,
+        ),
+      )
+      setStatusMessage(
+        nextActive
+          ? `เปิดใช้งานบัญชี ${user.name} แล้ว`
+          : `ปิดใช้งานบัญชี ${user.name} แล้ว การจองที่ยังดำเนินการอยู่ ${response.data.affectedBookingCount} รายการยังคงอยู่`,
+      )
+    } catch (error) {
+      setError(getErrorMessage(error, "ไม่สามารถเปลี่ยนสถานะบัญชีได้"))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const openEditModal = (user: User) => {
     setEditingUser(user)
     setFormData({
@@ -150,6 +204,15 @@ export default function AdminUsersPage() {
   useEffect(() => {
     fetchUsers()
   }, [])
+
+  const activeAdminCount = users.filter(
+    (user) => user.role === "ADMIN" && user.isActive,
+  ).length
+  const filteredUsers = users.filter((user) => {
+    if (statusFilter === "ACTIVE") return user.isActive
+    if (statusFilter === "INACTIVE") return !user.isActive
+    return true
+  })
 
   const modalTitle = editingUser ? "แก้ไขผู้ใช้" : "เพิ่มผู้ใช้"
   const submitLabel = editingUser ? "บันทึกการแก้ไข" : "สร้างผู้ใช้"
@@ -191,20 +254,46 @@ export default function AdminUsersPage() {
           </div>
         )}
 
+        {statusMessage && (
+          <div
+            role="status"
+            className="mb-4 flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <span>{statusMessage}</span>
+            <Link href="/admin/bookings" className="font-semibold text-blue-700 underline underline-offset-2">
+              ไปจัดการการจอง
+            </Link>
+          </div>
+        )}
+
         <section
           className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200"
           aria-labelledby="users-table-title"
         >
-          <div className="border-b border-gray-200 px-6 py-4">
-            <h2
-              id="users-table-title"
-              className="text-lg font-semibold text-gray-950"
-            >
-              รายชื่อผู้ใช้
-            </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              ทั้งหมด {users.length} รายการ
-            </p>
+          <div className="flex flex-col gap-4 border-b border-gray-200 px-6 py-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 id="users-table-title" className="text-lg font-semibold text-gray-950">
+                รายชื่อผู้ใช้
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                แสดง {filteredUsers.length} จากทั้งหมด {users.length} รายการ
+              </p>
+            </div>
+            <div>
+              <label htmlFor="user-status-filter" className="mb-1 block text-xs font-medium text-gray-600">
+                สถานะบัญชี
+              </label>
+              <select
+                id="user-status-filter"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                className="min-h-10 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+              >
+                <option value="ALL">ทั้งหมด</option>
+                <option value="ACTIVE">ใช้งานอยู่</option>
+                <option value="INACTIVE">ปิดใช้งาน</option>
+              </select>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -218,6 +307,9 @@ export default function AdminUsersPage() {
                     บทบาท
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
+                    สถานะ
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
                     วันที่สร้าง
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-600">
@@ -228,21 +320,27 @@ export default function AdminUsersPage() {
               <tbody className="divide-y divide-gray-200 bg-white">
                 {loading && users.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-10 text-center">
+                    <td colSpan={5} className="px-6 py-10 text-center">
                       <div className="mx-auto h-5 w-48 animate-pulse rounded bg-gray-200" />
                     </td>
                   </tr>
-                ) : users.length === 0 ? (
+                ) : filteredUsers.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="px-6 py-12 text-center text-sm text-gray-600"
                     >
                       ยังไม่มีข้อมูลผู้ใช้
                     </td>
                   </tr>
                 ) : (
-                  users.map((user) => (
+                  filteredUsers.map((user) => {
+                    const isSelf = currentUser?.id === user.id
+                    const isLastActiveAdmin =
+                      user.role === "ADMIN" && user.isActive && activeAdminCount <= 1
+                    const statusActionDisabled = loading || isSelf || isLastActiveAdmin
+
+                    return (
                     <tr
                       key={user.id}
                       className="transition-colors duration-150 hover:bg-gray-50"
@@ -269,6 +367,16 @@ export default function AdminUsersPage() {
                           {getRoleDisplayName(user.role)}
                         </span>
                       </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${user.isActive ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-700"}`}>
+                          {user.isActive ? "ใช้งานอยู่" : "ปิดใช้งาน"}
+                        </span>
+                        {user.activeBookingCount > 0 && (
+                          <p className="mt-1 text-xs text-amber-700">
+                            การจองที่ยังดำเนินการ {user.activeBookingCount} รายการ
+                          </p>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {formatDate(user.createdAt)}
                       </td>
@@ -284,17 +392,30 @@ export default function AdminUsersPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => deleteUser(user.id, user.name)}
-                            disabled={loading}
-                            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors duration-150 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600/25 disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => toggleUserStatus(user)}
+                            disabled={statusActionDisabled}
+                            title={isSelf ? "ไม่สามารถปิดบัญชีตนเอง" : isLastActiveAdmin ? "ต้องมีผู้ดูแลระบบที่ใช้งานอยู่อย่างน้อย 1 คน" : undefined}
+                            className={`inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${user.isActive ? "bg-amber-50 text-amber-800 hover:bg-amber-100 focus:ring-amber-600/25" : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 focus:ring-emerald-600/25"}`}
                           >
-                            <Trash2 className="h-4 w-4" aria-hidden="true" />
-                            ลบ
+                            {user.isActive ? <PowerOff className="h-4 w-4" aria-hidden="true" /> : <Power className="h-4 w-4" aria-hidden="true" />}
+                            {user.isActive ? "ปิดบัญชี" : "เปิดบัญชี"}
                           </button>
+                          {user.canDelete && !isSelf && (
+                            <button
+                              type="button"
+                              onClick={() => deleteUser(user.id, user.name)}
+                              disabled={loading || isLastActiveAdmin}
+                              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors duration-150 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600/25 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
+                              ลบ
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
-                  ))
+                    )
+                  })
                 )}
               </tbody>
             </table>

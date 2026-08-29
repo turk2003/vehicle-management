@@ -25,7 +25,7 @@ vi.mock("@/lib/email/maintenanceNotifications", () => ({
 describe("POST /api/user/maintenance", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyToken).mockReturnValue({ userId: "user-1", role: "USER" })
+    vi.mocked(verifyToken).mockResolvedValue({ userId: "user-1", role: "USER", isActive: true })
     prismaMock.$transaction.mockImplementation(
       async (callback: (tx: typeof prismaMock) => Promise<unknown>) =>
         callback(prismaMock)

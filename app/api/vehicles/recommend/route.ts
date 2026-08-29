@@ -9,7 +9,7 @@ import { verifyUser } from "@/lib/auth"
  */
 export async function GET(req: NextRequest) {
   try {
-    verifyUser(req)
+    await verifyUser(req)
     const { searchParams } = new URL(req.url)
 
     const startDate = searchParams.get("startDate")

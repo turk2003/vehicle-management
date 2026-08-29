@@ -72,7 +72,7 @@ function request(body: Record<string, unknown> = {}) {
 describe("POST /api/admin/vehicles/history/analysis", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyAdmin).mockReturnValue({ userId: "admin-1", role: "ADMIN" })
+    vi.mocked(verifyAdmin).mockResolvedValue({ userId: "admin-1", role: "ADMIN", isActive: true })
     vi.mocked(calculateVehicleUsageAnalysis).mockResolvedValue(analysis as never)
     vi.mocked(buildVehicleUsageAiPayload).mockReturnValue({ cacheKey: `cache-${Math.random()}` } as never)
     vi.mocked(generateVehicleUsageSummary).mockResolvedValue({

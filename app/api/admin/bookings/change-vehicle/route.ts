@@ -86,7 +86,7 @@ function errorResponse(error: unknown) {
 
 export async function GET(req: NextRequest) {
   try {
-    verifyAdmin(req)
+    await verifyAdmin(req)
     const bookingId = new URL(req.url).searchParams.get("bookingId")
 
     if (!bookingId) {
@@ -154,7 +154,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const decoded = verifyAdmin(req)
+    const decoded = await verifyAdmin(req)
     const body = await req.json()
     const bookingId = typeof body.bookingId === "string" ? body.bookingId : ""
     const newVehicleId = typeof body.newVehicleId === "string" ? body.newVehicleId : ""

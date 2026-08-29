@@ -65,6 +65,20 @@ test.beforeAll(async () => {
     }
   }
 
+  const reportPermission = await pool.query<{ id: string }>(
+    `SELECT "id" FROM "RolePermission"
+     WHERE "role" = 'ADMIN' AND "permission" = 'REPORT_VIEW'`
+  )
+  if (reportPermission.rowCount === 0) {
+    const permissionId = randomUUID()
+    await pool.query(
+      `INSERT INTO "RolePermission" ("id", "role", "permission")
+       VALUES ($1, 'ADMIN', 'REPORT_VIEW')`,
+      [permissionId]
+    )
+    createdPermissionIds.push(permissionId)
+  }
+
   vehicleTypeId = randomUUID()
   oldVehicleId = randomUUID()
   newVehicleId = randomUUID()
@@ -85,7 +99,7 @@ test.beforeAll(async () => {
     )
   ])
 
-  const startDate = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  const startDate = new Date(Date.now() + 60 * 60 * 1000)
   const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000)
   bookingId = randomUUID()
   await pool.query(
@@ -162,6 +176,7 @@ test("user reports an emergency and admin replaces the vehicle", async ({
   await userPage.goto("/user/maintenance")
   await userPage.getByRole("button", { name: "แจ้งซ่อม" }).click()
   await userPage.locator("#maintenance-vehicle").selectOption(oldVehicleId)
+  await userPage.locator("#maintenance-type").selectOption("BREAKDOWN")
   await userPage.locator("#maintenance-description").fill(issueDescription)
   await userPage
     .getByRole("dialog")
@@ -212,6 +227,27 @@ test("user reports an emergency and admin replaces the vehicle", async ({
   const changedBooking = userPage.getByText(newPlate).first()
   await expect(changedBooking).toBeVisible()
   await expect(userPage.getByText("เปลี่ยนรถแล้ว").first()).toBeVisible()
+
+  await adminPage.goto("/admin/vehicle-history")
+  await expect(adminPage.getByText("Phase 6 emergency E2E").first()).toBeVisible()
+  await adminPage.getByRole("tab", { name: "งานซ่อม" }).click()
+  await expect(adminPage.getByText(issueDescription).first()).toBeVisible()
+
+  await adminPage.goto("/admin/users")
+  const userRow = adminPage.getByRole("row").filter({ hasText: userEmail })
+  await expect(userRow).toContainText("การจองที่ยังดำเนินการ 1 รายการ")
+  adminPage.once("dialog", (dialog) => dialog.accept())
+  await userRow.getByRole("button", { name: "ปิดบัญชี" }).click()
+  await expect(adminPage.getByRole("status")).toContainText("ปิดใช้งานบัญชี")
+
+  const blockedResponse = await userPage.request.get("/api/booking?action=my-bookings")
+  expect(blockedResponse.status()).toBe(401)
+
+  adminPage.once("dialog", (dialog) => dialog.accept())
+  await userRow.getByRole("button", { name: "เปิดบัญชี" }).click()
+  await expect(adminPage.getByRole("status")).toContainText("เปิดใช้งานบัญชี")
+  await login(userPage, userEmail)
+  await expect(userPage).toHaveURL(/\/user/)
 
   await userContext.close()
   await adminContext.close()

@@ -62,9 +62,10 @@ const replacement = {
 describe("PUT /api/admin/bookings/change-vehicle", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyAdmin).mockReturnValue({
+    vi.mocked(verifyAdmin).mockResolvedValue({
       userId: "admin-1",
-      role: "ADMIN"
+      role: "ADMIN",
+      isActive: true,
     })
     prismaMock.$transaction.mockImplementation(
       async (callback: (tx: typeof prismaMock) => Promise<unknown>) =>

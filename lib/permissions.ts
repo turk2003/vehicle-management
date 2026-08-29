@@ -13,9 +13,11 @@ export type Permission =
 // We removed local Map cache because it causes stale permissions across API requests.
 
 /** โหลด permissions ของ role จาก DBโดยตรง ไม่ผ่าน Cache */
-export async function getPermissionsForRole(role: string): Promise<Set<string>> {
+export async function getPermissionsForRole(
+  role: "USER" | "ADMIN" | "APPROVER",
+): Promise<Set<string>> {
   const rows = await prisma.rolePermission.findMany({
-    where: { role: role as any },
+    where: { role },
     select: { permission: true },
   })
 
@@ -24,6 +26,7 @@ export async function getPermissionsForRole(role: string): Promise<Set<string>> 
 
 /** ล้าง cache (ตอนนี้ไม่ได้ใช้แล้วเพราะดึงสด แต่คง function signature ไว้) */
 export function clearPermissionCache(role?: string) {
+  void role
   // No-op
 }
 
@@ -32,7 +35,7 @@ export async function verifyPermission(
   req: NextRequest,
   permission: Permission
 ): Promise<{ userId: string; role: string }> {
-  const decoded = verifyToken(req)
+  const decoded = await verifyToken(req)
   const permissions = await getPermissionsForRole(decoded.role)
 
   if (!permissions.has(permission)) {
@@ -60,6 +63,7 @@ export function isPermissionError(error: unknown): boolean {
     error instanceof Error &&
     (error.message === "No token" ||
       error.message === "Not authorized" ||
+      error.message === "Account inactive" ||
       error.message === "Forbidden")
   )
 }

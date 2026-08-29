@@ -7,7 +7,7 @@ import { emailAdminsAboutMaintenanceReport } from "@/lib/email/maintenanceNotifi
 // GET: Fetch maintenance history for the logged-in user
 export async function GET(req: NextRequest) {
   try {
-    const decoded = verifyToken(req)
+    const decoded = await verifyToken(req)
     
     const maintenances = await prisma.maintenance.findMany({
       where: { reporterId: decoded.userId },
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 // POST: Report a new maintenance issue
 export async function POST(req: NextRequest) {
   try {
-    const decoded = verifyToken(req)
+    const decoded = await verifyToken(req)
     const { vehicleId, description, startDate, maintenanceType } = await req.json()
 
     const allowedTypes = new Set<MaintenanceType>([

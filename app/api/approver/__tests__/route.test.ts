@@ -20,7 +20,7 @@ vi.mock('@/lib/email/bookingNotifications', () => ({
 describe('Approver API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyApprover).mockReturnValue({ userId: 'approver1', role: 'APPROVER' })
+    vi.mocked(verifyApprover).mockResolvedValue({ userId: 'approver1', role: 'APPROVER', isActive: true })
   })
 
   describe('PUT /api/approver', () => {
