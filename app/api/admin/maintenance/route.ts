@@ -5,6 +5,56 @@ import { isAuthError } from "@/lib/auth"
 import { MaintenanceStatus, MaintenanceType } from "@/app/generated/prisma/client"
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
 
+class MaintenanceInputError extends Error {}
+
+function parseRequiredDate(value: unknown, fieldName: string) {
+  if (typeof value !== "string" || !value) {
+    throw new MaintenanceInputError(`กรุณาระบุ${fieldName}`)
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    throw new MaintenanceInputError(`${fieldName}ไม่ถูกต้อง`)
+  }
+  return date
+}
+
+function parseOptionalDate(value: unknown, fieldName: string) {
+  if (value === undefined) return undefined
+  if (value === null || value === "") return null
+  return parseRequiredDate(value, fieldName)
+}
+
+function parseOptionalText(value: unknown, fieldName: string) {
+  if (value === undefined) return undefined
+  if (value === null || value === "") return null
+  if (typeof value !== "string") {
+    throw new MaintenanceInputError(`${fieldName}ไม่ถูกต้อง`)
+  }
+  return value.trim() || null
+}
+
+function parseOptionalCost(value: unknown) {
+  if (value === undefined) return undefined
+  if (value === null || value === "") return null
+  if (typeof value !== "number" && typeof value !== "string") {
+    throw new MaintenanceInputError("ค่าใช้จ่ายไม่ถูกต้อง")
+  }
+  const normalized = typeof value === "string" ? value.trim() : value
+  if (normalized === "") return null
+  const parsed = typeof normalized === "number" ? normalized : Number(normalized)
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new MaintenanceInputError("ค่าใช้จ่ายต้องเป็นตัวเลขที่ไม่ติดลบ")
+  }
+  return parsed
+}
+
+function inputErrorResponse(error: unknown) {
+  if (error instanceof MaintenanceInputError) {
+    return NextResponse.json({ message: error.message }, { status: 400 })
+  }
+  return null
+}
+
 // GET
 export async function GET(req: NextRequest) {
   try {
@@ -45,6 +95,9 @@ export async function POST(req: NextRequest) {
       vehicleId,
       description,
       maintenanceType,
+      repairDetails,
+      serviceCenterName,
+      cost,
       startDate,
       endDate,
       status,
@@ -66,12 +119,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" }, { status: 400 })
     }
 
+    const start = parseRequiredDate(startDate, "วันที่เริ่ม")
+    const parsedEnd = parseOptionalDate(endDate, "วันที่เสร็จ")
+    const parsedCost = parseOptionalCost(cost)
+    const parsedRepairDetails = parseOptionalText(repairDetails, "รายละเอียดการซ่อม")
+    const parsedServiceCenterName = parseOptionalText(serviceCenterName, "ศูนย์บริการ")
+
+    if (parsedEnd && parsedEnd < start) {
+      throw new MaintenanceInputError("วันที่เสร็จสิ้นต้องไม่ก่อนวันที่เริ่ม")
+    }
+    if (status && !Object.values(MaintenanceStatus).includes(status as MaintenanceStatus)) {
+      throw new MaintenanceInputError("สถานะงานซ่อมไม่ถูกต้อง")
+    }
+
+    const now = new Date()
+    let resolvedStatus: MaintenanceStatus = MaintenanceStatus.REPORTED
+    if (start <= now) resolvedStatus = MaintenanceStatus.IN_PROGRESS
+    if (status && !(status === "REPORTED" && start <= now)) {
+      resolvedStatus = status as MaintenanceStatus
+    }
+    if (resolvedStatus === MaintenanceStatus.COMPLETED && !parsedEnd) {
+      throw new MaintenanceInputError("กรุณาระบุวันที่เสร็จเมื่อปิดงานซ่อม")
+    }
+
     const affectedBookings = await prisma.booking.findMany({
       where: {
         vehicleId,
         status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
-        ...(endDate && { startDate: { lte: new Date(endDate) } }),
-        endDate: { gte: new Date(startDate) }
+        ...(parsedEnd && { startDate: { lte: parsedEnd } }),
+        endDate: { gte: start }
       },
       select: {
         id: true,
@@ -93,26 +169,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const start = new Date(startDate)
-    const now = new Date()
-
-    // ✅ ใช้ MaintenanceStatus enum แทน string
-    let resolvedStatus: MaintenanceStatus = MaintenanceStatus.REPORTED
-    if (start <= now) {
-      resolvedStatus = MaintenanceStatus.IN_PROGRESS
-    }
-    if (status && !(status === "REPORTED" && start <= now)) {
-      resolvedStatus = status as MaintenanceStatus
-    }
-
     const maintenance = await prisma.maintenance.create({
       data: {
         vehicleId,
         reporterId: decoded.userId,
         description,
         maintenanceType: maintenanceType as MaintenanceType,
+        repairDetails: parsedRepairDetails,
+        serviceCenterName: parsedServiceCenterName,
+        cost: parsedCost,
         startDate: start,
-        endDate: endDate ? new Date(endDate) : null,
+        endDate: parsedEnd,
         status: resolvedStatus  // ✅ ไม่มี error แล้ว
       },
       include: {
@@ -130,6 +197,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(maintenance, { status: 201 })
   } catch (error: unknown) {
+    const inputResponse = inputErrorResponse(error)
+    if (inputResponse) return inputResponse
     if (isAuthError(error)) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
@@ -145,6 +214,9 @@ export async function PUT(req: NextRequest) {
       id,
       description,
       maintenanceType,
+      repairDetails,
+      serviceCenterName,
+      cost,
       startDate,
       endDate,
       status,
@@ -159,6 +231,13 @@ export async function PUT(req: NextRequest) {
     ) {
       return NextResponse.json({ message: "ประเภทงานซ่อมไม่ถูกต้อง" }, { status: 400 })
     }
+    if (status && !Object.values(MaintenanceStatus).includes(status as MaintenanceStatus)) {
+      return NextResponse.json({ message: "สถานะงานซ่อมไม่ถูกต้อง" }, { status: 400 })
+    }
+
+    const parsedRepairDetails = parseOptionalText(repairDetails, "รายละเอียดการซ่อม")
+    const parsedServiceCenterName = parseOptionalText(serviceCenterName, "ศูนย์บริการ")
+    const parsedCost = parseOptionalCost(cost)
 
     const existing = await prisma.maintenance.findUnique({
       where: { id },
@@ -168,7 +247,11 @@ export async function PUT(req: NextRequest) {
     if (!existing) return NextResponse.json({ message: "ไม่พบข้อมูล" }, { status: 404 })
 
     const now = new Date()
-    const newStart = startDate ? new Date(startDate) : existing.startDate
+    const newStart = startDate
+      ? parseRequiredDate(startDate, "วันที่เริ่ม")
+      : existing.startDate
+    const parsedEnd = parseOptionalDate(endDate, "วันที่เสร็จ")
+    const finalEnd = parsedEnd === undefined ? existing.endDate : parsedEnd
 
     // ✅ ใช้ MaintenanceStatus enum
     let resolvedStatus: MaintenanceStatus | undefined = status
@@ -179,6 +262,14 @@ export async function PUT(req: NextRequest) {
       resolvedStatus = MaintenanceStatus.IN_PROGRESS
     }
 
+    const finalStatus = resolvedStatus || existing.status
+    if (finalStatus === MaintenanceStatus.COMPLETED && !finalEnd) {
+      throw new MaintenanceInputError("กรุณาระบุวันที่เสร็จเมื่อปิดงานซ่อม")
+    }
+    if (finalEnd && finalEnd < newStart) {
+      throw new MaintenanceInputError("วันที่เสร็จสิ้นต้องไม่ก่อนวันที่เริ่ม")
+    }
+
     if (
       resolvedStatus === MaintenanceStatus.IN_PROGRESS &&
       existing.status !== MaintenanceStatus.IN_PROGRESS
@@ -187,7 +278,7 @@ export async function PUT(req: NextRequest) {
         where: {
           vehicleId: existing.vehicleId,
           status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
-          ...(endDate && { startDate: { lte: new Date(endDate) } }),
+          ...(finalEnd && { startDate: { lte: finalEnd } }),
           endDate: { gte: newStart }
         },
         select: {
@@ -218,8 +309,11 @@ export async function PUT(req: NextRequest) {
         ...(maintenanceType && {
           maintenanceType: maintenanceType as MaintenanceType
         }),
+        ...(repairDetails !== undefined && { repairDetails: parsedRepairDetails }),
+        ...(serviceCenterName !== undefined && { serviceCenterName: parsedServiceCenterName }),
+        ...(cost !== undefined && { cost: parsedCost }),
         ...(startDate && { startDate: newStart }),
-        endDate: endDate ? new Date(endDate) : null,
+        ...(endDate !== undefined && { endDate: parsedEnd }),
         ...(resolvedStatus && { status: resolvedStatus })  // ✅ ไม่มี error แล้ว
       },
       include: {
@@ -261,6 +355,8 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(updated)
   } catch (error: unknown) {
+    const inputResponse = inputErrorResponse(error)
+    if (inputResponse) return inputResponse
     if (isAuthError(error)) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     }
