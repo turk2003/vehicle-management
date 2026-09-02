@@ -75,7 +75,7 @@ export default function LoginPage() {
   return (
     <main className="relative isolate min-h-screen overflow-hidden bg-[#750064] text-gray-900">
       <Image
-        src="/wall2.jpg"
+        src="/wall4.avif"
         alt=""
         fill
         priority
