@@ -119,6 +119,7 @@ model Booking {
   startDate       DateTime
   endDate         DateTime
   purpose         String
+  destination     String?
   status          BookingStatus @default(PENDING)
   rejectionReason String?
 

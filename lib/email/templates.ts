@@ -11,6 +11,7 @@ export type BookingEmailData = {
   startDate: Date | string
   endDate: Date | string
   purpose: string
+  destination?: string | null
   rejectionReason?: string | null
   mileageStart?: number | null
   mileageEnd?: number | null
@@ -121,6 +122,7 @@ export function buildBookingEmail(
     "",
     `รถ: ${vehicleName}`,
     `วัตถุประสงค์: ${booking.purpose}`,
+    ...(booking.destination ? [`ปลายทาง: ${booking.destination}`] : []),
     `เริ่มใช้งาน: ${formatDateTime(booking.startDate)}`,
     `สิ้นสุด: ${formatDateTime(booking.endDate)}`,
     ...(booking.pickedUpAt ? [`รับรถจริง: ${formatDateTime(booking.pickedUpAt)}`] : []),
@@ -131,6 +133,7 @@ export function buildBookingEmail(
   const rows = [
     ["รถ", vehicleName],
     ["วัตถุประสงค์", booking.purpose],
+    ...(booking.destination ? [["ปลายทาง", booking.destination]] : []),
     ["เริ่มใช้งาน", formatDateTime(booking.startDate)],
     ["สิ้นสุด", formatDateTime(booking.endDate)],
     ...(booking.pickedUpAt ? [["รับรถจริง", formatDateTime(booking.pickedUpAt)]] : []),

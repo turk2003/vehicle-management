@@ -17,7 +17,7 @@ type Booking = {
   startDate: string
   endDate: string
   purpose: string
-  destination?: string
+  destination?: string | null
   status: string
   mileageStart?: number | null
   mileageEnd?: number | null

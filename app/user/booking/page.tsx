@@ -525,6 +525,7 @@ export default function BookingPage() {
                   <input
                     id="booking-destination"
                     type="text"
+                    maxLength={255}
                     value={bookingData.destination}
                     onChange={(e) =>
                       setBookingData((current) => ({

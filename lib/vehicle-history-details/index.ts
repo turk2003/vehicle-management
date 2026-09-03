@@ -20,6 +20,7 @@ export class HistoryDetailsInputError extends AnalysisInputError {}
 const BOOKING_SELECT = {
   id: true,
   purpose: true,
+  destination: true,
   status: true,
   startDate: true,
   endDate: true,

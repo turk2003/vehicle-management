@@ -15,6 +15,7 @@ const booking = {
   startDate: new Date("2050-05-01T09:00:00.000Z"),
   endDate: new Date("2050-05-01T17:00:00.000Z"),
   purpose: "Site visit",
+  destination: "สำนักงานใหญ่",
   rejectionReason: null,
   mileageStart: null,
   mileageEnd: null,
@@ -29,7 +30,9 @@ describe("booking email templates", () => {
     expect(email.subject).toContain("การจองรถได้รับการอนุมัติ")
     expect(email.text).toContain("กข-1234")
     expect(email.text).toContain("Site visit")
+    expect(email.text).toContain("ปลายทาง: สำนักงานใหญ่")
     expect(email.html).toContain("Somchai")
+    expect(email.html).toContain("สำนักงานใหญ่")
   })
 
   it("includes rejection comments", () => {
@@ -50,4 +53,3 @@ describe("booking email templates", () => {
     expect(email.text).toContain("ใหม่-2222")
   })
 })
-

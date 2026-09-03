@@ -4,6 +4,33 @@ import { verifyUser } from "@/lib/auth"
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
 import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
 
+const MAX_DESTINATION_LENGTH = 255
+
+class BookingInputError extends Error {}
+
+function normalizeDestination(value: unknown) {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (typeof value !== "string") {
+    throw new BookingInputError("ปลายทางไม่ถูกต้อง")
+  }
+
+  const destination = value.trim()
+  if (destination.length > MAX_DESTINATION_LENGTH) {
+    throw new BookingInputError(
+      `ปลายทางต้องมีความยาวไม่เกิน ${MAX_DESTINATION_LENGTH} ตัวอักษร`
+    )
+  }
+  return destination || null
+}
+
+function bookingInputErrorResponse(error: unknown) {
+  if (error instanceof BookingInputError) {
+    return NextResponse.json({ message: error.message }, { status: 400 })
+  }
+  return null
+}
+
 // GET
 export async function GET(req: NextRequest) {
   try {
@@ -91,6 +118,7 @@ export async function POST(req: NextRequest) {
     const start = new Date(startDate)
     const end = new Date(endDate)
     const now = new Date()
+    const normalizedDestination = normalizeDestination(destination)
 
     if (start >= end) {
       return NextResponse.json({ message: "วันที่สิ้นสุดต้องหลังวันที่เริ่มต้น" }, { status: 400 })
@@ -150,7 +178,9 @@ export async function POST(req: NextRequest) {
         startDate: start,
         endDate: end,
         purpose,
-        ...(destination && { destination }),
+        ...(normalizedDestination !== undefined && {
+          destination: normalizedDestination
+        }),
         status: "PENDING"
         // ✅ ไม่เปลี่ยนสถานะรถตอนจอง เพราะยังไม่ได้ใช้จริง
       },
@@ -170,6 +200,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(booking)
   } catch (error: unknown) {
+    const inputResponse = bookingInputErrorResponse(error)
+    if (inputResponse) return inputResponse
     console.error("Create booking error:", error)
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
@@ -231,7 +263,7 @@ export async function PUT(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const decoded = await verifyUser(req)
-    const { id, startDate, endDate, purpose } = await req.json()
+    const { id, startDate, endDate, purpose, destination } = await req.json()
 
     if (!id || !startDate || !endDate || !purpose) {
       return NextResponse.json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" }, { status: 400 })
@@ -254,6 +286,7 @@ export async function PATCH(req: NextRequest) {
     const start = new Date(startDate)
     const end = new Date(endDate)
     const now = new Date()
+    const normalizedDestination = normalizeDestination(destination)
 
     if (start >= end) {
       return NextResponse.json({ message: "วันที่สิ้นสุดต้องหลังวันที่เริ่มต้น" }, { status: 400 })
@@ -298,7 +331,10 @@ export async function PATCH(req: NextRequest) {
       data: {
         startDate: start,
         endDate: end,
-        purpose
+        purpose,
+        ...(normalizedDestination !== undefined && {
+          destination: normalizedDestination
+        })
       },
       include: { vehicle: true }
     })
@@ -313,6 +349,8 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json(updated)
   } catch (error) {
+    const inputResponse = bookingInputErrorResponse(error)
+    if (inputResponse) return inputResponse
     console.error("Edit booking error:", error)
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }

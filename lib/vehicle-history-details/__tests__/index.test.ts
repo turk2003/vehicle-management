@@ -32,6 +32,7 @@ describe("vehicle history details", () => {
       {
         id: "pending",
         purpose: "ส่งเอกสาร",
+        destination: "สำนักงานเขตบางรัก",
         status: "PENDING",
         startDate: new Date("2026-08-03T01:00:00Z"),
         endDate: new Date("2026-08-03T04:00:00Z"),
@@ -53,9 +54,14 @@ describe("vehicle history details", () => {
     })
 
     expect(result.pagination).toEqual({ page: 1, pageSize: 1, total: 2, totalPages: 2 })
-    expect(result.items[0]).toMatchObject({ id: "pending", distanceKm: null })
+    expect(result.items[0]).toMatchObject({
+      id: "pending",
+      destination: "สำนักงานเขตบางรัก",
+      distanceKm: null,
+    })
     expect(prismaMock.booking.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ OR: expect.any(Array) }),
+      select: expect.objectContaining({ destination: true }),
     }))
   })
 

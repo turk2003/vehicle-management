@@ -28,7 +28,7 @@ type Booking = {
   startDate: string
   endDate: string
   purpose: string
-  destination?: string
+  destination?: string | null
   status: string
   rejectionReason?: string
   mileageStart?: number | null
@@ -59,6 +59,7 @@ type EditForm = {
   startDate: string
   endDate: string
   purpose: string
+  destination: string
 }
 
 type ModalType = "detail" | "edit" | "pickup" | "return" | null
@@ -78,6 +79,7 @@ const INITIAL_EDIT_FORM: EditForm = {
   startDate: "",
   endDate: "",
   purpose: "",
+  destination: "",
 }
 
 const STATUS_FILTERS = [
@@ -232,6 +234,7 @@ export default function MyBookingsPage() {
       startDate: toLocalDateTimeInputValue(booking.startDate),
       endDate: toLocalDateTimeInputValue(booking.endDate),
       purpose: booking.purpose,
+      destination: booking.destination || "",
     })
     setError("")
     setSuccess("")
@@ -774,6 +777,28 @@ export default function MyBookingsPage() {
                       }))
                     }
                     className="min-h-28 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="edit-destination"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    ปลายทาง (ไม่บังคับ)
+                  </label>
+                  <input
+                    id="edit-destination"
+                    type="text"
+                    maxLength={255}
+                    value={editForm.destination}
+                    onChange={(e) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        destination: e.target.value,
+                      }))
+                    }
+                    className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 placeholder:text-gray-500 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                    placeholder="เช่น สำนักงานเขต, สถานีไฟฟ้า"
                   />
                 </div>
                 <ModalActions

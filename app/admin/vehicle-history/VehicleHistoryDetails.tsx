@@ -23,6 +23,7 @@ type DetailsFilters = {
 type BookingItem = {
   id: string
   purpose: string
+  destination: string | null
   status: string
   startDate: string
   endDate: string
@@ -89,7 +90,7 @@ function TripsTable({ items }: { items: BookingItem[] }) {
     <table className="w-full min-w-[1100px] divide-y divide-slate-200">
       <thead className="bg-slate-50">
         <tr>
-          {["ผู้ใช้ / รถ", "วัตถุประสงค์", "เวลาที่จอง", "รับ–คืนจริง", "เลขไมล์", "สถานะ"].map((heading) => (
+          {["ผู้ใช้ / รถ", "วัตถุประสงค์ / ปลายทาง", "เวลาที่จอง", "รับ–คืนจริง", "เลขไมล์", "สถานะ"].map((heading) => (
             <th key={heading} className="px-5 py-3 text-left text-xs font-semibold text-slate-600">{heading}</th>
           ))}
         </tr>
@@ -101,7 +102,12 @@ function TripsTable({ items }: { items: BookingItem[] }) {
               <p className="font-semibold text-slate-950">{item.user.name}</p>
               <p className="text-slate-600">{item.vehicle.plateNumber} · {item.vehicle.type.name}</p>
             </td>
-            <td className="max-w-xs px-5 py-4 text-sm text-slate-700">{item.purpose}</td>
+            <td className="max-w-xs px-5 py-4 text-sm text-slate-700">
+              <p>{item.purpose}</p>
+              <p className="mt-1 text-slate-500">
+                ปลายทาง: {item.destination || "—"}
+              </p>
+            </td>
             <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-700">
               <p>{displayDate(item.startDate)}</p>
               <p className="mt-1">ถึง {displayDate(item.endDate)}</p>

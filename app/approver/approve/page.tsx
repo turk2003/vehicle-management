@@ -15,7 +15,7 @@ type Booking = {
   startDate: string
   endDate: string
   purpose: string
-  destination?: string
+  destination?: string | null
   status: string
   rejectionReason?: string
   createdAt: string
