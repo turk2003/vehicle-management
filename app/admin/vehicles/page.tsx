@@ -26,6 +26,7 @@ type VehicleFormData = {
   plateNumber: string
   typeId: string
   status: string
+  currentMileage: string
 }
 
 type VehicleTypeFormData = {
@@ -36,6 +37,7 @@ const INITIAL_VEHICLE_FORM: VehicleFormData = {
   plateNumber: "",
   typeId: "",
   status: "AVAILABLE",
+  currentMileage: "0",
 }
 
 const INITIAL_TYPE_FORM: VehicleTypeFormData = {
@@ -244,6 +246,7 @@ export default function AdminVehiclesPage() {
       plateNumber: vehicle.plateNumber,
       typeId: vehicle.type?.id || "",
       status: vehicle.status,
+      currentMileage: String(vehicle.currentMileage),
     })
     setError("")
     setShowModal(true)
@@ -575,7 +578,7 @@ export default function AdminVehiclesPage() {
                     {vehicleModalTitle}
                   </h3>
                   <p className="mt-1 text-sm text-gray-600">
-                    กำหนดทะเบียน ประเภท และสถานะปัจจุบันของรถ
+                    กำหนดทะเบียน ประเภท สถานะ และเลขไมล์ปัจจุบันของรถ
                   </p>
                 </div>
                 <button
@@ -661,6 +664,48 @@ export default function AdminVehiclesPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="currentMileage"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    เลขไมล์ปัจจุบัน (km)
+                  </label>
+                  <input
+                    id="currentMileage"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={2147483647}
+                    step={1}
+                    required
+                    aria-describedby="current-mileage-help"
+                    value={formData.currentMileage}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        currentMileage: e.target.value,
+                      })
+                    }
+                    className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 placeholder:text-gray-500 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                    placeholder="เช่น 25000"
+                  />
+                  <p
+                    id="current-mileage-help"
+                    className="mt-1.5 text-sm leading-5 text-gray-600"
+                  >
+                    ใช้ตรวจเลขไมล์ตอนรับรถและช่วยจัดอันดับรถที่แนะนำ
+                  </p>
+                  {editingVehicle &&
+                    formData.currentMileage !== "" &&
+                    Number(formData.currentMileage) < editingVehicle.currentMileage && (
+                      <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
+                        กำลังปรับลดจาก {editingVehicle.currentMileage.toLocaleString()} km
+                        โปรดตรวจสอบว่าเป็นการแก้ไขข้อมูลที่บันทึกผิด
+                      </p>
+                    )}
                 </div>
 
                 <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">

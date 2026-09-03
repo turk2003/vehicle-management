@@ -1,8 +1,43 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { isAuthError } from "@/lib/auth"
 import { verifyPermission, isPermissionError } from "@/lib/permissions"
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
+
+const MAX_MILEAGE = 2_147_483_647
+
+class VehicleInputError extends Error {}
+
+function parseCurrentMileage(value: unknown) {
+  if (value === undefined) return undefined
+  if (value === null || value === "") {
+    throw new VehicleInputError("กรุณาระบุเลขไมล์ปัจจุบัน")
+  }
+  if (typeof value !== "number" && typeof value !== "string") {
+    throw new VehicleInputError("เลขไมล์ต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป")
+  }
+
+  const normalized = typeof value === "string" ? value.trim() : value
+  if (normalized === "") {
+    throw new VehicleInputError("กรุณาระบุเลขไมล์ปัจจุบัน")
+  }
+
+  const mileage = typeof normalized === "number" ? normalized : Number(normalized)
+  if (!Number.isInteger(mileage) || mileage < 0) {
+    throw new VehicleInputError("เลขไมล์ต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป")
+  }
+  if (mileage > MAX_MILEAGE) {
+    throw new VehicleInputError(`เลขไมล์ต้องไม่เกิน ${MAX_MILEAGE.toLocaleString("en-US")}`)
+  }
+
+  return mileage
+}
+
+function inputErrorResponse(error: unknown) {
+  if (error instanceof VehicleInputError) {
+    return NextResponse.json({ message: error.message }, { status: 400 })
+  }
+  return null
+}
 
 // GET: list vehicles
 export async function GET(req: NextRequest) {
@@ -26,7 +61,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     await verifyPermission(req, "VEHICLE_MANAGE")
-    const { plateNumber, typeId, status } = await req.json()
+    const { plateNumber, typeId, status, currentMileage } = await req.json()
+    const parsedMileage = parseCurrentMileage(currentMileage) ?? 0
 
     const existingVehicle = await prisma.vehicle.findUnique({ where: { plateNumber } })
     if (existingVehicle) {
@@ -34,12 +70,19 @@ export async function POST(req: NextRequest) {
     }
 
     const vehicle = await prisma.vehicle.create({
-      data: { plateNumber, typeId, status: status || "AVAILABLE" },
+      data: {
+        plateNumber,
+        typeId,
+        status: status || "AVAILABLE",
+        currentMileage: parsedMileage
+      },
       include: { type: true }
     })
 
     return NextResponse.json(vehicle)
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const inputResponse = inputErrorResponse(error)
+    if (inputResponse) return inputResponse
     if (isPermissionError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
@@ -49,7 +92,8 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     await verifyPermission(req, "VEHICLE_MANAGE")
-    const { id, plateNumber, typeId, status } = await req.json()
+    const { id, plateNumber, typeId, status, currentMileage } = await req.json()
+    const parsedMileage = parseCurrentMileage(currentMileage)
 
     const existingVehicle = await prisma.vehicle.findFirst({
       where: { plateNumber, id: { not: id } }
@@ -60,12 +104,19 @@ export async function PUT(req: NextRequest) {
 
     const vehicle = await prisma.vehicle.update({
       where: { id },
-      data: { plateNumber, typeId, status },
+      data: {
+        plateNumber,
+        typeId,
+        status,
+        ...(parsedMileage !== undefined && { currentMileage: parsedMileage })
+      },
       include: { type: true }
     })
 
     return NextResponse.json(vehicle)
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const inputResponse = inputErrorResponse(error)
+    if (inputResponse) return inputResponse
     if (isPermissionError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
@@ -87,7 +138,7 @@ export async function DELETE(req: NextRequest) {
 
     await prisma.vehicle.delete({ where: { id } })
     return NextResponse.json({ message: "Vehicle deleted successfully" })
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (isPermissionError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
