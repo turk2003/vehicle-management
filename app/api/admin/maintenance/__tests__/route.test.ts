@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { POST, PUT } from "../route"
-import { verifyAdmin } from "@/lib/auth"
+import { GET, POST, PUT } from "../route"
+import { requireAccess } from "@/lib/permissions"
 
 const prismaMock = vi.hoisted(() => ({
   maintenance: {
     create: vi.fn(),
+    findMany: vi.fn(),
     findUnique: vi.fn(),
     update: vi.fn(),
     findFirst: vi.fn(),
@@ -19,15 +20,75 @@ const prismaMock = vi.hoisted(() => ({
 }))
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }))
-vi.mock("@/lib/auth", () => ({
-  verifyAdmin: vi.fn(),
-  isAuthError: vi.fn(() => false),
+vi.mock("@/lib/permissions", () => ({
+  requireAccess: vi.fn(),
+  accessErrorResponse: vi.fn(() => null),
 }))
+vi.mock("@/lib/syncStatuses", () => ({
+  syncAllVehicleStatuses: vi.fn(),
+}))
+
+describe("GET /api/admin/maintenance", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(requireAccess).mockResolvedValue({
+      userId: "admin-1",
+      role: "ADMIN",
+      isActive: true,
+    })
+  })
+
+  it("adds overlapping active bookings to each maintenance item", async () => {
+    prismaMock.maintenance.findMany.mockResolvedValue([
+      {
+        id: "maintenance-1",
+        vehicleId: "vehicle-1",
+        startDate: new Date("2050-01-02T09:00:00.000Z"),
+        endDate: new Date("2050-01-03T09:00:00.000Z"),
+      },
+    ])
+    prismaMock.booking.findMany.mockResolvedValue([
+      {
+        id: "booking-overlap",
+        vehicleId: "vehicle-1",
+        startDate: new Date("2050-01-02T10:00:00.000Z"),
+        endDate: new Date("2050-01-02T11:00:00.000Z"),
+        status: "APPROVED",
+        purpose: "ส่งเอกสาร",
+        destination: "สำนักงานใหญ่",
+        user: { id: "user-1", name: "User One" },
+      },
+      {
+        id: "booking-later",
+        vehicleId: "vehicle-1",
+        startDate: new Date("2050-01-04T10:00:00.000Z"),
+        endDate: new Date("2050-01-04T11:00:00.000Z"),
+        status: "APPROVED",
+        purpose: "ประชุม",
+        destination: null,
+        user: { id: "user-2", name: "User Two" },
+      },
+    ])
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/admin/maintenance") as Parameters<typeof GET>[0],
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data[0].affectedBookings).toHaveLength(1)
+    expect(data[0].affectedBookings[0]).toMatchObject({
+      id: "booking-overlap",
+      purpose: "ส่งเอกสาร",
+      user: { name: "User One" },
+    })
+  })
+})
 
 describe("PUT /api/admin/maintenance", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyAdmin).mockResolvedValue({
+    vi.mocked(requireAccess).mockResolvedValue({
       userId: "admin-1",
       role: "ADMIN",
       isActive: true,
@@ -120,7 +181,7 @@ describe("PUT /api/admin/maintenance", () => {
 describe("POST /api/admin/maintenance", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyAdmin).mockResolvedValue({
+    vi.mocked(requireAccess).mockResolvedValue({
       userId: "admin-1",
       role: "ADMIN",
       isActive: true,

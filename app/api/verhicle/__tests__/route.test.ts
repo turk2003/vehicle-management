@@ -1,21 +1,52 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { POST, PUT } from "../route"
-import { verifyPermission } from "@/lib/permissions"
+import { DELETE, POST, PUT } from "../route"
+import { requireAccess } from "@/lib/permissions"
 
 const prismaMock = vi.hoisted(() => ({
   vehicle: {
     findUnique: vi.fn(),
     findFirst: vi.fn(),
     create: vi.fn(),
+    delete: vi.fn(),
     update: vi.fn(),
   },
+  booking: { findFirst: vi.fn() },
+  maintenance: { findFirst: vi.fn() },
 }))
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }))
-vi.mock("@/lib/permissions", () => ({
-  verifyPermission: vi.fn(),
-  isPermissionError: vi.fn(() => false),
-}))
+vi.mock("@/lib/permissions", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/permissions")>()
+  return { ...original, requireAccess: vi.fn() }
+})
+
+describe("vehicle deletion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(requireAccess).mockResolvedValue({
+      userId: "admin-1",
+      role: "ADMIN",
+      isActive: true,
+    })
+    prismaMock.booking.findFirst.mockResolvedValue(null)
+  })
+
+  it("returns a conflict instead of deleting a vehicle with maintenance history", async () => {
+    prismaMock.maintenance.findFirst.mockResolvedValue({ id: "maintenance-1" })
+
+    const response = await DELETE(
+      new Request("http://localhost:3000/api/verhicle?id=vehicle-1", {
+        method: "DELETE",
+      }) as Parameters<typeof DELETE>[0],
+    )
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toMatchObject({
+      code: "VEHICLE_HAS_HISTORY",
+    })
+    expect(prismaMock.vehicle.delete).not.toHaveBeenCalled()
+  })
+})
 vi.mock("@/lib/syncStatuses", () => ({
   syncAllVehicleStatuses: vi.fn(),
 }))
@@ -23,9 +54,10 @@ vi.mock("@/lib/syncStatuses", () => ({
 describe("vehicle mileage management", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyPermission).mockResolvedValue({
+    vi.mocked(requireAccess).mockResolvedValue({
       userId: "admin-1",
       role: "ADMIN",
+      isActive: true,
     })
     prismaMock.vehicle.findUnique.mockResolvedValue(null)
     prismaMock.vehicle.findFirst.mockResolvedValue(null)

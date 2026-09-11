@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { verifyPermission, isPermissionError } from "@/lib/permissions"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import {
   AnalysisInputError,
   calculateVehicleUsageAnalysis,
@@ -7,7 +7,7 @@ import {
 
 export async function GET(req: NextRequest) {
   try {
-    await verifyPermission(req, "REPORT_VIEW")
+    await requireAccess(req, { roles: ["ADMIN"], permission: "REPORT_VIEW" })
 
     const { searchParams } = new URL(req.url)
     const analysis = await calculateVehicleUsageAnalysis({
@@ -27,9 +27,8 @@ export async function GET(req: NextRequest) {
     if (error instanceof AnalysisInputError) {
       return NextResponse.json({ message: error.message }, { status: 400 })
     }
-    if (isPermissionError(error)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

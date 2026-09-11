@@ -1,13 +1,20 @@
 import { NextRequest } from "next/server"
+import { NextResponse } from "next/server"
 import { prisma } from "./prisma"
-import { verifyToken } from "./auth"
+import { isAuthError, verifyToken, type AuthenticatedUser } from "./auth"
 
 export type Permission =
-  | "BOOKING_VIEW" | "BOOKING_CREATE" | "BOOKING_APPROVE" | "BOOKING_DELETE"
+  | "BOOKING_VIEW" | "BOOKING_CREATE" | "BOOKING_APPROVE" | "BOOKING_MANAGE" | "BOOKING_DELETE"
   | "VEHICLE_VIEW" | "VEHICLE_MANAGE"
-  | "MAINTENANCE_VIEW" | "MAINTENANCE_MANAGE"
+  | "MAINTENANCE_VIEW" | "MAINTENANCE_REPORT" | "MAINTENANCE_MANAGE"
   | "USER_MANAGE"
   | "REPORT_VIEW"
+  | "PERMISSION_MANAGE"
+
+export type AccessPolicy = {
+  roles?: AuthenticatedUser["role"][]
+  permission?: Permission
+}
 
 // Cache permissions in memory (reset on server restart)
 // We removed local Map cache because it causes stale permissions across API requests.
@@ -33,16 +40,37 @@ export function clearPermissionCache(role?: string) {
 /** เช็คว่า request มี permission ที่ต้องการไหม — throw ถ้าไม่มี */
 export async function verifyPermission(
   req: NextRequest,
-  permission: Permission
-): Promise<{ userId: string; role: string }> {
-  const decoded = await verifyToken(req)
-  const permissions = await getPermissionsForRole(decoded.role)
+  permission: Permission,
+  roles?: AuthenticatedUser["role"][],
+): Promise<AuthenticatedUser> {
+  return requireAccess(req, { permission, roles })
+}
 
-  if (!permissions.has(permission)) {
+export async function assertAccess(
+  actor: AuthenticatedUser,
+  policy: AccessPolicy,
+): Promise<AuthenticatedUser> {
+  if (policy.roles && !policy.roles.includes(actor.role)) {
+    throw new Error("Not authorized")
+  }
+
+  if (!policy.permission) return actor
+
+  const permissions = await getPermissionsForRole(actor.role)
+
+  if (!permissions.has(policy.permission)) {
     throw new Error("Forbidden")
   }
 
-  return decoded
+  return actor
+}
+
+export async function requireAccess(
+  req: NextRequest,
+  policy: AccessPolicy,
+): Promise<AuthenticatedUser> {
+  const actor = await verifyToken(req)
+  return assertAccess(actor, policy)
 }
 
 /** เช็คโดยไม่ throw — return true/false */
@@ -66,4 +94,42 @@ export function isPermissionError(error: unknown): boolean {
       error.message === "Account inactive" ||
       error.message === "Forbidden")
   )
+}
+
+export function isAuthenticationError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.message === "No token" ||
+      error.message === "Account inactive" ||
+      error.name === "JsonWebTokenError" ||
+      error.name === "TokenExpiredError")
+  )
+}
+
+export function accessErrorResponse(error: unknown): NextResponse | null {
+  if (isAuthenticationError(error)) {
+    return NextResponse.json(
+      { message: "Unauthorized", code: "UNAUTHENTICATED" },
+      { status: 401 },
+    )
+  }
+
+  if (
+    error instanceof Error &&
+    (error.message === "Not authorized" || error.message === "Forbidden")
+  ) {
+    return NextResponse.json(
+      { message: "ไม่มีสิทธิ์ดำเนินการ", code: "PERMISSION_DENIED" },
+      { status: 403 },
+    )
+  }
+
+  if (isAuthError(error)) {
+    return NextResponse.json(
+      { message: "Unauthorized", code: "UNAUTHENTICATED" },
+      { status: 401 },
+    )
+  }
+
+  return null
 }

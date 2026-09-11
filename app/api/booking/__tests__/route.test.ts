@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, POST, PUT, PATCH } from '../route'
-import { verifyUser } from '@/lib/auth'
+import { requireAccess } from '@/lib/permissions'
 import { syncAllVehicleStatuses } from '@/lib/syncStatuses'
 import { notifyBookingEvent } from '@/lib/email/bookingNotifications'
 
@@ -13,10 +13,9 @@ const prismaMock = vi.hoisted(() => ({
 
 // Setup global mocks
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
-vi.mock('@/lib/auth', () => ({
-  verifyUser: vi.fn(),
-  verifyAdmin: vi.fn(),
-  isAuthError: vi.fn()
+vi.mock('@/lib/permissions', () => ({
+  requireAccess: vi.fn(),
+  accessErrorResponse: vi.fn(() => null)
 }))
 vi.mock('@/lib/syncStatuses', () => ({
   syncAllVehicleStatuses: vi.fn()
@@ -28,7 +27,7 @@ vi.mock('@/lib/email/bookingNotifications', () => ({
 describe('Booking API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyUser).mockResolvedValue({ userId: 'user1', role: 'USER', isActive: true })
+    vi.mocked(requireAccess).mockResolvedValue({ userId: 'user1', role: 'USER', isActive: true })
   })
 
   describe('GET /api/booking', () => {

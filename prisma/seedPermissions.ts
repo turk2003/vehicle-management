@@ -1,49 +1,54 @@
 import "dotenv/config"
-import { PrismaClient } from "../app/generated/prisma/client"
+import {
+  Permission,
+  PrismaClient,
+  UserRole,
+} from "../app/generated/prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 
 const connectionString = `${process.env.DATABASE_URL}`
 const adapter = new PrismaPg({ connectionString })
-const prisma = new PrismaClient({ adapter } as any)
+const prisma = new PrismaClient({ adapter })
 
 // Default permissions สำหรับแต่ละ role
-const DEFAULT_PERMISSIONS: Record<string, string[]> = {
-  ADMIN: [
-    "BOOKING_VIEW", "BOOKING_CREATE", "BOOKING_APPROVE", "BOOKING_DELETE",
+const DEFAULT_PERMISSIONS: Record<UserRole, Permission[]> = {
+  [UserRole.ADMIN]: [
+    "BOOKING_VIEW", "BOOKING_CREATE", "BOOKING_APPROVE", "BOOKING_MANAGE", "BOOKING_DELETE",
     "VEHICLE_VIEW", "VEHICLE_MANAGE",
-    "MAINTENANCE_VIEW", "MAINTENANCE_MANAGE",
+    "MAINTENANCE_VIEW", "MAINTENANCE_REPORT", "MAINTENANCE_MANAGE",
     "USER_MANAGE",
     "REPORT_VIEW",
+    "PERMISSION_MANAGE",
   ],
-  APPROVER: [
+  [UserRole.APPROVER]: [
     "BOOKING_VIEW", "BOOKING_APPROVE",
     "VEHICLE_VIEW",
     "MAINTENANCE_VIEW",
-    "REPORT_VIEW",
   ],
-  USER: [
+  [UserRole.USER]: [
     "BOOKING_VIEW", "BOOKING_CREATE",
     "VEHICLE_VIEW",
-    "MAINTENANCE_VIEW",
+    "MAINTENANCE_VIEW", "MAINTENANCE_REPORT",
   ],
 }
 
 async function main() {
   console.log("🌱 Seeding default permissions...")
 
-  for (const [role, permissions] of Object.entries(DEFAULT_PERMISSIONS)) {
+  for (const role of Object.values(UserRole)) {
+    const permissions = DEFAULT_PERMISSIONS[role]
     for (const permission of permissions) {
       await prisma.rolePermission.upsert({
         where: {
           role_permission: {
-            role: role as any,
-            permission: permission as any,
+            role,
+            permission,
           },
         },
         update: {},
         create: {
-          role: role as any,
-          permission: permission as any,
+          role,
+          permission,
         },
       })
     }

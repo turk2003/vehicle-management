@@ -41,7 +41,7 @@ export default function AdminPage() {
       icon: Car,
       href: "/admin/vehicles",
       tone: "green",
-      permission: "VEHICLE_MANAGE",
+      permission: "VEHICLE_VIEW",
     },
     {
       title: "จัดการการจอง",
@@ -49,7 +49,7 @@ export default function AdminPage() {
       icon: Calendar,
       href: "/admin/bookings",
       tone: "indigo",
-      permission: "BOOKING_DELETE",
+      permission: "BOOKING_VIEW",
     },
     {
       title: "จัดการการซ่อมบำรุง",
@@ -57,7 +57,7 @@ export default function AdminPage() {
       icon: Wrench,
       href: "/admin/maintenance",
       tone: "orange",
-      permission: "MAINTENANCE_MANAGE",
+      permission: "MAINTENANCE_VIEW",
     },
     {
       title: "ประวัติการใช้งานรถ",
@@ -73,14 +73,12 @@ export default function AdminPage() {
       icon: Shield,
       href: "/admin/permissions",
       tone: "indigo",
-      permission: "ADMIN_ONLY_LOCKED",
+      permission: "PERMISSION_MANAGE",
     },
   ];
 
-  const menuItems = allMenuItems.filter(
-    (item) =>
-      item.permission === "ADMIN_ONLY_LOCKED" ||
-      permissions.includes(item.permission),
+  const menuItems = allMenuItems.filter((item) =>
+    permissions.includes(item.permission),
   );
 
   if (loading) {

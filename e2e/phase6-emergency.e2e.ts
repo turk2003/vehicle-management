@@ -99,8 +99,14 @@ test.beforeAll(async () => {
     )
   ])
 
+  // Booking uses PostgreSQL `timestamp without time zone`. Pass UTC wall-clock
+  // strings so node-postgres does not apply the machine's local offset twice.
   const startDate = new Date(Date.now() + 60 * 60 * 1000)
-  const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, -1)
+  const endDate = new Date(Date.now() + 5 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, -1)
   bookingId = randomUUID()
   await pool.query(
     `INSERT INTO "Booking"
@@ -120,11 +126,16 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  if (bookingId || maintenanceId) {
+  if (bookingId || maintenanceId || userId) {
     await pool.query(
       `DELETE FROM "Notification"
-       WHERE "bookingId" = $1 OR "maintenanceId" = $2`,
-      [bookingId || null, maintenanceId || null]
+       WHERE "bookingId" = $1
+          OR "maintenanceId" = $2
+          OR "maintenanceId" IN (
+            SELECT "id" FROM "Maintenance"
+            WHERE "reporterId" = $3 AND "description" = $4
+          )`,
+      [bookingId || null, maintenanceId || null, userId || null, issueDescription]
     )
   }
   if (adminId || userId) {
@@ -132,10 +143,12 @@ test.afterAll(async () => {
       [adminId, userId].filter(Boolean)
     ])
   }
-  if (maintenanceId) {
-    await pool.query(`DELETE FROM "Maintenance" WHERE "id" = $1`, [
-      maintenanceId
-    ])
+  if (maintenanceId || userId) {
+    await pool.query(
+      `DELETE FROM "Maintenance"
+       WHERE "id" = $1 OR ("reporterId" = $2 AND "description" = $3)`,
+      [maintenanceId || null, userId || null, issueDescription]
+    )
   }
   if (bookingId) {
     await pool.query(`DELETE FROM "Booking" WHERE "id" = $1`, [bookingId])
@@ -206,7 +219,13 @@ test("user reports an emergency and admin replaces the vehicle", async ({
   await expect(emergencyNotification).toBeVisible()
   await emergencyNotification.click()
   await expect(adminPage).toHaveURL(/\/admin\/maintenance/)
-  await expect(adminPage.getByText(oldPlate).first()).toBeVisible()
+  const maintenanceRow = adminPage.getByRole("row").filter({
+    hasText: issueDescription,
+  })
+  await expect(maintenanceRow).toContainText(oldPlate)
+  await maintenanceRow.getByText("1 รายการ").click()
+  await expect(maintenanceRow).toContainText("Phase 6 User")
+  await expect(maintenanceRow).toContainText("Phase 6 emergency E2E")
 
   await adminPage.goto("/admin/bookings")
   const bookingRow = adminPage.getByRole("row").filter({ hasText: oldPlate })

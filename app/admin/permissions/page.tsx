@@ -54,14 +54,39 @@ const menuGroups: MenuGroup[] = [
         description: "เพิ่ม แก้ไข และลบข้อมูลรถหรือประเภทรถ",
       },
       {
+        id: "BOOKING_VIEW",
+        title: "ดูการจองทั้งหมด",
+        description: "เปิดหน้าจัดการและดูคำขอจองรถทั้งหมด",
+      },
+      {
+        id: "BOOKING_MANAGE",
+        title: "ดำเนินการการจอง",
+        description: "เปลี่ยนสถานะ เปลี่ยนรถ และบันทึกรับหรือคืนรถแทนผู้ใช้",
+      },
+      {
         id: "BOOKING_DELETE",
-        title: "จัดการการจอง",
-        description: "ดูและจัดการคำขอจองรถทั้งหมด รวมถึงลบหรือยกเลิก",
+        title: "ลบการจอง",
+        description: "ลบรายการจองออกจากระบบอย่างถาวร",
+      },
+      {
+        id: "MAINTENANCE_VIEW",
+        title: "ดูงานซ่อมบำรุง",
+        description: "เปิดหน้าและดูประวัติงานซ่อมทั้งหมด",
       },
       {
         id: "MAINTENANCE_MANAGE",
         title: "จัดการการซ่อมบำรุง",
-        description: "ติดตามและจัดการงานบำรุงรักษารถ",
+        description: "เพิ่ม แก้ไข ปิด และลบงานซ่อมบำรุง",
+      },
+      {
+        id: "REPORT_VIEW",
+        title: "ดูรายงานและบทสรุป AI",
+        description: "ดูประวัติการใช้รถ KPI และเรียกบทสรุปจาก AI",
+      },
+      {
+        id: "PERMISSION_MANAGE",
+        title: "จัดการสิทธิ์",
+        description: "กำหนด Permission Matrix ของทุกบทบาท",
       },
     ],
   },
@@ -79,6 +104,11 @@ const menuGroups: MenuGroup[] = [
         title: "ประวัติการจอง / การอนุมัติ",
         description: "ดูประวัติการจองและการอนุมัติของตนเอง",
       },
+      {
+        id: "VEHICLE_VIEW",
+        title: "ดูข้อมูลรถ",
+        description: "ดูข้อมูลรถที่เกี่ยวข้องกับคำขออนุมัติ",
+      },
     ],
   },
   {
@@ -94,6 +124,21 @@ const menuGroups: MenuGroup[] = [
         id: "BOOKING_VIEW",
         title: "ประวัติการจอง / การอนุมัติ",
         description: "ดูประวัติการจองและสถานะคำขอของตนเอง",
+      },
+      {
+        id: "VEHICLE_VIEW",
+        title: "ดูข้อมูลรถ",
+        description: "ดูรถและประเภทรถที่เปิดให้จอง",
+      },
+      {
+        id: "MAINTENANCE_VIEW",
+        title: "ดูรายการแจ้งซ่อม",
+        description: "ดูประวัติการแจ้งซ่อมของตนเอง",
+      },
+      {
+        id: "MAINTENANCE_REPORT",
+        title: "แจ้งซ่อม",
+        description: "สร้างรายการแจ้งปัญหารถและส่งให้ผู้ดูแลระบบ",
       },
     ],
   },
@@ -143,14 +188,6 @@ export default function AdminPermissionsPage() {
     () => menuGroups.filter((group) => group.forRoles.includes(activeTab)),
     [activeTab],
   );
-
-  const enabledCount = useMemo(() => {
-    return Object.values(permissions[activeTab] || {}).filter(Boolean).length;
-  }, [activeTab, permissions]);
-
-  const totalVisiblePermissions = useMemo(() => {
-    return activeGroups.reduce((total, group) => total + group.items.length, 0);
-  }, [activeGroups]);
 
   const isLocked = (role: string, permission: string) => {
     return role === "ADMIN" && lockedAdminPermissions.includes(permission);
@@ -296,10 +333,6 @@ export default function AdminPermissionsPage() {
           {roles.map((role) => {
             const meta = roleMeta[role];
             const isActive = activeTab === role;
-            const roleEnabledCount = Object.values(
-              permissions[role] || {},
-            ).filter(Boolean).length;
-
             return (
               <button
                 key={role}

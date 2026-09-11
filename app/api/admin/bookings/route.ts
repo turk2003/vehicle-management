@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyAdmin } from "@/lib/auth"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
 import type { BookingEmailEvent } from "@/lib/email/templates"
 import { BookingStatus } from "@/app/generated/prisma/client"
@@ -8,7 +8,10 @@ import { BookingStatus } from "@/app/generated/prisma/client"
 // GET: list all bookings with filters
 export async function GET(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "BOOKING_VIEW",
+    })
     const { searchParams } = new URL(req.url)
 
     const status = searchParams.get('status')
@@ -79,9 +82,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(bookings)
   } catch (error: unknown) {
     console.error("Get bookings error:", error)
-    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -89,14 +91,27 @@ export async function GET(req: NextRequest) {
 // PUT: update booking status (Admin override)
 export async function PUT(req: NextRequest) {
   try {
-    const decoded = await verifyAdmin(req)
+    const decoded = await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "BOOKING_MANAGE",
+    })
     const { id, status, comment } = await req.json()
 
     if (!id || !status) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 })
     }
 
-    const validStatuses = ["PENDING", "APPROVED", "REJECTED", "CANCELLED", "IN_PROGRESS", "COMPLETED"]
+    if (["IN_PROGRESS", "COMPLETED"].includes(status)) {
+      return NextResponse.json(
+        {
+          message: "กรุณาใช้ขั้นตอนรับรถหรือคืนรถเพื่อบันทึกเลขไมล์",
+          code: "USE_MILEAGE_WORKFLOW",
+        },
+        { status: 400 },
+      )
+    }
+
+    const validStatuses = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"]
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ message: "Invalid status" }, { status: 400 })
     }
@@ -199,9 +214,8 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json(updatedBooking)
   } catch (error: unknown) {
     console.error("Update booking error:", error)
-    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -209,7 +223,10 @@ export async function PUT(req: NextRequest) {
 // DELETE: delete booking
 export async function DELETE(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "BOOKING_DELETE",
+    })
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
 
@@ -243,9 +260,8 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ message: "Booking deleted successfully" })
   } catch (error: unknown) {
     console.error("Delete booking error:", error)
-    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

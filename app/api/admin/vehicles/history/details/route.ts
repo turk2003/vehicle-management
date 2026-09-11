@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { isPermissionError, verifyPermission } from "@/lib/permissions"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import {
   getVehicleHistoryDetails,
   HistoryDetailsInputError,
@@ -20,7 +20,7 @@ function parsePositiveInteger(value: string | null, fallback: number, field: str
 
 export async function GET(req: NextRequest) {
   try {
-    await verifyPermission(req, "REPORT_VIEW")
+    await requireAccess(req, { roles: ["ADMIN"], permission: "REPORT_VIEW" })
     const params = new URL(req.url).searchParams
     const tab = params.get("tab") || "trips"
     const vehicleId = params.get("vehicleId") || undefined
@@ -45,9 +45,8 @@ export async function GET(req: NextRequest) {
     if (error instanceof HistoryDetailsInputError || error instanceof AnalysisInputError) {
       return NextResponse.json({ message: error.message }, { status: 400 })
     }
-    if (isPermissionError(error)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyUser } from "@/lib/auth"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
 import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
 
@@ -34,9 +34,12 @@ function bookingInputErrorResponse(error: unknown) {
 // GET
 export async function GET(req: NextRequest) {
   try {
-    const decoded = await verifyUser(req)
     const { searchParams } = new URL(req.url)
     const action = searchParams.get("action")
+    const decoded = await requireAccess(req, {
+      roles: ["USER"],
+      permission: action === "my-bookings" ? "BOOKING_VIEW" : "BOOKING_CREATE",
+    })
 
     // ✅ Sync สถานะรถจาก shared helper
     await syncAllVehicleStatuses()
@@ -100,15 +103,19 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(availableVehicles)
-  } catch {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+  } catch (error: unknown) {
+    return accessErrorResponse(error) ||
+      NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
 
 // POST
 export async function POST(req: NextRequest) {
   try {
-    const decoded = await verifyUser(req)
+    const decoded = await requireAccess(req, {
+      roles: ["USER"],
+      permission: "BOOKING_CREATE",
+    })
     const { vehicleId, startDate, endDate, purpose, destination } = await req.json()
 
     if (!vehicleId || !startDate || !endDate || !purpose) {
@@ -202,6 +209,8 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     const inputResponse = bookingInputErrorResponse(error)
     if (inputResponse) return inputResponse
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     console.error("Create booking error:", error)
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
@@ -210,7 +219,10 @@ export async function POST(req: NextRequest) {
 // PUT: user cancel booking
 export async function PUT(req: NextRequest) {
   try {
-    const decoded = await verifyUser(req)
+    const decoded = await requireAccess(req, {
+      roles: ["USER"],
+      permission: "BOOKING_CREATE",
+    })
     const { id, status } = await req.json()
 
     if (!id || status !== "CANCELLED") {
@@ -254,7 +266,9 @@ export async function PUT(req: NextRequest) {
     })
 
     return NextResponse.json(updated)
-  } catch {
+  } catch (error: unknown) {
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -262,7 +276,10 @@ export async function PUT(req: NextRequest) {
 // PATCH: Edit pending booking
 export async function PATCH(req: NextRequest) {
   try {
-    const decoded = await verifyUser(req)
+    const decoded = await requireAccess(req, {
+      roles: ["USER"],
+      permission: "BOOKING_CREATE",
+    })
     const { id, startDate, endDate, purpose, destination } = await req.json()
 
     if (!id || !startDate || !endDate || !purpose) {
@@ -351,6 +368,8 @@ export async function PATCH(req: NextRequest) {
   } catch (error) {
     const inputResponse = bookingInputErrorResponse(error)
     if (inputResponse) return inputResponse
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     console.error("Edit booking error:", error)
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }

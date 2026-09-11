@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, POST, PUT, DELETE } from '../route'
-import { verifyAdmin, verifyUser, isAuthError } from '@/lib/auth'
+import { requireAccess } from '@/lib/permissions'
 
 const prismaMock = vi.hoisted(() => ({
   vehicleType: { findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
@@ -9,23 +9,16 @@ const prismaMock = vi.hoisted(() => ({
 
 // Setup global mocks
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
-vi.mock('@/lib/auth', () => ({
-  verifyAdmin: vi.fn(),
-  verifyUser: vi.fn(),
-  isAuthError: vi.fn(),
-}))
+vi.mock('@/lib/permissions', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/lib/permissions')>()
+  return { ...original, requireAccess: vi.fn() }
+})
 
 describe('Vehicle Type API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     
-    // Default: simulate a valid admin for write operations and valid user for reads
-    // @ts-ignore
-    vi.mocked(verifyUser).mockResolvedValue({ userId: '1', role: 'USER', isActive: true })
-    // @ts-ignore
-    vi.mocked(verifyAdmin).mockResolvedValue({ userId: 'admin1', role: 'ADMIN', isActive: true })
-    // @ts-ignore
-    vi.mocked(isAuthError).mockImplementation((error) => (error as Error).message === 'Not authorized')
+    vi.mocked(requireAccess).mockResolvedValue({ userId: 'admin1', role: 'ADMIN', isActive: true })
   })
 
   describe('GET /api/verhicle-type', () => {
@@ -37,27 +30,26 @@ describe('Vehicle Type API', () => {
       prismaMock.vehicleType.findMany.mockResolvedValue(mockTypes)
 
       const req = new Request('http://localhost:3000/api/verhicle-type')
-      const response = await GET(req as any)
+      const response = await GET(req as Parameters<typeof GET>[0])
       expect(response.status).toBe(200)
 
       const data = await response.json()
       expect(data).toEqual(mockTypes)
-      expect(verifyUser).toHaveBeenCalled()
+      expect(requireAccess).toHaveBeenCalledWith(expect.anything(), { permission: 'VEHICLE_VIEW' })
     })
   })
 
   describe('POST /api/verhicle-type', () => {
-    it('should return 401 if user is not admin', async () => {
-      // @ts-ignore
-      vi.mocked(verifyAdmin).mockImplementation(() => { throw new Error('Not authorized') })
+    it('should return 403 if user lacks permission', async () => {
+      vi.mocked(requireAccess).mockImplementation(() => { throw new Error('Not authorized') })
 
       const req = new Request('http://localhost:3000/api/verhicle-type', {
         method: 'POST',
         body: JSON.stringify({ name: 'Truck' })
       })
 
-      const response = await POST(req as any)
-      expect(response.status).toBe(401)
+      const response = await POST(req as Parameters<typeof POST>[0])
+      expect(response.status).toBe(403)
     })
 
     it('should create vehicle type successfully', async () => {
@@ -69,7 +61,7 @@ describe('Vehicle Type API', () => {
         body: JSON.stringify({ name: 'Truck' })
       })
 
-      const response = await POST(req as any)
+      const response = await POST(req as Parameters<typeof POST>[0])
       expect(response.status).toBe(200)
       
       const data = await response.json()
@@ -88,7 +80,7 @@ describe('Vehicle Type API', () => {
         body: JSON.stringify({ id: '3', name: 'Pickup Truck' })
       })
 
-      const response = await PUT(req as any)
+      const response = await PUT(req as Parameters<typeof PUT>[0])
       expect(response.status).toBe(200)
       
       const data = await response.json()
@@ -105,7 +97,7 @@ describe('Vehicle Type API', () => {
       prismaMock.vehicle.findFirst.mockResolvedValue(null) // No existing vehicles
       
       const req = new Request('http://localhost:3000/api/verhicle-type?id=3', { method: 'DELETE' })
-      const response = await DELETE(req as any)
+      const response = await DELETE(req as Parameters<typeof DELETE>[0])
       
       expect(response.status).toBe(200)
       expect(prismaMock.vehicleType.delete).toHaveBeenCalledWith({ where: { id: '3' } })
@@ -113,10 +105,10 @@ describe('Vehicle Type API', () => {
 
     it('should return 400 if trying to delete a type still used by vehicles', async () => {
       // Simulate existing vehicle using this type
-      prismaMock.vehicle.findFirst.mockResolvedValue({ id: 'v1', typeId: '3' } as any)
+      prismaMock.vehicle.findFirst.mockResolvedValue({ id: 'v1', typeId: '3' })
       
       const req = new Request('http://localhost:3000/api/verhicle-type?id=3', { method: 'DELETE' })
-      const response = await DELETE(req as any)
+      const response = await DELETE(req as Parameters<typeof DELETE>[0])
       
       expect(response.status).toBe(400)
       const data = await response.json()

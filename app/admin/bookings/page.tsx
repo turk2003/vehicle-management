@@ -2,8 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react"
 import axios from "axios"
-import { Pencil, RefreshCw, SlidersHorizontal, Trash2, X } from "lucide-react"
+import {
+  Gauge,
+  Pencil,
+  RefreshCw,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "lucide-react"
 import api from "@/lib/api"
+import { usePermissions } from "@/lib/use-permissions"
 import {
   formatDateTime,
   getBookingStatusColor,
@@ -97,8 +105,11 @@ const BOOKING_STATUS_OPTIONS = [
 ]
 
 const STATUS_UPDATE_OPTIONS = BOOKING_STATUS_OPTIONS.filter(
-  (status) => status.value !== "CHANGED",
+  (status) =>
+    ["PENDING", "APPROVED", "REJECTED", "CANCELLED"].includes(status.value),
 )
+
+type MileageAction = "pickup" | "return"
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError<{ message?: string }>(error)) {
@@ -122,6 +133,9 @@ function buildStats(bookings: Booking[]): BookingStats {
 }
 
 export default function AdminBookingsPage() {
+  const { hasPermission } = usePermissions()
+  const canManageBookings = hasPermission("BOOKING_MANAGE")
+  const canDeleteBookings = hasPermission("BOOKING_DELETE")
   const [bookings, setBookings] = useState<Booking[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -141,6 +155,10 @@ export default function AdminBookingsPage() {
   const [changeReason, setChangeReason] = useState("")
   const [changeLoading, setChangeLoading] = useState(false)
   const [changeError, setChangeError] = useState("")
+  const [mileageAction, setMileageAction] = useState<MileageAction | null>(null)
+  const [mileageValue, setMileageValue] = useState("")
+  const [mileageLoading, setMileageLoading] = useState(false)
+  const [mileageError, setMileageError] = useState("")
 
   const fetchData = useCallback(async () => {
     try {
@@ -216,7 +234,11 @@ export default function AdminBookingsPage() {
 
   const openStatusModal = (booking: Booking) => {
     setSelectedBooking(booking)
-    setNewStatus(booking.status)
+    setNewStatus(
+      STATUS_UPDATE_OPTIONS.some((option) => option.value === booking.status)
+        ? booking.status
+        : "CANCELLED",
+    )
     setShowModal(true)
   }
 
@@ -262,6 +284,74 @@ export default function AdminBookingsPage() {
     setSelectedReplacementId("")
     setChangeReason("")
     setChangeError("")
+  }
+
+  const openMileageModal = (booking: Booking, action: MileageAction) => {
+    const initialMileage =
+      action === "pickup"
+        ? booking.vehicle.currentMileage
+        : booking.mileageStart ?? booking.vehicle.currentMileage
+
+    setSelectedBooking(booking)
+    setMileageAction(action)
+    setMileageValue(String(initialMileage))
+    setMileageError("")
+  }
+
+  const closeMileageModal = () => {
+    setMileageAction(null)
+    setSelectedBooking(null)
+    setMileageValue("")
+    setMileageError("")
+  }
+
+  const submitMileage = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!selectedBooking || !mileageAction) return
+
+    const mileage = Number(mileageValue)
+    if (!Number.isInteger(mileage) || mileage < 0) {
+      setMileageError("เลขไมล์ต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป")
+      return
+    }
+
+    try {
+      setMileageLoading(true)
+      setMileageError("")
+      setError("")
+      setSuccess("")
+
+      const endpoint =
+        mileageAction === "pickup"
+          ? "/api/admin/bookings/pickup"
+          : "/api/admin/bookings/return"
+      const mileageField =
+        mileageAction === "pickup" ? "mileageStart" : "mileageEnd"
+
+      await api.put(endpoint, {
+        bookingId: selectedBooking.id,
+        [mileageField]: mileage,
+      })
+
+      setSuccess(
+        mileageAction === "pickup"
+          ? `บันทึกรับรถ ${selectedBooking.vehicle.plateNumber} เรียบร้อยแล้ว`
+          : `บันทึกคืนรถ ${selectedBooking.vehicle.plateNumber} เรียบร้อยแล้ว`,
+      )
+      closeMileageModal()
+      await fetchData()
+    } catch (error) {
+      setMileageError(
+        getErrorMessage(
+          error,
+          mileageAction === "pickup"
+            ? "ไม่สามารถบันทึกรับรถได้"
+            : "ไม่สามารถบันทึกคืนรถได้",
+        ),
+      )
+    } finally {
+      setMileageLoading(false)
+    }
   }
 
   const changeVehicle = async (event: React.FormEvent) => {
@@ -638,7 +728,8 @@ export default function AdminBookingsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap justify-end gap-2">
-                          {["APPROVED", "CHANGED"].includes(booking.status) &&
+                          {canManageBookings &&
+                            ["APPROVED", "CHANGED"].includes(booking.status) &&
                             !booking.pickedUpAt &&
                             booking.vehicle.status === "MAINTENANCE" &&
                             new Date(booking.endDate) >= new Date() && (
@@ -654,23 +745,52 @@ export default function AdminBookingsPage() {
                                 เปลี่ยนรถ
                               </button>
                             )}
-                          <button
-                            type="button"
-                            onClick={() => openStatusModal(booking)}
-                            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 transition-colors duration-150 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
-                          >
-                            <Pencil className="h-4 w-4" aria-hidden="true" />
-                            แก้ไข
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteBooking(booking)}
-                            disabled={loading}
-                            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors duration-150 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600/25 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <Trash2 className="h-4 w-4" aria-hidden="true" />
-                            ลบ
-                          </button>
+                          {canManageBookings &&
+                            ["APPROVED", "CHANGED"].includes(booking.status) &&
+                            booking.vehicle.status !== "MAINTENANCE" && (
+                              <button
+                                type="button"
+                                onClick={() => openMileageModal(booking, "pickup")}
+                                className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 transition-colors duration-150 hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/25"
+                              >
+                                <Gauge className="h-4 w-4" aria-hidden="true" />
+                                รับรถแทนผู้ใช้
+                              </button>
+                            )}
+                          {canManageBookings && booking.status === "IN_PROGRESS" && (
+                            <button
+                              type="button"
+                              onClick={() => openMileageModal(booking, "return")}
+                              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-colors duration-150 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-600/25"
+                            >
+                              <Gauge className="h-4 w-4" aria-hidden="true" />
+                              คืนรถแทนผู้ใช้
+                            </button>
+                          )}
+                          {canManageBookings &&
+                            !["IN_PROGRESS", "COMPLETED"].includes(
+                              booking.status,
+                            ) && (
+                            <button
+                              type="button"
+                              onClick={() => openStatusModal(booking)}
+                              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 transition-colors duration-150 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden="true" />
+                              แก้ไข
+                            </button>
+                          )}
+                          {canDeleteBookings && (
+                            <button
+                              type="button"
+                              onClick={() => deleteBooking(booking)}
+                              disabled={loading}
+                              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors duration-150 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600/25 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
+                              ลบ
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -777,6 +897,132 @@ export default function AdminBookingsPage() {
                     className="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {loading ? "กำลังบันทึก..." : "บันทึกสถานะ"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {mileageAction && selectedBooking && (
+          <div
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-900/50 px-4 py-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mileage-modal-title"
+          >
+            <div className="w-full max-w-lg rounded-xl bg-white shadow-lg ring-1 ring-gray-200">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
+                <div>
+                  <h3
+                    id="mileage-modal-title"
+                    className="text-lg font-semibold text-gray-950"
+                  >
+                    {mileageAction === "pickup"
+                      ? "บันทึกรับรถแทนผู้ใช้"
+                      : "บันทึกคืนรถแทนผู้ใช้"}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    ระบบจะบันทึกเวลา อัปเดทสถานะการจอง และแจ้งผู้จอง
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeMileageModal}
+                  disabled={mileageLoading}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25 disabled:opacity-60"
+                  aria-label="ปิดหน้าต่าง"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+
+              <form onSubmit={submitMileage} className="space-y-5 px-6 py-6">
+                <dl className="grid gap-3 rounded-lg bg-gray-50 p-4 text-sm ring-1 ring-gray-200 sm:grid-cols-2">
+                  <div>
+                    <dt className="font-medium text-gray-600">ผู้ใช้รถ</dt>
+                    <dd className="mt-1 text-gray-950">
+                      {selectedBooking.user.name}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-gray-600">รถ</dt>
+                    <dd className="mt-1 text-gray-950">
+                      {selectedBooking.vehicle.plateNumber}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="font-medium text-gray-600">
+                      {mileageAction === "pickup"
+                        ? "เลขไมล์ปัจจุบันของรถ"
+                        : "เลขไมล์ตอนรับรถ"}
+                    </dt>
+                    <dd className="mt-1 font-semibold text-gray-950">
+                      {(mileageAction === "pickup"
+                        ? selectedBooking.vehicle.currentMileage
+                        : selectedBooking.mileageStart ?? 0
+                      ).toLocaleString()} km
+                    </dd>
+                  </div>
+                </dl>
+
+                {mileageError && (
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                  >
+                    {mileageError}
+                  </div>
+                )}
+
+                <div>
+                  <label
+                    htmlFor="admin-booking-mileage"
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
+                    {mileageAction === "pickup"
+                      ? "เลขไมล์เริ่มต้น"
+                      : "เลขไมล์สิ้นสุด"}
+                  </label>
+                  <input
+                    id="admin-booking-mileage"
+                    type="number"
+                    min={
+                      mileageAction === "pickup"
+                        ? selectedBooking.vehicle.currentMileage
+                        : selectedBooking.mileageStart ?? 0
+                    }
+                    step="1"
+                    required
+                    value={mileageValue}
+                    onChange={(event) => setMileageValue(event.target.value)}
+                    className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                  />
+                  <p className="mt-1.5 text-sm text-gray-600">
+                    ต้องไม่น้อยกว่าเลขไมล์ที่แสดงด้านบน
+                  </p>
+                </div>
+
+                <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={closeMileageModal}
+                    disabled={mileageLoading}
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-600/25 disabled:opacity-60"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={mileageLoading}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Gauge className="h-4 w-4" aria-hidden="true" />
+                    {mileageLoading
+                      ? "กำลังบันทึก..."
+                      : mileageAction === "pickup"
+                        ? "ยืนยันรับรถ"
+                        : "ยืนยันคืนรถ"}
                   </button>
                 </div>
               </form>

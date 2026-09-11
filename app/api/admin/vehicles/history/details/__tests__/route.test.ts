@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { NextRequest } from "next/server"
 import { GET } from "../route"
-import { verifyPermission } from "@/lib/permissions"
+import { requireAccess } from "@/lib/permissions"
 import { getVehicleHistoryDetails } from "@/lib/vehicle-history-details"
 
-vi.mock("@/lib/permissions", () => ({
-  verifyPermission: vi.fn(),
-  isPermissionError: vi.fn((error: unknown) => (error as Error).message === "Forbidden"),
-}))
+vi.mock("@/lib/permissions", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/permissions")>()
+  return { ...original, requireAccess: vi.fn() }
+})
 vi.mock("@/lib/vehicle-history-details", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/vehicle-history-details")>()
   return { ...original, getVehicleHistoryDetails: vi.fn() }
@@ -16,7 +16,7 @@ vi.mock("@/lib/vehicle-history-details", async (importOriginal) => {
 describe("GET /api/admin/vehicles/history/details", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyPermission).mockResolvedValue({ userId: "admin-1", role: "ADMIN" })
+    vi.mocked(requireAccess).mockResolvedValue({ userId: "admin-1", role: "ADMIN", isActive: true })
     vi.mocked(getVehicleHistoryDetails).mockResolvedValue({
       items: [],
       period: { startDate: "2026-08-01", endDate: "2026-08-29", dayCount: 29 },
@@ -30,7 +30,10 @@ describe("GET /api/admin/vehicles/history/details", () => {
     ))
 
     expect(response.status).toBe(200)
-    expect(verifyPermission).toHaveBeenCalledWith(expect.any(NextRequest), "REPORT_VIEW")
+    expect(requireAccess).toHaveBeenCalledWith(expect.any(NextRequest), {
+      roles: ["ADMIN"],
+      permission: "REPORT_VIEW",
+    })
     expect(getVehicleHistoryDetails).toHaveBeenCalledWith({
       tab: "mileage",
       vehicleId: "550e8400-e29b-41d4-a716-446655440000",
@@ -42,10 +45,10 @@ describe("GET /api/admin/vehicles/history/details", () => {
   })
 
   it("rejects requests without REPORT_VIEW", async () => {
-    vi.mocked(verifyPermission).mockRejectedValue(new Error("Forbidden"))
+    vi.mocked(requireAccess).mockRejectedValue(new Error("Forbidden"))
 
     const response = await GET(new NextRequest("http://localhost/api/admin/vehicles/history/details?tab=trips"))
-    expect(response.status).toBe(401)
+    expect(response.status).toBe(403)
     expect(getVehicleHistoryDetails).not.toHaveBeenCalled()
   })
 

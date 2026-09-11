@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { NextRequest } from "next/server"
 import { DELETE, GET, PATCH } from "../route"
-import { verifyAdmin } from "@/lib/auth"
+import { requireAccess } from "@/lib/permissions"
 
 const prismaMock = vi.hoisted(() => ({
   user: {
@@ -17,9 +17,9 @@ const prismaMock = vi.hoisted(() => ({
 }))
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }))
-vi.mock("@/lib/auth", () => ({
-  verifyAdmin: vi.fn(),
-  isAuthError: vi.fn(() => false),
+vi.mock("@/lib/permissions", () => ({
+  requireAccess: vi.fn(),
+  accessErrorResponse: vi.fn(() => null),
 }))
 
 const baseUser = {
@@ -42,7 +42,7 @@ function patchRequest(body: unknown) {
 describe("user lifecycle API", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyAdmin).mockResolvedValue({
+    vi.mocked(requireAccess).mockResolvedValue({
       userId: "admin-1",
       role: "ADMIN",
       isActive: true,
@@ -95,7 +95,7 @@ describe("user lifecycle API", () => {
   })
 
   it("does not allow an admin to deactivate their own account", async () => {
-    vi.mocked(verifyAdmin).mockResolvedValue({ userId: "user-1", role: "ADMIN", isActive: true })
+    vi.mocked(requireAccess).mockResolvedValue({ userId: "user-1", role: "ADMIN", isActive: true })
     prismaMock.user.findUnique.mockResolvedValue({ ...baseUser, role: "ADMIN" })
 
     const response = await PATCH(patchRequest({ id: "user-1", isActive: false }))

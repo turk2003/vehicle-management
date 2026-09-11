@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcrypt"
 import { prisma } from "@/lib/prisma"
-import { isAuthError, verifyAdmin } from "@/lib/auth"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 
 const ACTIVE_BOOKING_STATUSES = [
   "PENDING",
@@ -52,13 +52,9 @@ function isPrismaNotFound(error: unknown) {
   )
 }
 
-function unauthorized() {
-  return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-}
-
 export async function GET(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, { roles: ["ADMIN"], permission: "USER_MANAGE" })
     const [users, activeBookingCounts] = await Promise.all([
       prisma.user.findMany({
         select: USER_WITH_HISTORY_SELECT,
@@ -82,14 +78,15 @@ export async function GET(req: NextRequest) {
       })),
     )
   } catch (error) {
-    if (isAuthError(error)) return unauthorized()
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, { roles: ["ADMIN"], permission: "USER_MANAGE" })
     const { name, email, password, role } = await req.json()
 
     if (!name || !email || !password || !["USER", "APPROVER", "ADMIN"].includes(role)) {
@@ -108,14 +105,15 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json({ ...user, activeBookingCount: 0, canDelete: true })
   } catch (error) {
-    if (isAuthError(error)) return unauthorized()
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
 
 export async function PUT(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, { roles: ["ADMIN"], permission: "USER_MANAGE" })
     const { id, name, role } = await req.json()
 
     if (!id || !name || !["USER", "APPROVER", "ADMIN"].includes(role)) {
@@ -161,7 +159,8 @@ export async function PUT(req: NextRequest) {
       canDelete: counts ? !hasHistory(counts._count) : false,
     })
   } catch (error) {
-    if (isAuthError(error)) return unauthorized()
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     if (isPrismaNotFound(error)) {
       return NextResponse.json({ message: "ไม่พบผู้ใช้" }, { status: 404 })
     }
@@ -171,7 +170,10 @@ export async function PUT(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const admin = await verifyAdmin(req)
+    const admin = await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "USER_MANAGE",
+    })
     const { id, isActive } = await req.json()
 
     if (!id || typeof isActive !== "boolean") {
@@ -233,7 +235,8 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ ...user, affectedBookingCount })
   } catch (error) {
-    if (isAuthError(error)) return unauthorized()
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     if (isPrismaNotFound(error)) {
       return NextResponse.json({ message: "ไม่พบผู้ใช้" }, { status: 404 })
     }
@@ -243,7 +246,10 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const admin = await verifyAdmin(req)
+    const admin = await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "USER_MANAGE",
+    })
     const id = new URL(req.url).searchParams.get("id")
     if (!id) return NextResponse.json({ message: "User ID required" }, { status: 400 })
     if (id === admin.userId) {
@@ -281,7 +287,8 @@ export async function DELETE(req: NextRequest) {
     await prisma.user.delete({ where: { id } })
     return NextResponse.json({ message: "User deleted successfully" })
   } catch (error) {
-    if (isAuthError(error)) return unauthorized()
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     if (isPrismaNotFound(error)) {
       return NextResponse.json({ message: "ไม่พบผู้ใช้" }, { status: 404 })
     }

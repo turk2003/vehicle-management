@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyUser } from "@/lib/auth"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 
 /**
  * GET /api/vehicles/recommend
@@ -9,7 +9,10 @@ import { verifyUser } from "@/lib/auth"
  */
 export async function GET(req: NextRequest) {
   try {
-    await verifyUser(req)
+    await requireAccess(req, {
+      roles: ["USER"],
+      permission: "BOOKING_CREATE",
+    })
     const { searchParams } = new URL(req.url)
 
     const startDate = searchParams.get("startDate")
@@ -95,7 +98,8 @@ export async function GET(req: NextRequest) {
     }))
 
     return NextResponse.json(result)
-  } catch {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+  } catch (error: unknown) {
+    return accessErrorResponse(error) ||
+      NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

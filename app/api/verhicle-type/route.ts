@@ -1,48 +1,49 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyAdmin, verifyUser, isAuthError } from "@/lib/auth"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 
 // GET: list vehicle types
 export async function GET(req: NextRequest) {
   try {
-    await verifyUser(req)
+    await requireAccess(req, { permission: "VEHICLE_VIEW" })
     const vehicleTypes = await prisma.vehicleType.findMany({ orderBy: { name: "asc" } })
     return NextResponse.json(vehicleTypes)
-  } catch (error) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+  } catch (error: unknown) {
+    return accessErrorResponse(error) ||
+      NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
 
 // POST: create vehicle type (admin only)
 export async function POST(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, { roles: ["ADMIN"], permission: "VEHICLE_MANAGE" })
     const { name } = await req.json()
     const vehicleType = await prisma.vehicleType.create({ data: { name } })
     return NextResponse.json(vehicleType)
-  } catch (error: any) {
-    if (isAuthError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    return NextResponse.json({ message: "Server error" }, { status: 500 })
+  } catch (error: unknown) {
+    return accessErrorResponse(error) ||
+      NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
 
 // PUT: update vehicle type (admin only)
 export async function PUT(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, { roles: ["ADMIN"], permission: "VEHICLE_MANAGE" })
     const { id, name } = await req.json()
     const vehicleType = await prisma.vehicleType.update({ where: { id }, data: { name } })
     return NextResponse.json(vehicleType)
-  } catch (error: any) {
-    if (isAuthError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    return NextResponse.json({ message: "Server error" }, { status: 500 })
+  } catch (error: unknown) {
+    return accessErrorResponse(error) ||
+      NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
 
 // DELETE: delete vehicle type (admin only)
 export async function DELETE(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, { roles: ["ADMIN"], permission: "VEHICLE_MANAGE" })
     const { searchParams } = new URL(req.url)
     const id = searchParams.get("id")
 
@@ -55,8 +56,8 @@ export async function DELETE(req: NextRequest) {
 
     await prisma.vehicleType.delete({ where: { id } })
     return NextResponse.json({ message: "Vehicle type deleted successfully" })
-  } catch (error: any) {
-    if (isAuthError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    return NextResponse.json({ message: "Server error" }, { status: 500 })
+  } catch (error: unknown) {
+    return accessErrorResponse(error) ||
+      NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

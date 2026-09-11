@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import type { AxiosError } from "axios"
 import { CalendarDays, History, Plus, Wrench, X } from "lucide-react"
 import api from "@/lib/api"
+import { usePermissions } from "@/lib/use-permissions"
 import {
   formatDateTime,
   getMaintenanceStatusColor,
@@ -96,6 +97,8 @@ const maintenanceTypeLabels: Record<MaintenanceType, string> = {
 }
 
 export default function UserMaintenancePage() {
+  const { hasPermission } = usePermissions()
+  const canReportMaintenance = hasPermission("MAINTENANCE_REPORT")
   const [maintenances, setMaintenances] = useState<Maintenance[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(false)
@@ -186,14 +189,16 @@ export default function UserMaintenancePage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={openReportModal}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              แจ้งซ่อม
-            </button>
+            {canReportMaintenance && (
+              <button
+                type="button"
+                onClick={openReportModal}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                แจ้งซ่อม
+              </button>
+            )}
           </div>
         </header>
 

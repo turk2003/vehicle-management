@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyApprover } from "@/lib/auth"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
 import { BookingStatus } from "@/app/generated/prisma/client"
 
@@ -29,16 +29,22 @@ const bookingInclude = {
 // GET: list pending bookings for approval
 export async function GET(req: NextRequest) {
   try {
-    await verifyApprover(req)
     const { searchParams } = new URL(req.url)
     const statusParam = searchParams.get('status') || 'PENDING'
+    const actor = await requireAccess(req, {
+      roles: ["APPROVER", "ADMIN"],
+      permission: statusParam === "PENDING" ? "BOOKING_APPROVE" : "BOOKING_VIEW",
+    })
 
     // Build where clause based on status
-    const whereClause: { status?: BookingStatus } = {}
+    const whereClause: { status?: BookingStatus; approverId?: string } = {}
     
     // If status is not ALL, filter by that specific status
     if (statusParam !== 'ALL') {
       whereClause.status = statusParam as BookingStatus
+    }
+    if (actor.role === "APPROVER" && statusParam !== "PENDING") {
+      whereClause.approverId = actor.userId
     }
 
     const bookings = await prisma.booking.findMany({
@@ -72,9 +78,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(bookings)
   } catch (error: unknown) {
     console.error("Get bookings error:", error)
-    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -82,7 +87,10 @@ export async function GET(req: NextRequest) {
 // PUT: approve or reject booking
 export async function PUT(req: NextRequest) {
   try {
-    const decoded = await verifyApprover(req)
+    const decoded = await requireAccess(req, {
+      roles: ["APPROVER", "ADMIN"],
+      permission: "BOOKING_APPROVE",
+    })
     const { id, action, comment } = await req.json()
 
     if (!id || !action) {
@@ -91,6 +99,18 @@ export async function PUT(req: NextRequest) {
 
     if (!["APPROVED", "REJECTED"].includes(action)) {
       return NextResponse.json({ message: "Invalid action" }, { status: 400 })
+    }
+
+    const normalizedComment =
+      typeof comment === "string" ? comment.trim() : ""
+    if (action === "REJECTED" && !normalizedComment) {
+      return NextResponse.json(
+        {
+          message: "กรุณาระบุเหตุผลที่ปฏิเสธ",
+          code: "REJECTION_REASON_REQUIRED",
+        },
+        { status: 400 },
+      )
     }
 
     // Get booking
@@ -120,7 +140,9 @@ export async function PUT(req: NextRequest) {
       data: {
         status: action,
         approverId: decoded.userId,
-        ...(action === "REJECTED" && comment ? { rejectionReason: comment } : {})
+        ...(action === "REJECTED"
+          ? { rejectionReason: normalizedComment }
+          : {})
       },
       include: bookingInclude
     })
@@ -136,7 +158,7 @@ export async function PUT(req: NextRequest) {
     await notifyBookingEvent({
       event: action,
       booking: updatedBooking,
-      emailOptions: { comment }
+      emailOptions: { comment: normalizedComment }
     })
 
     // Create execution log for the approver
@@ -150,9 +172,8 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json(updatedBooking)
   } catch (error: unknown) {
     console.error("Update booking error:", error)
-    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

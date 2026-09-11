@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PUT } from '../route'
-import { verifyApprover } from '@/lib/auth'
+import { requireAccess } from '@/lib/permissions'
 import { notifyBookingEvent } from '@/lib/email/bookingNotifications'
 
 const prismaMock = vi.hoisted(() => ({
@@ -10,8 +10,9 @@ const prismaMock = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
-vi.mock('@/lib/auth', () => ({
-  verifyApprover: vi.fn()
+vi.mock('@/lib/permissions', () => ({
+  requireAccess: vi.fn(),
+  accessErrorResponse: vi.fn(() => null)
 }))
 vi.mock('@/lib/email/bookingNotifications', () => ({
   notifyBookingEvent: vi.fn()
@@ -20,10 +21,29 @@ vi.mock('@/lib/email/bookingNotifications', () => ({
 describe('Approver API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyApprover).mockResolvedValue({ userId: 'approver1', role: 'APPROVER', isActive: true })
+    vi.mocked(requireAccess).mockResolvedValue({ userId: 'approver1', role: 'APPROVER', isActive: true })
   })
 
   describe('PUT /api/approver', () => {
+    it('rejects a rejection without a reason before reading the booking', async () => {
+      const req = new Request('http://localhost:3000/api/approver', {
+        method: 'PUT',
+        body: JSON.stringify({
+          id: 'booking1',
+          action: 'REJECTED',
+          comment: '   '
+        })
+      })
+
+      const response = await PUT(req as Parameters<typeof PUT>[0])
+
+      expect(response.status).toBe(400)
+      await expect(response.json()).resolves.toMatchObject({
+        code: 'REJECTION_REASON_REQUIRED'
+      })
+      expect(prismaMock.booking.findUnique).not.toHaveBeenCalled()
+    })
+
     it('approves a pending booking and sends a notification', async () => {
       const existingBooking = {
         id: 'booking1',

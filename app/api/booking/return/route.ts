@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyUser } from "@/lib/auth"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
 
 /**
@@ -9,7 +9,10 @@ import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
  */
 export async function PUT(req: NextRequest) {
   try {
-    const decoded = await verifyUser(req)
+    const decoded = await requireAccess(req, {
+      roles: ["USER"],
+      permission: "BOOKING_CREATE",
+    })
     const { bookingId, mileageEnd } = await req.json()
 
     if (!bookingId || mileageEnd === undefined || mileageEnd === null) {
@@ -136,9 +139,8 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json(updatedBooking)
   } catch (error: unknown) {
     console.error("Return error:", error)
-    if (error instanceof Error && (error.message === "No token" || error.message === "Not authorized")) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

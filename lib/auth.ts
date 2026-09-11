@@ -25,14 +25,20 @@ export function getToken(req: NextRequest): string | undefined {
 
 /** Verify token และ return decoded payload */
 export function decodeToken(req: NextRequest): JwtPayload {
-  const token = getToken(req)
+  return decodeTokenValue(getToken(req))
+}
+
+/** Verify a raw token so Server Components and Route Handlers share one auth path. */
+export function decodeTokenValue(token: string | undefined): JwtPayload {
   if (!token) throw new Error("No token")
   return jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload
 }
 
 /** Verify JWT and refresh authorization data from the database on every request. */
-export async function verifyToken(req: NextRequest): Promise<AuthenticatedUser> {
-  const decoded = decodeToken(req)
+export async function verifyTokenValue(
+  token: string | undefined,
+): Promise<AuthenticatedUser> {
+  const decoded = decodeTokenValue(token)
   const user = await prisma.user.findUnique({
     where: { id: decoded.userId },
     select: { id: true, role: true, isActive: true },
@@ -45,6 +51,10 @@ export async function verifyToken(req: NextRequest): Promise<AuthenticatedUser> 
     role: user.role,
     isActive: true,
   }
+}
+
+export async function verifyToken(req: NextRequest): Promise<AuthenticatedUser> {
+  return verifyTokenValue(getToken(req))
 }
 
 /** เฉพาะ ADMIN เท่านั้น */

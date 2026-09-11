@@ -1,25 +1,38 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyAdmin } from "@/lib/auth"
-import { clearPermissionCache } from "@/lib/permissions"
+import {
+  accessErrorResponse,
+  clearPermissionCache,
+  requireAccess,
+  type Permission,
+} from "@/lib/permissions"
 
 const ALL_PERMISSIONS = [
-  "BOOKING_VIEW", "BOOKING_CREATE", "BOOKING_APPROVE", "BOOKING_DELETE",
+  "BOOKING_VIEW", "BOOKING_CREATE", "BOOKING_APPROVE", "BOOKING_MANAGE", "BOOKING_DELETE",
   "VEHICLE_VIEW", "VEHICLE_MANAGE",
-  "MAINTENANCE_VIEW", "MAINTENANCE_MANAGE",
+  "MAINTENANCE_VIEW", "MAINTENANCE_REPORT", "MAINTENANCE_MANAGE",
   "USER_MANAGE",
   "REPORT_VIEW",
-]
+  "PERMISSION_MANAGE",
+] satisfies Permission[]
 
-const ROLES = ["ADMIN", "APPROVER", "USER"]
+const ROLES = ["ADMIN", "APPROVER", "USER"] as const
 
 // ADMIN ต้องมีสิทธิ์เหล่านี้เสมอ (lock ไว้ ลบไม่ได้)
-const LOCKED_ADMIN_PERMISSIONS = ["USER_MANAGE", "BOOKING_VIEW", "VEHICLE_VIEW"]
+const LOCKED_ADMIN_PERMISSIONS: Permission[] = [
+  "PERMISSION_MANAGE",
+  "USER_MANAGE",
+  "BOOKING_VIEW",
+  "VEHICLE_VIEW",
+]
 
 // GET: ดึง permissions ทั้งหมดของทุก role
 export async function GET(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "PERMISSION_MANAGE",
+    })
 
     const rows = await prisma.rolePermission.findMany()
 
@@ -45,25 +58,42 @@ export async function GET(req: NextRequest) {
       roles: ROLES,
       lockedAdminPermissions: LOCKED_ADMIN_PERMISSIONS,
     })
-  } catch (error: any) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+  } catch (error: unknown) {
+    return accessErrorResponse(error) ||
+      NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
 
 // PUT: อัพเดท permissions ของ role
 export async function PUT(req: NextRequest) {
   try {
-    await verifyAdmin(req)
-    const { role, permissions } = await req.json()
+    const actor = await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "PERMISSION_MANAGE",
+    })
+    const body = await req.json()
+    const role = typeof body.role === "string" ? body.role : ""
+    const permissions = Array.isArray(body.permissions) ? body.permissions : null
 
-    if (!ROLES.includes(role)) {
-      return NextResponse.json({ message: "Invalid role" }, { status: 400 })
+    if (!ROLES.includes(role as (typeof ROLES)[number]) || !permissions) {
+      return NextResponse.json({ message: "ข้อมูลสิทธิ์ไม่ถูกต้อง" }, { status: 400 })
     }
+    if (
+      permissions.some(
+        (permission: unknown) =>
+          typeof permission !== "string" ||
+          !ALL_PERMISSIONS.includes(permission as Permission),
+      )
+    ) {
+      return NextResponse.json({ message: "พบสิทธิ์ที่ระบบไม่รองรับ" }, { status: 400 })
+    }
+
+    const normalizedPermissions = Array.from(new Set(permissions)) as Permission[]
 
     // ป้องกันการลบ locked permissions ของ ADMIN
     if (role === "ADMIN") {
       const missingLocked = LOCKED_ADMIN_PERMISSIONS.filter(
-        (p) => !permissions.includes(p)
+        (permission) => !normalizedPermissions.includes(permission)
       )
       if (missingLocked.length > 0) {
         return NextResponse.json(
@@ -73,29 +103,47 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // ลบ permissions เก่าของ role นี้ทั้งหมด
-    await prisma.rolePermission.deleteMany({
-      where: { role: role as any },
+    const previousRows = await prisma.rolePermission.findMany({
+      where: { role: role as (typeof ROLES)[number] },
+      select: { permission: true },
     })
+    const previousPermissions = previousRows.map((row) => row.permission)
+    const added = normalizedPermissions.filter(
+      (permission) => !previousPermissions.includes(permission),
+    )
+    const removed = previousPermissions.filter(
+      (permission) => !normalizedPermissions.includes(permission),
+    )
 
-    // สร้าง permissions ใหม่
-    if (permissions.length > 0) {
-      await prisma.rolePermission.createMany({
-        data: permissions.map((permission: string) => ({
-          role: role as any,
-          permission: permission as any,
-        })),
+    await prisma.$transaction(async (tx) => {
+      await tx.rolePermission.deleteMany({
+        where: { role: role as (typeof ROLES)[number] },
       })
-    }
+
+      if (normalizedPermissions.length > 0) {
+        await tx.rolePermission.createMany({
+          data: normalizedPermissions.map((permission) => ({
+            role: role as (typeof ROLES)[number],
+            permission,
+          })),
+        })
+      }
+
+      await tx.log.create({
+        data: {
+          userId: actor.userId,
+          action: "ROLE_PERMISSIONS_UPDATED",
+          metadata: { role, added, removed },
+        },
+      })
+    })
 
     // ล้าง cache ของ role นี้
     clearPermissionCache(role)
 
     return NextResponse.json({ message: "อัพเดทสิทธิ์เรียบร้อยแล้ว" })
-  } catch (error: any) {
-    if (error.message === "Not authorized" || error.message === "No token") {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
-    return NextResponse.json({ message: "Server error" }, { status: 500 })
+  } catch (error: unknown) {
+    return accessErrorResponse(error) ||
+      NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

@@ -49,7 +49,7 @@ export default function UserPage() {
       icon: Wrench,
       href: "/user/maintenance",
       tone: "orange",
-      permission: "BOOKING_VIEW" // Users who can view bookings can report maintenance
+      permission: "MAINTENANCE_VIEW"
     },
     
   ]

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { POST } from "../route"
-import { verifyToken } from "@/lib/auth"
+import { requireAccess } from "@/lib/permissions"
 import { emailAdminsAboutMaintenanceReport } from "@/lib/email/maintenanceNotifications"
 
 const prismaMock = vi.hoisted(() => ({
@@ -17,7 +17,10 @@ const prismaMock = vi.hoisted(() => ({
 }))
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }))
-vi.mock("@/lib/auth", () => ({ verifyToken: vi.fn() }))
+vi.mock("@/lib/permissions", () => ({
+  requireAccess: vi.fn(),
+  accessErrorResponse: vi.fn(() => null),
+}))
 vi.mock("@/lib/email/maintenanceNotifications", () => ({
   emailAdminsAboutMaintenanceReport: vi.fn()
 }))
@@ -25,7 +28,7 @@ vi.mock("@/lib/email/maintenanceNotifications", () => ({
 describe("POST /api/user/maintenance", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyToken).mockResolvedValue({ userId: "user-1", role: "USER", isActive: true })
+    vi.mocked(requireAccess).mockResolvedValue({ userId: "user-1", role: "USER", isActive: true })
     prismaMock.$transaction.mockImplementation(
       async (callback: (tx: typeof prismaMock) => Promise<unknown>) =>
         callback(prismaMock)

@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { isAuthError, verifyToken } from "@/lib/auth"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import { MaintenanceStatus, MaintenanceType } from "@/app/generated/prisma/client"
 import { emailAdminsAboutMaintenanceReport } from "@/lib/email/maintenanceNotifications"
 
 // GET: Fetch maintenance history for the logged-in user
 export async function GET(req: NextRequest) {
   try {
-    const decoded = await verifyToken(req)
+    const decoded = await requireAccess(req, {
+      roles: ["USER"],
+      permission: "MAINTENANCE_VIEW",
+    })
     
     const maintenances = await prisma.maintenance.findMany({
       where: { reporterId: decoded.userId },
@@ -19,9 +22,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(maintenances)
   } catch (error: unknown) {
-    if (isAuthError(error)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -29,7 +31,10 @@ export async function GET(req: NextRequest) {
 // POST: Report a new maintenance issue
 export async function POST(req: NextRequest) {
   try {
-    const decoded = await verifyToken(req)
+    const decoded = await requireAccess(req, {
+      roles: ["USER"],
+      permission: "MAINTENANCE_REPORT",
+    })
     const { vehicleId, description, startDate, maintenanceType } = await req.json()
 
     const allowedTypes = new Set<MaintenanceType>([
@@ -91,9 +96,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(maintenance, { status: 201 })
   } catch (error: unknown) {
-    if (isAuthError(error)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

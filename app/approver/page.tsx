@@ -16,12 +16,16 @@ export default function ApproverPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [authRes, pendingRes] = await Promise.all([
-          api.get("/api/auth/me"),
-          api.get("/api/approver?status=PENDING")
-        ])
-        setPermissions(authRes.data.permissions || [])
-        setPendingCount(pendingRes.data.length || 0)
+        const authRes = await api.get("/api/auth/me")
+        const loadedPermissions = authRes.data.permissions || []
+        setPermissions(loadedPermissions)
+
+        if (loadedPermissions.includes("BOOKING_APPROVE")) {
+          const pendingRes = await api.get("/api/approver?status=PENDING")
+          setPendingCount(pendingRes.data.length || 0)
+        } else {
+          setPendingCount(0)
+        }
       } catch (error) {
         console.error("Failed to load data", error)
       } finally {

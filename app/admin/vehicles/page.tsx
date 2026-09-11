@@ -5,6 +5,7 @@ import axios from "axios"
 import { Car, Pencil, Plus, Tags, Trash2, X } from "lucide-react"
 import api from "@/lib/api"
 import { getVehicleStatusColor, getVehicleStatusText } from "@/lib/format"
+import { usePermissions } from "@/lib/use-permissions"
 
 type Vehicle = {
   id: string
@@ -60,6 +61,8 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 export default function AdminVehiclesPage() {
+  const { hasPermission } = usePermissions()
+  const canManageVehicles = hasPermission("VEHICLE_MANAGE")
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([])
   const [loading, setLoading] = useState(false)
@@ -324,16 +327,18 @@ export default function AdminVehiclesPage() {
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={
-                  activeTab === "vehicles" ? openCreateModal : openCreateTypeModal
-                }
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                {activeTab === "vehicles" ? "เพิ่มรถ" : "เพิ่มประเภทรถ"}
-              </button>
+              {canManageVehicles && (
+                <button
+                  type="button"
+                  onClick={
+                    activeTab === "vehicles" ? openCreateModal : openCreateTypeModal
+                  }
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  {activeTab === "vehicles" ? "เพิ่มรถ" : "เพิ่มประเภทรถ"}
+                </button>
+              )}
             </div>
           </div>
         </header>
@@ -427,7 +432,7 @@ export default function AdminVehiclesPage() {
                           {(vehicle.currentMileage || 0).toLocaleString()} km
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex justify-end gap-2">
+                          {canManageVehicles && <div className="flex justify-end gap-2">
                             <button
                               type="button"
                               onClick={() => openEditModal(vehicle)}
@@ -447,7 +452,7 @@ export default function AdminVehiclesPage() {
                               <Trash2 className="h-4 w-4" aria-hidden="true" />
                               ลบ
                             </button>
-                          </div>
+                          </div>}
                         </td>
                       </tr>
                     ))
@@ -518,7 +523,7 @@ export default function AdminVehiclesPage() {
                             {vehicleCount} คัน
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex justify-end gap-2">
+                            {canManageVehicles && <div className="flex justify-end gap-2">
                               <button
                                 type="button"
                                 onClick={() => openEditTypeModal(type)}
@@ -549,7 +554,7 @@ export default function AdminVehiclesPage() {
                                 />
                                 ลบ
                               </button>
-                            </div>
+                            </div>}
                           </td>
                         </tr>
                       )

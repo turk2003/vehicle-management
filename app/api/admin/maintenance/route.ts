@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyAdmin } from "@/lib/auth"
-import { isAuthError } from "@/lib/auth"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import { MaintenanceStatus, MaintenanceType } from "@/app/generated/prisma/client"
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
 
 class MaintenanceInputError extends Error {}
+
+const ACTIVE_BOOKING_STATUSES = [
+  "PENDING",
+  "APPROVED",
+  "CHANGED",
+  "IN_PROGRESS",
+] as const
 
 function parseRequiredDate(value: unknown, fieldName: string) {
   if (typeof value !== "string" || !value) {
@@ -58,7 +64,10 @@ function inputErrorResponse(error: unknown) {
 // GET
 export async function GET(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "MAINTENANCE_VIEW",
+    })
     const { searchParams } = new URL(req.url)
     const status = searchParams.get("status")
     const vehicleId = searchParams.get("vehicleId")
@@ -78,11 +87,63 @@ export async function GET(req: NextRequest) {
       orderBy: { startDate: "desc" }
     })
 
-    return NextResponse.json(maintenances)
+    if (maintenances.length === 0) return NextResponse.json([])
+
+    const earliestMaintenanceStart = maintenances.reduce(
+      (earliest, maintenance) =>
+        maintenance.startDate < earliest ? maintenance.startDate : earliest,
+      maintenances[0].startDate,
+    )
+    const hasOpenEndedMaintenance = maintenances.some(
+      (maintenance) => maintenance.endDate === null,
+    )
+    const latestMaintenanceEnd = hasOpenEndedMaintenance
+      ? null
+      : maintenances.reduce<Date | null>((latest, maintenance) => {
+          if (!maintenance.endDate) return latest
+          return !latest || maintenance.endDate > latest
+            ? maintenance.endDate
+            : latest
+        }, null)
+    const vehicleIds = [
+      ...new Set(maintenances.map((maintenance) => maintenance.vehicleId)),
+    ]
+    const activeBookings = await prisma.booking.findMany({
+      where: {
+        vehicleId: { in: vehicleIds },
+        status: { in: [...ACTIVE_BOOKING_STATUSES] },
+        endDate: { gte: earliestMaintenanceStart },
+        ...(latestMaintenanceEnd && {
+          startDate: { lte: latestMaintenanceEnd },
+        }),
+      },
+      select: {
+        id: true,
+        vehicleId: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        purpose: true,
+        destination: true,
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { startDate: "asc" },
+    })
+
+    return NextResponse.json(
+      maintenances.map((maintenance) => ({
+        ...maintenance,
+        affectedBookings: activeBookings.filter(
+          (booking) =>
+            booking.vehicleId === maintenance.vehicleId &&
+            booking.endDate >= maintenance.startDate &&
+            (!maintenance.endDate || booking.startDate <= maintenance.endDate),
+        ),
+      })),
+    )
   } catch (error: unknown) {
-    if (isAuthError(error)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -90,7 +151,10 @@ export async function GET(req: NextRequest) {
 // POST
 export async function POST(req: NextRequest) {
   try {
-    const decoded = await verifyAdmin(req)
+    const decoded = await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "MAINTENANCE_MANAGE",
+    })
     const {
       vehicleId,
       description,
@@ -154,6 +218,8 @@ export async function POST(req: NextRequest) {
         startDate: true,
         endDate: true,
         status: true,
+        purpose: true,
+        destination: true,
         user: { select: { name: true } }
       }
     })
@@ -199,9 +265,8 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     const inputResponse = inputErrorResponse(error)
     if (inputResponse) return inputResponse
-    if (isAuthError(error)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -209,7 +274,10 @@ export async function POST(req: NextRequest) {
 // PUT
 export async function PUT(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "MAINTENANCE_MANAGE",
+    })
     const {
       id,
       description,
@@ -286,6 +354,8 @@ export async function PUT(req: NextRequest) {
           startDate: true,
           endDate: true,
           status: true,
+          purpose: true,
+          destination: true,
           user: { select: { name: true } }
         }
       })
@@ -357,9 +427,8 @@ export async function PUT(req: NextRequest) {
   } catch (error: unknown) {
     const inputResponse = inputErrorResponse(error)
     if (inputResponse) return inputResponse
-    if (isAuthError(error)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -367,7 +436,10 @@ export async function PUT(req: NextRequest) {
 // DELETE
 export async function DELETE(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "MAINTENANCE_MANAGE",
+    })
     const { searchParams } = new URL(req.url)
     const id = searchParams.get("id")
 
@@ -405,9 +477,8 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ message: "ลบเรียบร้อยแล้ว" })
   } catch (error: unknown) {
-    if (isAuthError(error)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

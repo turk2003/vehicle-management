@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { POST } from "../route"
-import { verifyAdmin } from "@/lib/auth"
+import { requireAccess } from "@/lib/permissions"
 import { calculateVehicleUsageAnalysis } from "@/lib/vehicle-usage-analysis"
 import {
   buildVehicleUsageAiPayload,
@@ -15,12 +15,10 @@ const prismaMock = vi.hoisted(() => ({
 }))
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }))
-vi.mock("@/lib/auth", () => ({
-  verifyAdmin: vi.fn(),
-  isAuthError: (error: unknown) =>
-    error instanceof Error &&
-    ["No token", "Not authorized"].includes(error.message),
-}))
+vi.mock("@/lib/permissions", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/permissions")>()
+  return { ...original, requireAccess: vi.fn() }
+})
 vi.mock("@/lib/vehicle-usage-analysis", () => ({
   AnalysisInputError: class AnalysisInputError extends Error {},
   calculateVehicleUsageAnalysis: vi.fn(),
@@ -72,7 +70,7 @@ function request(body: Record<string, unknown> = {}) {
 describe("POST /api/admin/vehicles/history/analysis", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyAdmin).mockResolvedValue({ userId: "admin-1", role: "ADMIN", isActive: true })
+    vi.mocked(requireAccess).mockResolvedValue({ userId: "admin-1", role: "ADMIN", isActive: true })
     vi.mocked(calculateVehicleUsageAnalysis).mockResolvedValue(analysis as never)
     vi.mocked(buildVehicleUsageAiPayload).mockReturnValue({ cacheKey: `cache-${Math.random()}` } as never)
     vi.mocked(generateVehicleUsageSummary).mockResolvedValue({
@@ -114,13 +112,13 @@ describe("POST /api/admin/vehicles/history/analysis", () => {
   })
 
   it("rejects non-Admin users before reading analysis data", async () => {
-    vi.mocked(verifyAdmin).mockImplementation(() => {
+    vi.mocked(requireAccess).mockImplementation(() => {
       throw new Error("Not authorized")
     })
 
     const response = await POST(request())
 
-    expect(response.status).toBe(401)
+    expect(response.status).toBe(403)
     expect(calculateVehicleUsageAnalysis).not.toHaveBeenCalled()
     expect(generateVehicleUsageSummary).not.toHaveBeenCalled()
   })

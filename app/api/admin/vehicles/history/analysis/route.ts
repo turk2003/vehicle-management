@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { isAuthError, verifyAdmin } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import {
   AiSummaryUnavailableError,
   buildVehicleUsageAiPayload,
@@ -82,7 +82,10 @@ export async function POST(req: NextRequest) {
   let model = process.env.OPENAI_VEHICLE_SUMMARY_MODEL || "gpt-5.6-luna"
 
   try {
-    const admin = await verifyAdmin(req)
+    const admin = await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "REPORT_VIEW",
+    })
     adminId = admin.userId
 
     if (activeAdmins.has(admin.userId)) {
@@ -154,9 +157,8 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       )
     }
-    if (isAuthError(error)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    }
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     if (error instanceof AiSummaryUnavailableError) {
       if (adminId && runStartedAt > 0) {
         await recordRun(adminId, {

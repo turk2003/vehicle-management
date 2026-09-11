@@ -17,6 +17,7 @@ import {
   XCircle,
 } from "lucide-react"
 import api from "@/lib/api"
+import { usePermissions } from "@/lib/use-permissions"
 import {
   formatDateTime,
   getBookingStatusColor,
@@ -170,6 +171,8 @@ function getDistance(booking: Booking) {
 }
 
 export default function MyBookingsPage() {
+  const { hasPermission } = usePermissions()
+  const canManageOwnBookings = hasPermission("BOOKING_CREATE")
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -615,7 +618,7 @@ export default function MyBookingsPage() {
                           <Eye className="h-4 w-4" aria-hidden="true" />
                           ดูรายละเอียด
                         </button>
-                        {booking.status === "PENDING" && (
+                        {canManageOwnBookings && booking.status === "PENDING" && (
                           <>
                             <button
                               type="button"
@@ -637,7 +640,7 @@ export default function MyBookingsPage() {
                             </button>
                           </>
                         )}
-                        {["APPROVED", "CHANGED"].includes(booking.status) && (
+                        {canManageOwnBookings && ["APPROVED", "CHANGED"].includes(booking.status) && (
                           <button
                             type="button"
                             onClick={() => openMileageModal(booking, "pickup")}
@@ -648,7 +651,7 @@ export default function MyBookingsPage() {
                             รับรถ
                           </button>
                         )}
-                        {booking.status === "IN_PROGRESS" && (
+                        {canManageOwnBookings && booking.status === "IN_PROGRESS" && (
                           <button
                             type="button"
                             onClick={() => openMileageModal(booking, "return")}

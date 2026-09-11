@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { Prisma } from "@/app/generated/prisma/client"
-import { verifyAdmin } from "@/lib/auth"
 import { sendBookingEventEmail } from "@/lib/email/bookingNotifications"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
 
 const ACTIVE_BOOKING_STATUSES = ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] as const
@@ -74,19 +74,18 @@ function errorResponse(error: unknown) {
       { status: 409 }
     )
   }
-  if (
-    error instanceof Error &&
-    (error.message === "No token" || error.message === "Not authorized")
-  ) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-  }
+  const accessResponse = accessErrorResponse(error)
+  if (accessResponse) return accessResponse
   console.error("Change vehicle error:", error)
   return NextResponse.json({ message: "Server error" }, { status: 500 })
 }
 
 export async function GET(req: NextRequest) {
   try {
-    await verifyAdmin(req)
+    await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "BOOKING_MANAGE",
+    })
     const bookingId = new URL(req.url).searchParams.get("bookingId")
 
     if (!bookingId) {
@@ -154,7 +153,10 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const decoded = await verifyAdmin(req)
+    const decoded = await requireAccess(req, {
+      roles: ["ADMIN"],
+      permission: "BOOKING_MANAGE",
+    })
     const body = await req.json()
     const bookingId = typeof body.bookingId === "string" ? body.bookingId : ""
     const newVehicleId = typeof body.newVehicleId === "string" ? body.newVehicleId : ""

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyPermission, isPermissionError } from "@/lib/permissions"
+import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
 
 const MAX_MILEAGE = 2_147_483_647
@@ -42,7 +42,7 @@ function inputErrorResponse(error: unknown) {
 // GET: list vehicles
 export async function GET(req: NextRequest) {
   try {
-    await verifyPermission(req, "VEHICLE_VIEW")
+    await requireAccess(req, { permission: "VEHICLE_VIEW" })
     await syncAllVehicleStatuses()
 
     const vehicles = await prisma.vehicle.findMany({
@@ -52,15 +52,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(vehicles)
   } catch (error) {
-    if (isPermissionError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    return accessErrorResponse(error) ||
+      NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
 
 // POST: create vehicle
 export async function POST(req: NextRequest) {
   try {
-    await verifyPermission(req, "VEHICLE_MANAGE")
+    await requireAccess(req, { roles: ["ADMIN"], permission: "VEHICLE_MANAGE" })
     const { plateNumber, typeId, status, currentMileage } = await req.json()
     const parsedMileage = parseCurrentMileage(currentMileage) ?? 0
 
@@ -83,7 +83,8 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     const inputResponse = inputErrorResponse(error)
     if (inputResponse) return inputResponse
-    if (isPermissionError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
 // PUT: update vehicle
 export async function PUT(req: NextRequest) {
   try {
-    await verifyPermission(req, "VEHICLE_MANAGE")
+    await requireAccess(req, { roles: ["ADMIN"], permission: "VEHICLE_MANAGE" })
     const { id, plateNumber, typeId, status, currentMileage } = await req.json()
     const parsedMileage = parseCurrentMileage(currentMileage)
 
@@ -117,7 +118,8 @@ export async function PUT(req: NextRequest) {
   } catch (error: unknown) {
     const inputResponse = inputErrorResponse(error)
     if (inputResponse) return inputResponse
-    if (isPermissionError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }
@@ -125,21 +127,31 @@ export async function PUT(req: NextRequest) {
 // DELETE: delete vehicle
 export async function DELETE(req: NextRequest) {
   try {
-    await verifyPermission(req, "VEHICLE_MANAGE")
+    await requireAccess(req, { roles: ["ADMIN"], permission: "VEHICLE_MANAGE" })
     const { searchParams } = new URL(req.url)
     const id = searchParams.get("id")
 
     if (!id) return NextResponse.json({ message: "Vehicle ID required" }, { status: 400 })
 
-    const existingBookings = await prisma.booking.findFirst({ where: { vehicleId: id } })
-    if (existingBookings) {
-      return NextResponse.json({ message: "Cannot delete vehicle with existing bookings" }, { status: 400 })
+    const [existingBooking, existingMaintenance] = await Promise.all([
+      prisma.booking.findFirst({ where: { vehicleId: id }, select: { id: true } }),
+      prisma.maintenance.findFirst({ where: { vehicleId: id }, select: { id: true } }),
+    ])
+    if (existingBooking || existingMaintenance) {
+      return NextResponse.json(
+        {
+          message: "รถคันนี้มีประวัติการจองหรือการซ่อม จึงไม่สามารถลบได้",
+          code: "VEHICLE_HAS_HISTORY",
+        },
+        { status: 409 },
+      )
     }
 
     await prisma.vehicle.delete({ where: { id } })
     return NextResponse.json({ message: "Vehicle deleted successfully" })
   } catch (error: unknown) {
-    if (isPermissionError(error)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    const accessResponse = accessErrorResponse(error)
+    if (accessResponse) return accessResponse
     return NextResponse.json({ message: "Server error" }, { status: 500 })
   }
 }

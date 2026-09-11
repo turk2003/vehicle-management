@@ -55,6 +55,7 @@ enum Permission {
   BOOKING_VIEW
   BOOKING_CREATE
   BOOKING_APPROVE
+  BOOKING_MANAGE
   BOOKING_DELETE
 
   // Vehicle
@@ -63,6 +64,7 @@ enum Permission {
 
   // Maintenance
   MAINTENANCE_VIEW
+  MAINTENANCE_REPORT
   MAINTENANCE_MANAGE
 
   // User
@@ -70,6 +72,9 @@ enum Permission {
 
   // Report
   REPORT_VIEW
+
+  // Permission matrix
+  PERMISSION_MANAGE
 }
 
 model User {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PUT } from "../route"
-import { verifyAdmin } from "@/lib/auth"
+import { requireAccess } from "@/lib/permissions"
 import { sendBookingEventEmail } from "@/lib/email/bookingNotifications"
 
 const prismaMock = vi.hoisted(() => ({
@@ -22,7 +22,10 @@ const prismaMock = vi.hoisted(() => ({
 }))
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }))
-vi.mock("@/lib/auth", () => ({ verifyAdmin: vi.fn() }))
+vi.mock("@/lib/permissions", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/permissions")>()
+  return { ...original, requireAccess: vi.fn() }
+})
 vi.mock("@/lib/email/bookingNotifications", () => ({
   sendBookingEventEmail: vi.fn()
 }))
@@ -62,7 +65,7 @@ const replacement = {
 describe("PUT /api/admin/bookings/change-vehicle", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(verifyAdmin).mockResolvedValue({
+    vi.mocked(requireAccess).mockResolvedValue({
       userId: "admin-1",
       role: "ADMIN",
       isActive: true,
