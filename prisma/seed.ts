@@ -1,17 +1,31 @@
 import "dotenv/config"
 import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient, UserRole } from '../app/generated/prisma/client'
+import { PrismaClient, UserRole, VehicleStatus } from '../app/generated/prisma/client'
 import bcrypt from "bcryptjs"
 
-const connectionString = `${process.env.DATABASE_URL}`
+const connectionString = process.env.DATABASE_URL
+if (!connectionString) {
+  throw new Error("DATABASE_URL is required to seed the database")
+}
+
+const databaseHost = new URL(connectionString).hostname
+const isLocalDatabase = ["localhost", "127.0.0.1", "::1"].includes(databaseHost)
+function getAdminPassword(): string {
+  const password = process.env.SEED_ADMIN_PASSWORD || (isLocalDatabase ? "admin123" : undefined)
+  if (!password || (!isLocalDatabase && password.length < 12)) {
+    throw new Error("SEED_ADMIN_PASSWORD of at least 12 characters is required for remote databases")
+  }
+  return password
+}
+const adminPassword = getAdminPassword()
+
 const adapter = new PrismaPg({ connectionString })
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
   try {
     // Create Admin User
-    const adminEmail = "admin@system.com"
-    const adminPassword = "admin123"
+    const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@system.com"
 
     const existingAdmin = await prisma.user.findUnique({
       where: { email: adminEmail },
@@ -30,8 +44,7 @@ async function main() {
       })
 
       console.log("🚀 Admin user created")
-      console.log("📧 Email: admin@system.com")
-      console.log("🔐 Password: admin123")
+      console.log(`📧 Email: ${adminEmail}`)
     } else {
       console.log("👤 Admin user already exists")
     }
@@ -83,7 +96,7 @@ async function main() {
             data: {
               plateNumber: vehicleData.plateNumber,
               typeId: vehicleType.id,
-              status: vehicleData.status as any,
+              status: vehicleData.status as VehicleStatus,
               currentMileage: vehicleData.currentMileage,
             }
           })

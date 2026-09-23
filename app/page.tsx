@@ -220,7 +220,7 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="mt-8 border-t border-gray-200 pt-6">
+            {process.env.NODE_ENV !== "production" && <div className="mt-8 border-t border-gray-200 pt-6">
               <p className="mb-3 text-sm font-medium text-gray-700">
                 บัญชีทดสอบ
               </p>
@@ -247,7 +247,7 @@ export default function LoginPage() {
                   </button>
                 ))}
               </div>
-            </div>
+            </div>}
           </div>
         </section>
       </div>
