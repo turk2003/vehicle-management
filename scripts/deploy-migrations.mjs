@@ -10,8 +10,11 @@ if (!pooledUrl) {
 }
 
 const directUrl = new URL(pooledUrl)
-if (directUrl.hostname !== "pooled.db.prisma.io") {
-  throw new Error("Expected a pooled Prisma Postgres DATABASE_URL in production")
+if (!["postgres:", "postgresql:"].includes(directUrl.protocol)) {
+  throw new Error("Expected a PostgreSQL DATABASE_URL in production")
+}
+if (!["pooled.db.prisma.io", "db.prisma.io"].includes(directUrl.hostname)) {
+  throw new Error(`Unexpected Prisma Postgres host: ${directUrl.hostname}`)
 }
 directUrl.hostname = "db.prisma.io"
 
