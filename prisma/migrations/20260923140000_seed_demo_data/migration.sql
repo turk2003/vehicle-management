@@ -1,0 +1,8 @@
+-- Demo data for the initial hosted database. The admin password is a strong random value stored only in the ignored local credential file.
+INSERT INTO "User" ("id", "name", "email", "password", "role") VALUES ('8a7b3d0f-f9d6-44f5-b13d-3a6fb4387abc', 'Demo Admin', 'admin@system.com', '$2b$12$P4IEEeIwyFZoB5tMLWAxe.eH4u4zvkPCtY03rDbMVmFeDWipXL5pq', 'ADMIN') ON CONFLICT ("email") DO NOTHING;
+INSERT INTO "VehicleType" ("id", "name") SELECT 'ad966dc2-4b7b-4501-ba1f-68297c8a74f7', 'Van' WHERE NOT EXISTS (SELECT 1 FROM "VehicleType" WHERE "name" = 'Van');
+INSERT INTO "VehicleType" ("id", "name") SELECT '5d1bdcfb-17c5-4fa9-b51f-9e6ab7cd7ee9', 'Cable Car' WHERE NOT EXISTS (SELECT 1 FROM "VehicleType" WHERE "name" = 'Cable Car');
+INSERT INTO "VehicleType" ("id", "name") SELECT '36aa4058-0451-4463-a30b-d38f6016f472', 'Truck' WHERE NOT EXISTS (SELECT 1 FROM "VehicleType" WHERE "name" = 'Truck');
+INSERT INTO "Vehicle" ("id", "plateNumber", "status", "currentMileage", "typeId") SELECT 'da77adaf-8714-4006-af84-be0beb7a332a', 'ABC-1234', 'AVAILABLE', 15000, "id" FROM "VehicleType" WHERE "name" = 'Van' ORDER BY "id" LIMIT 1 ON CONFLICT ("plateNumber") DO NOTHING;
+INSERT INTO "Vehicle" ("id", "plateNumber", "status", "currentMileage", "typeId") SELECT 'd77c49d8-60af-49de-88ac-c3574054373c', 'DEF-5678', 'AVAILABLE', 42000, "id" FROM "VehicleType" WHERE "name" = 'Cable Car' ORDER BY "id" LIMIT 1 ON CONFLICT ("plateNumber") DO NOTHING;
+INSERT INTO "Vehicle" ("id", "plateNumber", "status", "currentMileage", "typeId") SELECT '474553e6-b5b6-4663-95b5-931a434c30f4', 'GHI-9012', 'AVAILABLE', 8500, "id" FROM "VehicleType" WHERE "name" = 'Truck' ORDER BY "id" LIMIT 1 ON CONFLICT ("plateNumber") DO NOTHING;
