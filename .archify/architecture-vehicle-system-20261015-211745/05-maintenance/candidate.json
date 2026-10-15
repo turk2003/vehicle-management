@@ -1,0 +1,246 @@
+{
+  "lanes": [
+    {
+      "id": "main",
+      "label": "ผู้ใช้และผู้ดูแลงานซ่อม"
+    },
+    {
+      "id": "wait",
+      "label": "การยืนยันและการรอ"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "report",
+      "lane": "main",
+      "col": 0,
+      "type": "frontend",
+      "label": "ผู้ใช้แจ้งซ่อม",
+      "sublabel": "USER + MAINTENANCE_REPORT",
+      "sources": [
+        {
+          "path": "app/api/user/maintenance/route.ts",
+          "line": 31,
+          "end_line": 53
+        }
+      ]
+    },
+    {
+      "id": "reported",
+      "lane": "main",
+      "col": 1,
+      "type": "backend",
+      "label": "บันทึกรายงาน",
+      "sublabel": "REPORTED + แจ้ง ADMIN",
+      "sources": [
+        {
+          "path": "app/api/user/maintenance/route.ts",
+          "line": 57,
+          "end_line": 95
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "lane": "main",
+      "col": 2,
+      "type": "security",
+      "label": "ADMIN ตรวจงาน",
+      "sublabel": "ชนการจองต้องยืนยัน",
+      "sources": [
+        {
+          "path": "app/api/admin/maintenance/route.ts",
+          "line": 341,
+          "end_line": 372
+        },
+        {
+          "path": "app/api/admin/maintenance/route.ts",
+          "line": 152,
+          "end_line": 235
+        }
+      ]
+    },
+    {
+      "id": "start",
+      "lane": "main",
+      "col": 3,
+      "type": "backend",
+      "label": "เริ่มงานซ่อม",
+      "sublabel": "IN_PROGRESS / MAINTENANCE",
+      "sources": [
+        {
+          "path": "app/api/admin/maintenance/route.ts",
+          "line": 419,
+          "end_line": 423
+        }
+      ]
+    },
+    {
+      "id": "repair",
+      "lane": "main",
+      "col": 4,
+      "type": "backend",
+      "label": "บันทึกงานและค่าใช้จ่าย",
+      "sublabel": "รายละเอียด / ศูนย์บริการ / cost",
+      "sources": [
+        {
+          "path": "app/api/admin/maintenance/route.ts",
+          "line": 375,
+          "end_line": 392
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "lane": "main",
+      "col": 5,
+      "type": "backend",
+      "label": "ปิดงานซ่อม",
+      "sublabel": "COMPLETED / ต้องมี endDate",
+      "sources": [
+        {
+          "path": "app/api/admin/maintenance/route.ts",
+          "line": 333,
+          "end_line": 338
+        },
+        {
+          "path": "app/api/admin/maintenance/route.ts",
+          "line": 395,
+          "end_line": 423
+        }
+      ]
+    },
+    {
+      "id": "confirm",
+      "lane": "wait",
+      "col": 2,
+      "type": "security",
+      "label": "รอยืนยันผลกระทบ",
+      "sublabel": "409 AFFECTED_BOOKINGS",
+      "sources": [
+        {
+          "path": "app/api/admin/maintenance/route.ts",
+          "line": 363,
+          "end_line": 372
+        }
+      ]
+    },
+    {
+      "id": "scheduled",
+      "lane": "wait",
+      "col": 3,
+      "type": "backend",
+      "label": "รอวันเริ่มซ่อม",
+      "sublabel": "sync เมื่อมี API เรียก",
+      "sources": [
+        {
+          "path": "lib/syncStatuses.ts",
+          "line": 11,
+          "end_line": 25
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "report-to-reported",
+      "from": "report",
+      "to": "reported"
+    },
+    {
+      "id": "reported-to-review",
+      "from": "reported",
+      "to": "review"
+    },
+    {
+      "id": "review-to-confirm",
+      "from": "review",
+      "to": "confirm",
+      "role": "branch",
+      "label": "มีผลกระทบ"
+    },
+    {
+      "id": "confirm-to-start",
+      "from": "confirm",
+      "to": "start",
+      "label": "ยืนยัน + ถึงวันเริ่ม"
+    },
+    {
+      "id": "review-to-start",
+      "from": "review",
+      "to": "start",
+      "label": "ผ่านและเริ่มแล้ว"
+    },
+    {
+      "id": "review-to-scheduled",
+      "from": "review",
+      "to": "scheduled",
+      "role": "branch",
+      "label": "ยังไม่ถึงวันเริ่ม"
+    },
+    {
+      "id": "scheduled-to-start",
+      "from": "scheduled",
+      "to": "start",
+      "label": "ถึงวัน + sync"
+    },
+    {
+      "id": "start-to-repair",
+      "from": "start",
+      "to": "repair"
+    },
+    {
+      "id": "repair-to-close",
+      "from": "repair",
+      "to": "close",
+      "label": "ข้อมูลปิดงานครบ"
+    }
+  ],
+  "mainPath": [
+    "report",
+    "reported",
+    "review",
+    "start",
+    "repair",
+    "close"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "ประเภทและผู้สร้างงาน",
+      "items": [
+        "BREAKDOWN = ขัดข้อง; PREVENTIVE = ตามรอบ; OTHER = อื่น ๆ",
+        "USER สร้าง REPORTED พร้อม Notification ให้ ADMIN ใน transaction แล้วส่งอีเมลหลัง commit",
+        "ADMIN สร้าง แก้ไข ลบงานได้ผ่าน MAINTENANCE_MANAGE; การแจ้งของ USER ไม่เปลี่ยนสถานะรถทันที"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "หลังปิดงานและการปรับตามเวลา",
+      "items": [
+        "เมื่อ ADMIN ปิดงาน หากไม่มีงานซ่อม active อื่น จะคืนรถเป็น BOOKED หรือ AVAILABLE ตามการจองปัจจุบัน",
+        "syncAllVehicleStatuses เริ่มงานที่ถึงเวลา และปิด IN_PROGRESS ที่ endDate ผ่าน เมื่อ API ที่เกี่ยวข้องเรียกใช้",
+        "รถเดิมที่ซ่อมอาจต้องเปลี่ยนรถให้การจองที่อนุมัติแล้วก่อนรับรถ ดูแผนภาพเปลี่ยนรถ"
+      ]
+    }
+  ],
+  "meta": {
+    "title": "แจ้งซ่อม จัดการผลกระทบและปิดงาน",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/05-maintenance/05-maintenance.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/turk2003/vehicle-management.git",
+      "revision": "14129c1cf8cf7006d3b9f30c10024eeb9531fe81"
+    }
+  },
+  "semanticChecks": {
+    "allowedRoots": [
+      "report"
+    ],
+    "allowedTerminals": [
+      "close"
+    ]
+  },
+  "schema_version": 2,
+  "diagram_type": "workflow"
+}

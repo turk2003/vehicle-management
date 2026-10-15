@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/06-replacement/candidate.json",
+    "sha256": "abf9fd181adb20675a94fb5eb6edecc453db5a8089b40e21a828b35d14b34287",
+    "bytes": 6383
+  },
+  "artifact": {
+    "path": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/06-replacement/06-replacement.html",
+    "sha256": "8da421f3ec5ee5517fbe512fcdfc5b689ab3549032876cc83ede93b1db72c471",
+    "bytes": 821804
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/06-replacement/06-replacement.finalize.json",
+    "summaryReceipt": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/06-replacement/06-replacement.finalize-summary.json",
+    "browserCheckReceipt": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/06-replacement/06-replacement.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.1.0",
+    "availableVersion": "3.1.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-15T12:09:43.077Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 1730
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "1e3a07c9-9f9c-4790-9946-445dbe9caf6b",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/07-reporting/candidate.json",
+  "output": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/07-reporting/07-reporting.html",
+  "specification": {
+    "sha256": "cf1f67cee24906753ef82d3a0bf79cf38af57fd5dad8e459522225d54ad4a2f6",
+    "bytes": 9090
+  },
+  "artifact": {
+    "sha256": "e23ee0550eb1023a709bc9ac5297084276db7afe0430180bdb14939a5ad8963a",
+    "bytes": 829919
+  }
+}

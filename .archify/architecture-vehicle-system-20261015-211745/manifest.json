@@ -1,0 +1,66 @@
+[
+  {
+    "slug": "01-overview",
+    "type": "architecture",
+    "title": "ภาพรวมระบบจัดการยานพาหนะ",
+    "quality": "showcase",
+    "candidate": ".archify/architecture-vehicle-system-20261015-211745/01-overview/candidate.json",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/01-overview/01-overview.html"
+  },
+  {
+    "slug": "02-modules",
+    "type": "tree",
+    "title": "โมดูลและหน้าที่ของแต่ละบทบาท",
+    "quality": "showcase",
+    "candidate": ".archify/architecture-vehicle-system-20261015-211745/02-modules/candidate.json",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/02-modules/02-modules.html"
+  },
+  {
+    "slug": "03-access",
+    "type": "workflow",
+    "title": "เข้าสู่ระบบและควบคุมการเข้าถึง",
+    "quality": "showcase",
+    "candidate": ".archify/architecture-vehicle-system-20261015-211745/03-access/candidate.json",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/03-access/03-access.html"
+  },
+  {
+    "slug": "04-booking",
+    "type": "workflow",
+    "title": "ขั้นตอนจอง อนุมัติ รับและคืนรถ",
+    "quality": "showcase",
+    "candidate": ".archify/architecture-vehicle-system-20261015-211745/04-booking/candidate.json",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/04-booking/04-booking.html"
+  },
+  {
+    "slug": "05-maintenance",
+    "type": "workflow",
+    "title": "แจ้งซ่อม จัดการผลกระทบและปิดงาน",
+    "quality": "showcase",
+    "candidate": ".archify/architecture-vehicle-system-20261015-211745/05-maintenance/candidate.json",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/05-maintenance/05-maintenance.html"
+  },
+  {
+    "slug": "06-replacement",
+    "type": "workflow",
+    "title": "เปลี่ยนรถทดแทนก่อนรับรถ",
+    "quality": "showcase",
+    "candidate": ".archify/architecture-vehicle-system-20261015-211745/06-replacement/candidate.json",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/06-replacement/06-replacement.html"
+  },
+  {
+    "slug": "07-reporting",
+    "type": "workflow",
+    "title": "ตัวชี้วัดการใช้รถและบทสรุป AI",
+    "quality": "showcase",
+    "candidate": ".archify/architecture-vehicle-system-20261015-211745/07-reporting/candidate.json",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/07-reporting/07-reporting.html"
+  },
+  {
+    "slug": "08-database",
+    "type": "erd",
+    "title": "ฐานข้อมูล PostgreSQL — ทุกตารางและคอลัมน์",
+    "quality": "standard",
+    "candidate": ".archify/architecture-vehicle-system-20261015-211745/08-database/candidate.json",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/08-database/08-database.html"
+  }
+]

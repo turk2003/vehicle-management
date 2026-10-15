@@ -1,0 +1,331 @@
+{
+  "layout": {
+    "direction": "right",
+    "nodeW": 190,
+    "nodeMaxW": 240,
+    "gapX": 50,
+    "gapY": 30
+  },
+  "nodes": [
+    {
+      "id": "system",
+      "label": "ระบบจัดการยานพาหนะ",
+      "sublabel": "โมดูลตามหน้าที่และบทบาท",
+      "sources": [
+        {
+          "path": "prisma/schema.prisma",
+          "line": 11,
+          "end_line": 15
+        },
+        {
+          "path": "package.json",
+          "line": 1,
+          "end_line": 18
+        }
+      ]
+    },
+    {
+      "id": "user",
+      "label": "ผู้ใช้งาน USER",
+      "parent": "system",
+      "sublabel": "ต้องมีสิทธิ์ของแต่ละเมนู",
+      "sources": [
+        {
+          "path": "app/user/page.tsx",
+          "line": 29,
+          "end_line": 57
+        }
+      ]
+    },
+    {
+      "id": "approver",
+      "label": "ผู้อนุมัติ APPROVER",
+      "parent": "system",
+      "sublabel": "ADMIN เข้าส่วนนี้ได้ตามสิทธิ์",
+      "sources": [
+        {
+          "path": "app/approver/layout.tsx",
+          "line": 1,
+          "end_line": 7
+        }
+      ]
+    },
+    {
+      "id": "admin",
+      "label": "ผู้ดูแล ADMIN",
+      "parent": "system",
+      "sublabel": "ข้อมูลหลักและการบริหาร",
+      "sources": [
+        {
+          "path": "app/admin/page.tsx",
+          "line": 29,
+          "end_line": 82
+        }
+      ]
+    },
+    {
+      "id": "shared",
+      "label": "ส่วนกลาง",
+      "parent": "system",
+      "sublabel": "ใช้ร่วมกันทั้งระบบ",
+      "sources": [
+        {
+          "path": "lib/permissions.ts",
+          "line": 49,
+          "end_line": 74
+        }
+      ]
+    },
+    {
+      "id": "u-book",
+      "label": "จองและแนะนำรถ",
+      "parent": "user",
+      "sublabel": "/user/booking",
+      "sources": [
+        {
+          "path": "app/user/page.tsx",
+          "line": 30,
+          "end_line": 37
+        }
+      ]
+    },
+    {
+      "id": "u-history",
+      "label": "การจองของฉัน",
+      "parent": "user",
+      "sublabel": "แก้ไข / ยกเลิก / รับ / คืน",
+      "sources": [
+        {
+          "path": "app/api/booking/route.ts",
+          "line": 219,
+          "end_line": 274
+        },
+        {
+          "path": "app/api/booking/pickup/route.ts",
+          "line": 42,
+          "end_line": 93
+        },
+        {
+          "path": "app/api/booking/return/route.ts",
+          "line": 54,
+          "end_line": 137
+        }
+      ]
+    },
+    {
+      "id": "u-maint",
+      "label": "แจ้งซ่อมและติดตาม",
+      "parent": "user",
+      "sublabel": "/user/maintenance",
+      "sources": [
+        {
+          "path": "app/api/user/maintenance/route.ts",
+          "line": 7,
+          "end_line": 37
+        }
+      ]
+    },
+    {
+      "id": "a-approve",
+      "label": "พิจารณาการจอง",
+      "parent": "approver",
+      "sublabel": "อนุมัติหรือปฏิเสธพร้อมเหตุผล",
+      "sources": [
+        {
+          "path": "app/api/approver/route.ts",
+          "line": 87,
+          "end_line": 114
+        }
+      ]
+    },
+    {
+      "id": "a-history",
+      "label": "ประวัติการตัดสินใจ",
+      "parent": "approver",
+      "sublabel": "APPROVER เห็นงานที่ตนตัดสิน",
+      "sources": [
+        {
+          "path": "app/api/approver/route.ts",
+          "line": 34,
+          "end_line": 48
+        }
+      ]
+    },
+    {
+      "id": "ad-users",
+      "label": "จัดการผู้ใช้",
+      "parent": "admin",
+      "sublabel": "สร้าง / แก้ / ปิดบัญชี / ลบ",
+      "sources": [
+        {
+          "path": "app/api/user/route.ts",
+          "line": 173,
+          "end_line": 235
+        }
+      ]
+    },
+    {
+      "id": "ad-vehicles",
+      "label": "จัดการรถและประเภทรถ",
+      "parent": "admin",
+      "sublabel": "ทะเบียน / สถานะ / เลขไมล์",
+      "sources": [
+        {
+          "path": "app/admin/page.tsx",
+          "line": 38,
+          "end_line": 45
+        },
+        {
+          "path": "app/api/verhicle/route.ts",
+          "line": 128,
+          "end_line": 150
+        },
+        {
+          "path": "app/api/verhicle-type/route.ts",
+          "line": 1,
+          "end_line": 22
+        }
+      ]
+    },
+    {
+      "id": "ad-bookings",
+      "label": "จัดการการจอง",
+      "parent": "admin",
+      "sublabel": "ทำรับ–คืนแทนและเปลี่ยนรถ",
+      "sources": [
+        {
+          "path": "app/admin/page.tsx",
+          "line": 46,
+          "end_line": 53
+        },
+        {
+          "path": "app/api/admin/bookings/route.ts",
+          "line": 94,
+          "end_line": 117
+        },
+        {
+          "path": "app/api/admin/bookings/pickup/route.ts",
+          "line": 10,
+          "end_line": 87
+        }
+      ]
+    },
+    {
+      "id": "ad-maint",
+      "label": "จัดการงานซ่อม",
+      "parent": "admin",
+      "sublabel": "ประเภท / ศูนย์บริการ / ค่าใช้จ่าย",
+      "sources": [
+        {
+          "path": "app/api/admin/maintenance/route.ts",
+          "line": 151,
+          "end_line": 207
+        }
+      ]
+    },
+    {
+      "id": "ad-report",
+      "label": "ประวัติและรายงาน AI",
+      "parent": "admin",
+      "sublabel": "ตัวชี้วัด / รายละเอียด / บทสรุป",
+      "sources": [
+        {
+          "path": "app/admin/vehicle-history/page.tsx",
+          "line": 1,
+          "end_line": 10
+        }
+      ]
+    },
+    {
+      "id": "ad-perm",
+      "label": "เมทริกซ์สิทธิ์",
+      "parent": "admin",
+      "sublabel": "สิทธิ์ต่อบทบาท + Log การเปลี่ยน",
+      "sources": [
+        {
+          "path": "app/api/admin/permissions/route.ts",
+          "line": 118,
+          "end_line": 144
+        }
+      ]
+    },
+    {
+      "id": "s-auth",
+      "label": "เข้าสู่ระบบและสิทธิ์",
+      "parent": "shared",
+      "sublabel": "JWT cookie / RolePermission",
+      "sources": [
+        {
+          "path": "lib/auth.ts",
+          "line": 14,
+          "end_line": 53
+        }
+      ]
+    },
+    {
+      "id": "s-notify",
+      "label": "การแจ้งเตือนและอีเมล",
+      "parent": "shared",
+      "sublabel": "อ่านเฉพาะผู้รับ / SMTP ตามค่า",
+      "sources": [
+        {
+          "path": "lib/email/bookingNotifications.ts",
+          "line": 42,
+          "end_line": 71
+        },
+        {
+          "path": "app/api/notifications/route.ts",
+          "line": 7,
+          "end_line": 40
+        },
+        {
+          "path": "lib/email/service.ts",
+          "line": 60,
+          "end_line": 82
+        }
+      ]
+    },
+    {
+      "id": "s-sync",
+      "label": "ปรับสถานะรถตามเวลา",
+      "parent": "shared",
+      "sublabel": "ทำงานเมื่อ API เรียกใช้",
+      "sources": [
+        {
+          "path": "lib/syncStatuses.ts",
+          "line": 11,
+          "end_line": 39
+        }
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "อ่านความสัมพันธ์",
+      "items": [
+        "เส้นในภาพนี้แสดงการจัดกลุ่มเมนูและหน้าที่ ไม่ใช่การเรียก API ตามลำดับ",
+        "สิทธิ์เมนูอ่านจาก /api/auth/me; API ตรวจบทบาทและสิทธิ์อีกครั้ง"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "ข้อจำกัดงานจัดการ",
+      "items": [
+        "ผู้ใช้หรือรถที่มีประวัติถูกกันการลบ; ปิดบัญชีแทนได้ และป้องกันการปิด ADMIN คนสุดท้าย",
+        "ADMIN ปรับสถานะการจองได้บางสถานะ; IN_PROGRESS และ COMPLETED ต้องผ่าน API รับ–คืนที่บันทึกเลขไมล์"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "diagram_type": "tree",
+  "meta": {
+    "title": "โมดูลและหน้าที่ของแต่ละบทบาท",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/02-modules/02-modules.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/turk2003/vehicle-management.git",
+      "revision": "14129c1cf8cf7006d3b9f30c10024eeb9531fe81"
+    }
+  }
+}

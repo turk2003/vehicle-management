@@ -1,0 +1,311 @@
+{
+  "lanes": [
+    {
+      "id": "main",
+      "label": "สร้างบทสรุปเมื่อผู้ดูแลร้องขอ"
+    },
+    {
+      "id": "exit",
+      "label": "ผลลัพธ์จากเงื่อนไข"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "request",
+      "lane": "main",
+      "col": 0,
+      "type": "frontend",
+      "label": "เลือกช่วงและรถ",
+      "sublabel": "ADMIN + REPORT_VIEW",
+      "sources": [
+        {
+          "path": "app/api/admin/vehicles/history/analysis/route.ts",
+          "line": 79,
+          "end_line": 100
+        },
+        {
+          "path": "app/api/admin/vehicles/history/route.ts",
+          "line": 8,
+          "end_line": 25
+        },
+        {
+          "path": "app/api/admin/vehicles/history/details/route.ts",
+          "line": 21,
+          "end_line": 43
+        }
+      ]
+    },
+    {
+      "id": "metrics",
+      "lane": "main",
+      "col": 1,
+      "type": "backend",
+      "label": "คำนวณตัวชี้วัด",
+      "sublabel": "COMPLETED / ข้อมูลซ่อม",
+      "sources": [
+        {
+          "path": "lib/vehicle-usage-analysis/calculate.ts",
+          "line": 241,
+          "end_line": 305
+        },
+        {
+          "path": "lib/vehicle-usage-analysis/period.ts",
+          "line": 35,
+          "end_line": 75
+        },
+        {
+          "path": "lib/vehicle-usage-analysis/calculate.ts",
+          "line": 430,
+          "end_line": 523
+        }
+      ]
+    },
+    {
+      "id": "has-data",
+      "lane": "main",
+      "col": 2,
+      "type": "security",
+      "label": "มีการใช้รถจริง?",
+      "sublabel": "tripCount มากกว่า 0",
+      "sources": [
+        {
+          "path": "app/api/admin/vehicles/history/analysis/route.ts",
+          "line": 102,
+          "end_line": 111
+        }
+      ]
+    },
+    {
+      "id": "cache",
+      "lane": "main",
+      "col": 3,
+      "type": "database",
+      "label": "ตรวจแคชบทสรุป",
+      "sublabel": "Map / TTL 10 นาที",
+      "sources": [
+        {
+          "path": "app/api/admin/vehicles/history/analysis/route.ts",
+          "line": 22,
+          "end_line": 59
+        }
+      ]
+    },
+    {
+      "id": "limit",
+      "lane": "main",
+      "col": 4,
+      "type": "security",
+      "label": "ตรวจโควตา",
+      "sublabel": "Log / 10 ครั้งต่อชั่วโมง",
+      "sources": [
+        {
+          "path": "app/api/admin/vehicles/history/analysis/route.ts",
+          "line": 119,
+          "end_line": 131
+        }
+      ]
+    },
+    {
+      "id": "generate",
+      "lane": "main",
+      "col": 5,
+      "type": "backend",
+      "label": "สร้างและตรวจบทสรุป",
+      "sublabel": "OpenAI → cache + Log",
+      "sources": [
+        {
+          "path": "app/api/admin/vehicles/history/analysis/route.ts",
+          "line": 133,
+          "end_line": 147
+        },
+        {
+          "path": "lib/ai/vehicle-usage-summary/generate.ts",
+          "line": 47,
+          "end_line": 126
+        },
+        {
+          "path": "lib/ai/vehicle-usage-summary/payload.ts",
+          "line": 61,
+          "end_line": 125
+        }
+      ]
+    },
+    {
+      "id": "no-data",
+      "lane": "exit",
+      "col": 2,
+      "type": "backend",
+      "label": "ไม่มีข้อมูลใช้รถ",
+      "sublabel": "NO_USAGE_DATA",
+      "sources": [
+        {
+          "path": "app/api/admin/vehicles/history/analysis/route.ts",
+          "line": 105,
+          "end_line": 111
+        }
+      ]
+    },
+    {
+      "id": "cached",
+      "lane": "exit",
+      "col": 3,
+      "type": "backend",
+      "label": "คืนบทสรุปในแคช",
+      "sublabel": "cached: true",
+      "sources": [
+        {
+          "path": "app/api/admin/vehicles/history/analysis/route.ts",
+          "line": 113,
+          "end_line": 117
+        }
+      ]
+    },
+    {
+      "id": "limited",
+      "lane": "exit",
+      "col": 4,
+      "type": "backend",
+      "label": "โควตาครบ",
+      "sublabel": "429 / ลองใหม่ภายหลัง",
+      "sources": [
+        {
+          "path": "app/api/admin/vehicles/history/analysis/route.ts",
+          "line": 126,
+          "end_line": 130
+        }
+      ]
+    },
+    {
+      "id": "ai-error",
+      "lane": "exit",
+      "col": 5,
+      "type": "backend",
+      "label": "AI ไม่พร้อมใช้งาน",
+      "sublabel": "502 / 503 เมื่อ AI จำกัดคำขอ",
+      "sources": [
+        {
+          "path": "app/api/admin/vehicles/history/analysis/route.ts",
+          "line": 162,
+          "end_line": 177
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "request-to-metrics",
+      "from": "request",
+      "to": "metrics"
+    },
+    {
+      "id": "metrics-to-has-data",
+      "from": "metrics",
+      "to": "has-data"
+    },
+    {
+      "id": "has-data-to-cache",
+      "from": "has-data",
+      "to": "cache",
+      "label": "มี"
+    },
+    {
+      "id": "has-data-to-no-data",
+      "from": "has-data",
+      "to": "no-data",
+      "role": "branch",
+      "label": "ไม่มี"
+    },
+    {
+      "id": "cache-to-limit",
+      "from": "cache",
+      "to": "limit",
+      "label": "ไม่พบแคช"
+    },
+    {
+      "id": "cache-to-cached",
+      "from": "cache",
+      "to": "cached",
+      "role": "branch",
+      "label": "พบแคช"
+    },
+    {
+      "id": "limit-to-generate",
+      "from": "limit",
+      "to": "generate",
+      "label": "ยังมีโควตา"
+    },
+    {
+      "id": "limit-to-limited",
+      "from": "limit",
+      "to": "limited",
+      "role": "branch",
+      "label": "ครบแล้ว"
+    },
+    {
+      "id": "generate-to-ai-error",
+      "from": "generate",
+      "to": "ai-error",
+      "role": "error",
+      "label": "สร้างไม่สำเร็จ"
+    }
+  ],
+  "mainPath": [
+    "request",
+    "metrics",
+    "has-data",
+    "cache",
+    "limit",
+    "generate"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "รายงานหลักและรายละเอียด",
+      "items": [
+        "GET /api/admin/vehicles/history คืนตัวชี้วัด ยอดรวม ความครบถ้วนและข้อจำกัด",
+        "GET /details คืนรายละเอียดแบบแบ่งหน้า; POST /analysis เป็นคำขอสร้างบทสรุปแยกต่างหาก",
+        "ช่วงวิเคราะห์ใช้วันตามเวลาไทย มีช่วงเปรียบเทียบยาวเท่ากัน; ข้อมูลเก่าที่ไม่มี returnedAt ใช้ endDate พร้อมเปิดเผยข้อจำกัด"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "บทบาทของ AI และข้อมูลที่ส่ง",
+      "items": [
+        "ตัวเลขคำนวณโดยระบบ; AI ตีความและเสนอแนวทางระดับนโยบาย ไม่เปลี่ยนข้อมูลหรือจัดสรรรถ",
+        "payload ส่งทะเบียน/ประเภทรถ ชื่อผู้ใช้ ตัวชี้วัดและข้อจำกัด; store:false",
+        "ตรวจ structured output และ evidence; สูงสุด 2 attempts, timeout 30 วินาทีต่อครั้ง"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "ความครบถ้วนและการจำกัดคำขอ",
+      "items": [
+        "ข้อมูลเลขไมล์หรือเวลารับต่ำกว่า 80% ต้องเปิดเผยข้อจำกัดส่วนที่เกี่ยวข้อง",
+        "activeAdmins เป็น Set ใน process ป้องกันคำขอซ้อนต่อ ADMIN (409); แคชสูงสุด 100 รายการ",
+        "โควตานับ AI_USAGE_SUMMARY_REQUEST ใน Log ต่อ ADMIN; แคช hit คืนก่อนตรวจโควตา"
+      ]
+    }
+  ],
+  "meta": {
+    "title": "ตัวชี้วัดการใช้รถและบทสรุป AI",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/07-reporting/07-reporting.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/turk2003/vehicle-management.git",
+      "revision": "14129c1cf8cf7006d3b9f30c10024eeb9531fe81"
+    }
+  },
+  "semanticChecks": {
+    "allowedRoots": [
+      "request"
+    ],
+    "allowedTerminals": [
+      "no-data",
+      "cached",
+      "limited",
+      "ai-error"
+    ]
+  },
+  "schema_version": 2,
+  "diagram_type": "workflow"
+}

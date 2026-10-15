@@ -1,0 +1,226 @@
+{
+  "lanes": [
+    {
+      "id": "main",
+      "label": "ADMIN + BOOKING_MANAGE"
+    },
+    {
+      "id": "stop",
+      "label": "ข้อมูลหรือความพร้อมไม่ผ่าน"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "eligible",
+      "lane": "main",
+      "col": 0,
+      "type": "security",
+      "label": "ตรวจสิทธิ์เปลี่ยนรถ",
+      "sublabel": "อนุมัติแล้ว / ยังไม่รับ / รถซ่อม",
+      "sources": [
+        {
+          "path": "app/api/admin/bookings/change-vehicle/route.ts",
+          "line": 20,
+          "end_line": 54
+        }
+      ]
+    },
+    {
+      "id": "candidates",
+      "lane": "main",
+      "col": 1,
+      "type": "backend",
+      "label": "ค้นหารถทดแทน",
+      "sublabel": "ไม่มีจองหรือซ่อมทับเวลา",
+      "sources": [
+        {
+          "path": "app/api/admin/bookings/change-vehicle/route.ts",
+          "line": 98,
+          "end_line": 147
+        }
+      ]
+    },
+    {
+      "id": "reason",
+      "lane": "main",
+      "col": 2,
+      "type": "frontend",
+      "label": "เลือกรถและเหตุผล",
+      "sublabel": "รถคันใหม่ / เหตุผล ≤ 500",
+      "sources": [
+        {
+          "path": "app/api/admin/bookings/change-vehicle/route.ts",
+          "line": 154,
+          "end_line": 175
+        }
+      ]
+    },
+    {
+      "id": "transaction",
+      "lane": "main",
+      "col": 3,
+      "type": "security",
+      "label": "ตรวจซ้ำใน transaction",
+      "sublabel": "Serializable / เช็กความว่าง",
+      "sources": [
+        {
+          "path": "app/api/admin/bookings/change-vehicle/route.ts",
+          "line": 178,
+          "end_line": 231
+        }
+      ]
+    },
+    {
+      "id": "change",
+      "lane": "main",
+      "col": 4,
+      "type": "backend",
+      "label": "บันทึกการเปลี่ยนรถ",
+      "sublabel": "CHANGED + BOOKED + Log",
+      "sources": [
+        {
+          "path": "app/api/admin/bookings/change-vehicle/route.ts",
+          "line": 234,
+          "end_line": 276
+        }
+      ]
+    },
+    {
+      "id": "email",
+      "lane": "main",
+      "col": 5,
+      "type": "backend",
+      "label": "แจ้งเจ้าของการจอง",
+      "sublabel": "ส่งอีเมลหลัง commit",
+      "sources": [
+        {
+          "path": "app/api/admin/bookings/change-vehicle/route.ts",
+          "line": 279,
+          "end_line": 285
+        }
+      ]
+    },
+    {
+      "id": "not-eligible",
+      "lane": "stop",
+      "col": 0,
+      "type": "security",
+      "label": "เปลี่ยนรถไม่ได้",
+      "sublabel": "รับแล้ว / หมดเวลา / รถไม่ซ่อม",
+      "sources": [
+        {
+          "path": "app/api/admin/bookings/change-vehicle/route.ts",
+          "line": 26,
+          "end_line": 52
+        }
+      ]
+    },
+    {
+      "id": "conflict",
+      "lane": "stop",
+      "col": 3,
+      "type": "security",
+      "label": "โหลดใหม่หรือเลือกใหม่",
+      "sublabel": "409 / P2034 หรือรถไม่ว่าง",
+      "sources": [
+        {
+          "path": "app/api/admin/bookings/change-vehicle/route.ts",
+          "line": 56,
+          "end_line": 75
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "eligible-to-candidates",
+      "from": "eligible",
+      "to": "candidates",
+      "label": "ผ่าน"
+    },
+    {
+      "id": "eligible-to-not-eligible",
+      "from": "eligible",
+      "to": "not-eligible",
+      "role": "error",
+      "label": "ไม่ผ่าน"
+    },
+    {
+      "id": "candidates-to-reason",
+      "from": "candidates",
+      "to": "reason"
+    },
+    {
+      "id": "reason-to-transaction",
+      "from": "reason",
+      "to": "transaction"
+    },
+    {
+      "id": "transaction-to-change",
+      "from": "transaction",
+      "to": "change",
+      "label": "ยังว่าง"
+    },
+    {
+      "id": "transaction-to-conflict",
+      "from": "transaction",
+      "to": "conflict",
+      "role": "error",
+      "label": "ขัดแย้ง"
+    },
+    {
+      "id": "change-to-email",
+      "from": "change",
+      "to": "email"
+    }
+  ],
+  "mainPath": [
+    "eligible",
+    "candidates",
+    "reason",
+    "transaction",
+    "change",
+    "email"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "กฎรถทดแทน",
+      "items": [
+        "ใช้ได้กับ APPROVED หรือ CHANGED ที่ pickedUpAt ยังว่าง และ endDate ยังไม่ผ่าน",
+        "รถเดิมต้อง MAINTENANCE; รถใหม่ AVAILABLE/BOOKED และไม่มีงานจองหรือซ่อมทับช่วง",
+        "แนะนำประเภทเดียวกันก่อน แล้วอาศัยเลขไมล์และทะเบียนในการเรียง"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "ผลของ transaction",
+      "items": [
+        "เปลี่ยน Booking.vehicleId และ status; ตั้งรถใหม่ BOOKED; สร้าง Notification และ Log ภายใน transaction",
+        "รถเดิมยังอยู่ในงานซ่อม; หลัง commit จึงส่งอีเมล",
+        "เมื่อเกิด P2034 ตอบ 409 ให้โหลดใหม่ ไม่ได้ retry transaction อัตโนมัติ"
+      ]
+    }
+  ],
+  "meta": {
+    "title": "เปลี่ยนรถทดแทนก่อนรับรถ",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/06-replacement/06-replacement.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/turk2003/vehicle-management.git",
+      "revision": "14129c1cf8cf7006d3b9f30c10024eeb9531fe81"
+    }
+  },
+  "semanticChecks": {
+    "allowedRoots": [
+      "eligible"
+    ],
+    "allowedTerminals": [
+      "email",
+      "not-eligible",
+      "conflict"
+    ]
+  },
+  "schema_version": 2,
+  "diagram_type": "workflow"
+}

@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Browser to database fallback",
+    "locale": "en",
+    "output": ".archify/architecture-cache-fallback-20261015-190914/cache-fallback.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "web-client",
+      "type": "frontend",
+      "label": "Browser",
+      "sublabel": "Client request",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "application-api",
+      "type": "backend",
+      "label": "API",
+      "sublabel": "Request handler",
+      "pos": [
+        290,
+        40
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "redis-cache",
+      "type": "database",
+      "label": "Redis cache",
+      "sublabel": "Check cached result",
+      "pos": [
+        540,
+        40
+      ],
+      "size": [
+        160,
+        72
+      ]
+    },
+    {
+      "id": "postgres-fallback",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "Fallback data source",
+      "pos": [
+        830,
+        40
+      ],
+      "size": [
+        170,
+        72
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-request",
+      "from": "web-client",
+      "to": "application-api",
+      "label": "Request",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cache-lookup",
+      "from": "application-api",
+      "to": "redis-cache",
+      "label": "Lookup",
+      "variant": "emphasis"
+    },
+    {
+      "id": "database-fallback",
+      "from": "redis-cache",
+      "to": "postgres-fallback",
+      "label": "Cache miss"
+    }
+  ]
+}

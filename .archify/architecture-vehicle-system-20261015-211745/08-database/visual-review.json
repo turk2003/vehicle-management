@@ -1,0 +1,19 @@
+{
+  "artifact": "08-database/08-database.html",
+  "status": "passed",
+  "reviewer": "Codex image inspection",
+  "viewports": [
+    "1440x900",
+    "2048x1320"
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "observations": [
+    "All eight tables and 58 columns remain legible without horizontal overflow.",
+    "Domain bands are distinct; relation labels remain clear.",
+    "Four longer routes to User remain visible around the table margins."
+  ],
+  "correctionRounds": 0
+}

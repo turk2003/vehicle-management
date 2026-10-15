@@ -1,0 +1,545 @@
+{
+  "layout": {
+    "mode": "grid",
+    "gapX": 82,
+    "gapY": 65,
+    "entityW": 260,
+    "rowH": 18
+  },
+  "entities": [
+    {
+      "id": "User",
+      "label": "User",
+      "tag": "ผู้ใช้และสิทธิ์",
+      "row": 0,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "TEXT"
+        },
+        {
+          "name": "email",
+          "type": "TEXT",
+          "key": "uk"
+        },
+        {
+          "name": "password",
+          "type": "TEXT"
+        },
+        {
+          "name": "role",
+          "type": "UserRole"
+        },
+        {
+          "name": "isActive",
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "deactivatedAt",
+          "type": "TIMESTAMP(3) NULL"
+        },
+        {
+          "name": "createdAt",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "sources": [
+        {
+          "path": "prisma/schema.prisma",
+          "line": 80,
+          "end_line": 96
+        }
+      ]
+    },
+    {
+      "id": "VehicleType",
+      "label": "VehicleType",
+      "tag": "ข้อมูลรถ",
+      "row": 0,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "TEXT"
+        }
+      ],
+      "sources": [
+        {
+          "path": "prisma/schema.prisma",
+          "line": 98,
+          "end_line": 102
+        }
+      ]
+    },
+    {
+      "id": "Vehicle",
+      "label": "Vehicle",
+      "tag": "ข้อมูลรถ",
+      "row": 1,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "key": "pk"
+        },
+        {
+          "name": "plateNumber",
+          "type": "TEXT",
+          "key": "uk"
+        },
+        {
+          "name": "status",
+          "type": "VehicleStatus"
+        },
+        {
+          "name": "currentMileage",
+          "type": "INTEGER"
+        },
+        {
+          "name": "typeId",
+          "type": "TEXT",
+          "references": "VehicleType.id",
+          "key": "fk"
+        }
+      ],
+      "sources": [
+        {
+          "path": "prisma/schema.prisma",
+          "line": 104,
+          "end_line": 115
+        }
+      ]
+    },
+    {
+      "id": "Booking",
+      "label": "Booking",
+      "tag": "การดำเนินงาน",
+      "row": 0,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "key": "pk"
+        },
+        {
+          "name": "userId",
+          "type": "TEXT",
+          "references": "User.id",
+          "key": "fk"
+        },
+        {
+          "name": "vehicleId",
+          "type": "TEXT",
+          "references": "Vehicle.id",
+          "key": "fk"
+        },
+        {
+          "name": "approverId",
+          "type": "TEXT NULL",
+          "references": "User.id",
+          "key": "fk"
+        },
+        {
+          "name": "startDate",
+          "type": "TIMESTAMP(3)"
+        },
+        {
+          "name": "endDate",
+          "type": "TIMESTAMP(3)"
+        },
+        {
+          "name": "purpose",
+          "type": "TEXT"
+        },
+        {
+          "name": "destination",
+          "type": "TEXT NULL"
+        },
+        {
+          "name": "status",
+          "type": "BookingStatus"
+        },
+        {
+          "name": "rejectionReason",
+          "type": "TEXT NULL"
+        },
+        {
+          "name": "mileageStart",
+          "type": "INTEGER NULL"
+        },
+        {
+          "name": "mileageEnd",
+          "type": "INTEGER NULL"
+        },
+        {
+          "name": "pickedUpAt",
+          "type": "TIMESTAMP(3) NULL"
+        },
+        {
+          "name": "returnedAt",
+          "type": "TIMESTAMP(3) NULL"
+        },
+        {
+          "name": "createdAt",
+          "type": "TIMESTAMP(3)"
+        },
+        {
+          "name": "updatedAt",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "sources": [
+        {
+          "path": "prisma/schema.prisma",
+          "line": 117,
+          "end_line": 146
+        }
+      ]
+    },
+    {
+      "id": "Maintenance",
+      "label": "Maintenance",
+      "tag": "การดำเนินงาน",
+      "row": 1,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "key": "pk"
+        },
+        {
+          "name": "vehicleId",
+          "type": "TEXT",
+          "references": "Vehicle.id",
+          "key": "fk"
+        },
+        {
+          "name": "reporterId",
+          "type": "TEXT",
+          "references": "User.id",
+          "key": "fk"
+        },
+        {
+          "name": "description",
+          "type": "TEXT"
+        },
+        {
+          "name": "repairDetails",
+          "type": "TEXT NULL"
+        },
+        {
+          "name": "serviceCenterName",
+          "type": "TEXT NULL"
+        },
+        {
+          "name": "cost",
+          "type": "DOUBLE PRECISION NULL"
+        },
+        {
+          "name": "maintenanceType",
+          "type": "MaintenanceType"
+        },
+        {
+          "name": "status",
+          "type": "MaintenanceStatus"
+        },
+        {
+          "name": "startDate",
+          "type": "TIMESTAMP(3)"
+        },
+        {
+          "name": "endDate",
+          "type": "TIMESTAMP(3) NULL"
+        }
+      ],
+      "sources": [
+        {
+          "path": "prisma/schema.prisma",
+          "line": 148,
+          "end_line": 167
+        }
+      ]
+    },
+    {
+      "id": "Notification",
+      "label": "Notification",
+      "tag": "เหตุการณ์",
+      "row": 0,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "key": "pk"
+        },
+        {
+          "name": "userId",
+          "type": "TEXT",
+          "references": "User.id",
+          "key": "fk"
+        },
+        {
+          "name": "type",
+          "type": "NotificationType"
+        },
+        {
+          "name": "message",
+          "type": "TEXT"
+        },
+        {
+          "name": "isRead",
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "bookingId",
+          "type": "TEXT NULL",
+          "references": "Booking.id",
+          "key": "fk"
+        },
+        {
+          "name": "maintenanceId",
+          "type": "TEXT NULL",
+          "references": "Maintenance.id",
+          "key": "fk"
+        },
+        {
+          "name": "createdAt",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "sources": [
+        {
+          "path": "prisma/schema.prisma",
+          "line": 169,
+          "end_line": 184
+        }
+      ]
+    },
+    {
+      "id": "Log",
+      "label": "Log",
+      "tag": "เหตุการณ์",
+      "row": 1,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "key": "pk"
+        },
+        {
+          "name": "userId",
+          "type": "TEXT",
+          "references": "User.id",
+          "key": "fk"
+        },
+        {
+          "name": "action",
+          "type": "TEXT"
+        },
+        {
+          "name": "metadata",
+          "type": "JSONB NULL"
+        },
+        {
+          "name": "createdAt",
+          "type": "TIMESTAMP(3)"
+        }
+      ],
+      "sources": [
+        {
+          "path": "prisma/schema.prisma",
+          "line": 186,
+          "end_line": 194
+        }
+      ]
+    },
+    {
+      "id": "RolePermission",
+      "label": "RolePermission",
+      "tag": "ผู้ใช้และสิทธิ์",
+      "row": 1,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "TEXT",
+          "key": "pk"
+        },
+        {
+          "name": "role",
+          "type": "UserRole",
+          "key": "uk"
+        },
+        {
+          "name": "permission",
+          "type": "Permission",
+          "key": "uk"
+        }
+      ],
+      "sources": [
+        {
+          "path": "prisma/schema.prisma",
+          "line": 196,
+          "end_line": 202
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "Vehicle-typeId",
+      "from": "Vehicle",
+      "to": "VehicleType",
+      "label": "typeId",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "toOptional": false
+    },
+    {
+      "id": "Booking-userId",
+      "from": "Booking",
+      "to": "User",
+      "label": "userId",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "toOptional": false
+    },
+    {
+      "id": "Booking-vehicleId",
+      "from": "Booking",
+      "to": "Vehicle",
+      "label": "vehicleId",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "toOptional": false
+    },
+    {
+      "id": "Booking-approverId",
+      "from": "Booking",
+      "to": "User",
+      "label": "approverId",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "toOptional": true
+    },
+    {
+      "id": "Maintenance-vehicleId",
+      "from": "Maintenance",
+      "to": "Vehicle",
+      "label": "vehicleId",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "toOptional": false
+    },
+    {
+      "id": "Maintenance-reporterId",
+      "from": "Maintenance",
+      "to": "User",
+      "label": "reporterId",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "toOptional": false
+    },
+    {
+      "id": "Notification-userId",
+      "from": "Notification",
+      "to": "User",
+      "label": "userId",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "toOptional": false
+    },
+    {
+      "id": "Notification-bookingId",
+      "from": "Notification",
+      "to": "Booking",
+      "label": "bookingId",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "toOptional": true
+    },
+    {
+      "id": "Notification-maintenanceId",
+      "from": "Notification",
+      "to": "Maintenance",
+      "label": "maintenanceId",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "toOptional": true
+    },
+    {
+      "id": "Log-userId",
+      "from": "Log",
+      "to": "User",
+      "label": "userId",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true,
+      "toOptional": false
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "ชนิดข้อมูลและคีย์",
+      "items": [
+        "แสดงคอลัมน์จริงครบทุกฟิลด์; TEXT id ใช้ uuid() ฝั่ง Prisma ไม่ใช่ชนิด UUID ของ PostgreSQL",
+        "NULL หมายถึงฟิลด์ไม่บังคับ; PK = คีย์หลัก, FK = คีย์นอก, UK = unique",
+        "RolePermission: role และ permission เป็น unique ร่วมกัน ไม่ได้ unique แยกคอลัมน์"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "ความสัมพันธ์",
+      "items": [
+        "Booking.userId คือผู้ขอ; approverId คือผู้ตัดสินซึ่งยังไม่มีได้ก่อนอนุมัติ",
+        "Notification เชื่อม Booking หรือ Maintenance แบบไม่บังคับ; มี userId เป็นเจ้าของ",
+        "RolePermission เก็บ UserRole เป็น enum ไม่มี FK เชื่อม User"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "สถานะและดัชนี",
+      "items": [
+        "Booking: PENDING / APPROVED / REJECTED / CANCELLED / CHANGED / IN_PROGRESS / COMPLETED",
+        "Vehicle: AVAILABLE / BOOKED / IN_USE / MAINTENANCE; Maintenance: REPORTED / IN_PROGRESS / COMPLETED",
+        "Booking มี index(vehicleId,startDate,endDate); User.email และ Vehicle.plateNumber เป็น unique"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "ฐานข้อมูล PostgreSQL — ทุกตารางและคอลัมน์",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/08-database/08-database.html",
+    "quality_profile": "standard",
+    "repository": {
+      "url": "https://github.com/turk2003/vehicle-management.git",
+      "revision": "14129c1cf8cf7006d3b9f30c10024eeb9531fe81"
+    }
+  }
+}

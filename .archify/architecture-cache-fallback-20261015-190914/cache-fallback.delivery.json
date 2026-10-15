@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "9d737683-017f-4459-91ed-f58db2dd2156",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-cache-fallback-20261015-190914/candidate.json",
+  "output": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-cache-fallback-20261015-190914/cache-fallback.html",
+  "specification": {
+    "sha256": "0352e051446a21a8a816d0764c0bceef23b709b2d2fa5c2cb2d4e470e84bf210",
+    "bytes": 1676
+  },
+  "artifact": {
+    "sha256": "4348981e2b8fa30a4b02c1a665f64cbb82f7d8b6f464829125e3962976012168",
+    "bytes": 808556
+  }
+}

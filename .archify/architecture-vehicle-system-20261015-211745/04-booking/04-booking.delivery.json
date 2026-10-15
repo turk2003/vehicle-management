@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "b9eef082-afac-4ae1-a0e4-375ba1ff0509",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/04-booking/candidate.json",
+  "output": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/04-booking/04-booking.html",
+  "specification": {
+    "sha256": "a6652d7d97cf6d9bdcf05ee148229f9ac2ae9dad6f6f15a1f012705665c733ae",
+    "bytes": 8026
+  },
+  "artifact": {
+    "sha256": "a5b177b61c989d3ba5743e75abd53809839a3012267d19efa87337759a23eb26",
+    "bytes": 826271
+  }
+}

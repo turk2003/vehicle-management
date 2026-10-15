@@ -1,0 +1,311 @@
+{
+  "components": [
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "ผู้ใช้ผ่าน Browser",
+      "sublabel": "USER / APPROVER / ADMIN",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        200,
+        76
+      ],
+      "sources": [
+        {
+          "path": "app/page.tsx",
+          "line": 50,
+          "end_line": 61
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "หน้าเว็บ Next.js",
+      "sublabel": "React / App Router",
+      "pos": [
+        350,
+        40
+      ],
+      "size": [
+        210,
+        76
+      ],
+      "sources": [
+        {
+          "path": "app/admin/page.tsx",
+          "line": 29,
+          "end_line": 82
+        },
+        {
+          "path": "app/user/page.tsx",
+          "line": 29,
+          "end_line": 57
+        },
+        {
+          "path": "app/component/navbar.tsx",
+          "line": 65,
+          "end_line": 85
+        }
+      ]
+    },
+    {
+      "id": "access",
+      "type": "security",
+      "label": "ตรวจตัวตนและสิทธิ์",
+      "sublabel": "JWT + บทบาท + Permission",
+      "pos": [
+        680,
+        40
+      ],
+      "size": [
+        220,
+        76
+      ],
+      "sources": [
+        {
+          "path": "lib/auth.ts",
+          "line": 32,
+          "end_line": 53
+        },
+        {
+          "path": "lib/permissions.ts",
+          "line": 22,
+          "end_line": 31
+        },
+        {
+          "path": "lib/permissions.ts",
+          "line": 49,
+          "end_line": 74
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API และงานธุรกิจ",
+      "sublabel": "จอง / ซ่อม / จัดการ / รายงาน",
+      "pos": [
+        680,
+        260
+      ],
+      "size": [
+        220,
+        76
+      ],
+      "sources": [
+        {
+          "path": "app/api/booking/route.ts",
+          "line": 113,
+          "end_line": 208
+        },
+        {
+          "path": "app/api/admin/vehicles/history/analysis/route.ts",
+          "line": 79,
+          "end_line": 147
+        },
+        {
+          "path": "lib/prisma.ts",
+          "line": 1,
+          "end_line": 18
+        }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "Prisma Client + pg adapter",
+      "pos": [
+        1020,
+        260
+      ],
+      "size": [
+        200,
+        76
+      ],
+      "sources": [
+        {
+          "path": "lib/prisma.ts",
+          "line": 1,
+          "end_line": 18
+        },
+        {
+          "path": "prisma/schema.prisma",
+          "line": 7,
+          "end_line": 9
+        }
+      ]
+    },
+    {
+      "id": "events",
+      "type": "backend",
+      "label": "แจ้งเตือนและอีเมล",
+      "sublabel": "Notification + Nodemailer",
+      "pos": [
+        350,
+        260
+      ],
+      "size": [
+        210,
+        76
+      ],
+      "sources": [
+        {
+          "path": "lib/email/bookingNotifications.ts",
+          "line": 42,
+          "end_line": 71
+        },
+        {
+          "path": "lib/email/service.ts",
+          "line": 60,
+          "end_line": 82
+        },
+        {
+          "path": "app/api/user/maintenance/route.ts",
+          "line": 57,
+          "end_line": 95
+        }
+      ]
+    },
+    {
+      "id": "smtp",
+      "type": "external",
+      "label": "บริการ SMTP",
+      "sublabel": "เปิดใช้เมื่อกำหนดค่าอีเมล",
+      "pos": [
+        40,
+        260
+      ],
+      "size": [
+        200,
+        76
+      ],
+      "sources": [
+        {
+          "path": "lib/email/service.ts",
+          "line": 23,
+          "end_line": 44
+        },
+        {
+          "path": "lib/email/service.ts",
+          "line": 47,
+          "end_line": 82
+        }
+      ]
+    },
+    {
+      "id": "openai",
+      "type": "external",
+      "label": "OpenAI API",
+      "sublabel": "บทสรุปจากตัวชี้วัดการใช้รถ",
+      "pos": [
+        680,
+        470
+      ],
+      "size": [
+        220,
+        76
+      ],
+      "sources": [
+        {
+          "path": "lib/ai/vehicle-usage-summary/generate.ts",
+          "line": 32,
+          "end_line": 40
+        },
+        {
+          "path": "lib/ai/vehicle-usage-summary/generate.ts",
+          "line": 47,
+          "end_line": 106
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-to-web",
+      "from": "browser",
+      "to": "web",
+      "label": "ใช้งาน"
+    },
+    {
+      "id": "web-to-access",
+      "from": "web",
+      "to": "access",
+      "label": "คำขอ + cookie"
+    },
+    {
+      "id": "access-to-api",
+      "from": "access",
+      "to": "api",
+      "variant": "security",
+      "label": "ผ่านการตรวจ"
+    },
+    {
+      "id": "api-to-postgres",
+      "from": "api",
+      "to": "postgres",
+      "label": "Prisma / SQL"
+    },
+    {
+      "id": "api-to-events",
+      "from": "api",
+      "to": "events",
+      "label": "เหตุการณ์"
+    },
+    {
+      "id": "events-to-smtp",
+      "from": "events",
+      "to": "smtp",
+      "label": "ส่งอีเมล"
+    },
+    {
+      "id": "api-to-openai",
+      "from": "api",
+      "to": "openai",
+      "label": "เมื่อสร้างบทสรุป"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "ขอบเขตของภาพ",
+      "items": [
+        "หน้าเว็บ การตรวจสิทธิ์ และ API อยู่ในแอป Next.js เดียวกัน กล่องแสดงหน้าที่ ไม่ได้อ้างว่าเป็นบริการแยกเครื่อง",
+        "PostgreSQL เป็นฐานข้อมูลหลัก 8 ตาราง; ไม่พบ Redis ในระบบปัจจุบัน"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "พฤติกรรมที่มีผลต่อระบบ",
+      "items": [
+        "แคชบทสรุป AI เป็น Map ในหน่วยความจำ อายุ 10 นาที แยกตาม process",
+        "Navbar อ่านการแจ้งเตือนทุก 30 วินาที; อีเมลส่งผ่าน SMTP เมื่อ EMAIL_ENABLED=true",
+        "การปรับสถานะตามเวลาเกิดเมื่อ GET booking, verhicle หรือ admin/maintenance เรียก syncAllVehicleStatuses"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "หลักฐานและภาษา",
+      "items": [
+        "อ้างอิงโค้ดที่ commit 14129c1; ไม่รวม global.d.ts ที่ยังไม่ commit",
+        "คำอธิบายภาษาไทย; ปุ่มควบคุมและข้อความมาตรฐานของ Viewer เป็นภาษาอังกฤษ",
+        "ไม่ระบุโครงสร้าง production hosting เพราะโค้ดที่ตรวจยังยืนยันการติดตั้งจริงไม่ได้"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ภาพรวมระบบจัดการยานพาหนะ",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/01-overview/01-overview.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/turk2003/vehicle-management.git",
+      "revision": "14129c1cf8cf7006d3b9f30c10024eeb9531fe81"
+    }
+  }
+}

@@ -1,0 +1,256 @@
+{
+  "lanes": [
+    {
+      "id": "main",
+      "label": "เส้นทางที่ผ่านการตรวจ"
+    },
+    {
+      "id": "stop",
+      "label": "เงื่อนไขที่หยุดการทำงาน"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "login",
+      "lane": "main",
+      "col": 0,
+      "type": "frontend",
+      "label": "เข้าสู่ระบบ",
+      "sublabel": "POST /api/auth/login",
+      "sources": [
+        {
+          "path": "app/api/auth/login/route.ts",
+          "line": 6,
+          "end_line": 9
+        }
+      ]
+    },
+    {
+      "id": "password",
+      "lane": "main",
+      "col": 1,
+      "type": "security",
+      "label": "ตรวจบัญชี",
+      "sublabel": "bcrypt + isActive",
+      "sources": [
+        {
+          "path": "app/api/auth/login/route.ts",
+          "line": 9,
+          "end_line": 24
+        }
+      ]
+    },
+    {
+      "id": "token",
+      "lane": "main",
+      "col": 2,
+      "type": "security",
+      "label": "ออก JWT cookie",
+      "sublabel": "HttpOnly / อายุ 1 วัน",
+      "sources": [
+        {
+          "path": "app/api/auth/login/route.ts",
+          "line": 26,
+          "end_line": 43
+        }
+      ]
+    },
+    {
+      "id": "verify",
+      "lane": "main",
+      "col": 3,
+      "type": "security",
+      "label": "ตรวจทุกคำขอ",
+      "sublabel": "JWT + บัญชีปัจจุบันจาก DB",
+      "sources": [
+        {
+          "path": "lib/auth.ts",
+          "line": 32,
+          "end_line": 53
+        }
+      ]
+    },
+    {
+      "id": "policy",
+      "lane": "main",
+      "col": 4,
+      "type": "security",
+      "label": "ตรวจบทบาทและสิทธิ์",
+      "sublabel": "RolePermission จาก DB",
+      "sources": [
+        {
+          "path": "lib/permissions.ts",
+          "line": 49,
+          "end_line": 74
+        }
+      ]
+    },
+    {
+      "id": "execute",
+      "lane": "main",
+      "col": 5,
+      "type": "backend",
+      "label": "เข้าใช้งานที่อนุญาต",
+      "sublabel": "หน้าเว็บหรือ API",
+      "sources": [
+        {
+          "path": "lib/page-access.ts",
+          "line": 15,
+          "end_line": 23
+        },
+        {
+          "path": "app/api/booking/route.ts",
+          "line": 113,
+          "end_line": 119
+        }
+      ]
+    },
+    {
+      "id": "login-stop",
+      "lane": "stop",
+      "col": 1,
+      "type": "security",
+      "label": "เข้าสู่ระบบไม่สำเร็จ",
+      "sublabel": "401 / บัญชีปิด 403",
+      "sources": [
+        {
+          "path": "app/api/auth/login/route.ts",
+          "line": 9,
+          "end_line": 24
+        }
+      ]
+    },
+    {
+      "id": "auth-stop",
+      "lane": "stop",
+      "col": 3,
+      "type": "security",
+      "label": "ไม่ผ่านตัวตน",
+      "sublabel": "401 / กลับหน้าเข้าสู่ระบบ",
+      "sources": [
+        {
+          "path": "lib/permissions.ts",
+          "line": 99,
+          "end_line": 114
+        }
+      ]
+    },
+    {
+      "id": "role-stop",
+      "lane": "stop",
+      "col": 4,
+      "type": "security",
+      "label": "ไม่มีสิทธิ์",
+      "sublabel": "403 / หน้า forbidden",
+      "sources": [
+        {
+          "path": "lib/page-access.ts",
+          "line": 15,
+          "end_line": 23
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "login-to-password",
+      "from": "login",
+      "to": "password"
+    },
+    {
+      "id": "password-to-token",
+      "from": "password",
+      "to": "token",
+      "label": "ผ่าน"
+    },
+    {
+      "id": "password-to-login-stop",
+      "from": "password",
+      "to": "login-stop",
+      "role": "error",
+      "label": "ไม่ผ่าน"
+    },
+    {
+      "id": "token-to-verify",
+      "from": "token",
+      "to": "verify",
+      "label": "คำขอถัดไป"
+    },
+    {
+      "id": "verify-to-policy",
+      "from": "verify",
+      "to": "policy",
+      "label": "บัญชียังใช้งานได้"
+    },
+    {
+      "id": "verify-to-auth-stop",
+      "from": "verify",
+      "to": "auth-stop",
+      "role": "error",
+      "label": "ไม่ผ่าน"
+    },
+    {
+      "id": "policy-to-execute",
+      "from": "policy",
+      "to": "execute",
+      "label": "อนุญาต"
+    },
+    {
+      "id": "policy-to-role-stop",
+      "from": "policy",
+      "to": "role-stop",
+      "role": "error",
+      "label": "ปฏิเสธ"
+    }
+  ],
+  "mainPath": [
+    "login",
+    "password",
+    "token",
+    "verify",
+    "policy",
+    "execute"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "ตรวจทั้งหน้าเว็บและ API",
+      "items": [
+        "Server layouts ใช้ requirePageAccess; Route Handlers ใช้ requireAccess",
+        "บทบาทและสถานะบัญชีอ่านจาก DB ปัจจุบัน ไม่ยึดบทบาทเก่าใน JWT",
+        "บาง API ใช้เฉพาะ verifyUser เช่น notifications ไม่ได้ต้องการ Permission เพิ่ม"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "อายุ session และออกจากระบบ",
+      "items": [
+        "JWT และ cookie มีอายุ 1 วัน; production ใช้ secure cookie และ SameSite strict",
+        "POST /api/auth/logout ลบ token cookie",
+        "RolePermission ผูกกับ UserRole ด้วยค่าบทบาท ไม่ใช่ foreign key ไปยัง User"
+      ]
+    }
+  ],
+  "meta": {
+    "title": "เข้าสู่ระบบและควบคุมการเข้าถึง",
+    "output": ".archify/architecture-vehicle-system-20261015-211745/03-access/03-access.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/turk2003/vehicle-management.git",
+      "revision": "14129c1cf8cf7006d3b9f30c10024eeb9531fe81"
+    }
+  },
+  "semanticChecks": {
+    "allowedRoots": [
+      "login"
+    ],
+    "allowedTerminals": [
+      "execute",
+      "login-stop",
+      "auth-stop",
+      "role-stop"
+    ]
+  },
+  "schema_version": 2,
+  "diagram_type": "workflow"
+}

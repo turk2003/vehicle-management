@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "erd",
+  "quality": "standard",
+  "specification": {
+    "path": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/08-database/candidate.json",
+    "sha256": "83cdabe3022b0ba69ed19ed27b35e15c364f5557f6e6921fbb11b35ddaaf970e",
+    "bytes": 12734
+  },
+  "artifact": {
+    "path": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/08-database/08-database.html",
+    "sha256": "28d530f44947b9decd6c38796d8a6ce51fcd5b5280ad82662b7f70022ce5fcf4",
+    "bytes": 863337
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/08-database/08-database.finalize.json",
+    "summaryReceipt": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/08-database/08-database.finalize-summary.json",
+    "browserCheckReceipt": "/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/.archify/architecture-vehicle-system-20261015-211745/08-database/08-database.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.1.0",
+    "availableVersion": "3.1.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-15T12:09:43.077Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 1674,
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "routesOverSuggestedBends": 4
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [],
+      "detours": [
+        {
+          "relationship": {
+            "id": "Booking-approverId",
+            "from": "Booking",
+            "to": "User",
+            "label": "approverId",
+            "collectionIndex": 3,
+            "artifactIndex": 4
+          },
+          "bends": 4,
+          "stretch": 1.298
+        },
+        {
+          "relationship": {
+            "id": "Maintenance-reporterId",
+            "from": "Maintenance",
+            "to": "User",
+            "label": "reporterId",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "bends": 4,
+          "stretch": 1.083
+        },
+        {
+          "relationship": {
+            "id": "Notification-userId",
+            "from": "Notification",
+            "to": "User",
+            "label": "userId",
+            "collectionIndex": 6,
+            "artifactIndex": 7
+          },
+          "bends": 4,
+          "stretch": 1.125,
+          "directCorridorBlockers": [
+            {
+              "id": "Booking",
+              "label": "Booking",
+              "box": [
+                751,
+                40,
+                260,
+                324
+              ]
+            }
+          ]
+        },
+        {
+          "relationship": {
+            "id": "Log-userId",
+            "from": "Log",
+            "to": "User",
+            "label": "userId",
+            "collectionIndex": 9,
+            "artifactIndex": 10
+          },
+          "bends": 4,
+          "stretch": 1
+        }
+      ],
+      "truncated": false
+    },
+    "repair": "Advisory only: this mode places or routes these relationships itself. Report them; do not remove relationships or meaning to reduce crossings."
+  }
+}
