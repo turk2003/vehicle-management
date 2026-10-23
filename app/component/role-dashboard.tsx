@@ -9,7 +9,7 @@ export interface DashboardMenuItem {
   description: string
   href: string
   icon: LucideIcon
-  permission: string
+  permission?: string
   tone: "blue" | "green" | "indigo" | "orange" | "teal" | "red"
   badge?: string
 }

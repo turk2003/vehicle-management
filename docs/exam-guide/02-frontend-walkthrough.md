@@ -4,7 +4,7 @@
 
 หน้าใช้งานส่วนใหญ่ประกาศ `"use client"` เพราะต้องรับ event ใช้ state เปิด modal และเรียก API หลังแสดงหน้า ส่วน layout ที่ตรวจสิทธิ์เป็น Server Component ไม่มี directive นี้
 
-โครงสร้างที่พบซ้ำคือ imports → type/interface → ค่าเริ่มต้น/ฟังก์ชันช่วย → component → state → ฟังก์ชันเรียก API → effects → JSX
+หลัง refactor วันที่ 15 ตุลาคม 2026 โครงสร้างหน้าที่ปรับใหม่คือ imports จากไฟล์ข้างเคียง → page component → state → ฟังก์ชันเรียก API/handler → effects → JSX ที่ประกอบ component ลูก ส่วน type/interface, ค่าเริ่มต้น และ helper หลายตัวถูกย้ายไป types.ts/constants.ts/utils.ts ตารางฟังก์ชันในบทนี้อธิบายงานของ feature โดยตำแหน่งหลังย้ายดูส่วน 9 และดัชนีบท 6
 
 ```tsx
 const [bookings, setBookings] = useState<Booking[]>([])
@@ -150,7 +150,7 @@ className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
 
 ปุ่มแก้ไข/ยกเลิกแสดงเฉพาะ PENDING ปุ่มรับรถแสดงสำหรับ APPROVED/CHANGED และปุ่มคืนสำหรับ IN_PROGRESS โดยต้องมี BOOKING_CREATE ด้วย การดูรายการใช้ BOOKING_VIEW จึงมีกรณีดูได้แต่กดเปลี่ยนไม่ได้
 
-Component ย่อยท้ายไฟล์:
+Component ย่อยที่ย้ายไปไฟล์ใน `app/user/my-bookings/_components/` แล้ว:
 
 | Component | เหตุผลที่แยก |
 |---|---|
@@ -184,7 +184,7 @@ Component ย่อยท้ายไฟล์:
 
 [ApprovalHistoryPage](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/history/page.tsx) GET `/api/approver?status=ALL` ซึ่ง server จำกัดประวัติ APPROVER ด้วย approverId แล้วหน้าเว็บคัดเฉพาะ APPROVED/CHANGED/REJECTED
 
-`filterByDate()` กรองด้วย `updatedAt`; `buildStats()` นับ APPROVED และ CHANGED ในจำนวนอนุมัติ; `approvalRate` = approved / total × 100 ปัดเป็นจำนวนเต็ม; `viewDetails()` เปิดรายละเอียด
+`filterByDate()` และ `buildStats()` อยู่ใน utils.ts: ตัวแรกกรองด้วย `updatedAt` ตัวหลังนับ APPROVED และ CHANGED ในจำนวนอนุมัติ; `approvalRate` อยู่ใน _components/HistoryStats.tsx คำนวณ approved / total × 100 ปัดเป็นจำนวนเต็ม; `viewDetails()` ยังอยู่ใน page และเปิดรายละเอียด
 
 ต้องอธิบายให้ตรง: นี่ไม่ใช่ประวัติการตัดสินทั้งหมดตลอดอายุรายการ เพราะหน้าเว็บตัด IN_PROGRESS และ COMPLETED ออก และ updatedAt เปลี่ยนได้จากการดำเนินงานอื่นด้วย ไม่มี approvedAt แยกใน schema
 
@@ -259,7 +259,7 @@ UI แยก ALL/ACTIVE/INACTIVE ป้องกันกดปิดบัญ�
 
 [AdminVehicleHistoryPage](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/page.tsx) โหลดรายชื่อรถจาก `/api/verhicle` และตัวชี้วัดจาก `/api/admin/vehicles/history` ตาม filters ค่าเริ่มต้นเป็นต้นเดือนถึงวันนี้เวลาไทย
 
-`summary` ใช้ useMemo รวมตัวเลขที่ API คำนวณมาแล้วเพื่อทำการ์ด 4 ช่อง: จำนวนรถ เที่ยว ระยะทาง งานซ่อม `ChartCard` รับ metric เดียวกันแต่สลับ dataKey เพื่อสร้างกราฟแท่ง 3 แบบด้วย Recharts
+`summary` ใช้ useMemo รวมตัวเลขที่ API คำนวณมาแล้วเพื่อทำการ์ด 4 ช่อง: จำนวนรถ เที่ยว ระยะทาง งานซ่อม `HistoryCharts` วน chartMetrics แล้วส่งแต่ละ metric ให้ `_components/ChartCard.tsx` ซึ่งสลับ dataKey เพื่อสร้างกราฟแท่ง 3 แบบด้วย Recharts
 
 `ResponsiveContainer` ปรับกราฟตามกล่อง, `XAxis` ใช้ plateNumber, `YAxis` เป็นค่าตัวเลข, `Bar` อ่าน dataKey และ Tooltip แสดงข้อมูลเมื่อชี้
 
@@ -315,3 +315,336 @@ effect สร้าง query พร้อม `pageSize=20` ไป `/api/admin/ve
 หากถูกถาม input ให้ชี้ `value` และ `onChange` เช่น `setFormData(prev => ({...prev, purpose: value}))` คือ copy object เดิมและแทน purpose เพื่อรักษาฟิลด์อื่น ไม่ใช่แก้ object เดิมตรง ๆ
 
 หากถูกถาม type `Booking` บนหน้าเว็บ ให้บอกว่าเป็นสัญญาชนิดข้อมูลที่ component คาดหวัง ไม่ใช่ schema ฐานข้อมูล และไม่ใช่ตัวตรวจข้อมูลจริงตอน runtime
+
+## 9. แผนที่ component หลัง refactor ครบ 12 หน้า
+
+ในรอบนี้มีไฟล์ใน `_components` ใหม่ 51 ไฟล์ เป็นการแยกส่วน UI ออกจาก page ที่ยังถือ state และ handler หลัก ตารางด้านล่างเชื่อมไฟล์กับหน้าที่จริง เปิดดัชนีบท 6 เพื่อดู imports และบรรทัดของทุกฟังก์ชันเพิ่มเติม
+
+ชื่อ component ซ้ำข้าม feature ได้ เช่น BookingDetailModal ของ User กับ Approver เป็นคนละ module และรับ props คนละชุด อย่าเลือกไฟล์จากชื่ออย่างเดียว ให้ดู path ประกอบ
+
+### 9.1 หน้าเข้าสู่ระบบ
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/page.tsx) — email/password, การแสดงรหัสผ่าน, loading และ error; handleLogin ส่ง POST /api/auth/login แล้วเลือกปลายทางตาม role
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [LoginBranding.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/_components/LoginBranding.tsx) | แสดงโลโก้และคำอธิบายระบบ ไม่มีข้อมูลฟอร์มหรือการเรียก API |
+| [LoginForm.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/_components/LoginForm.tsx) | แสดง controlled input และปุ่มแสดงรหัสผ่าน; submit เรียก handleLogin ของ page, การพิมพ์เรียก setEmail/setPassword |
+| [TestAccounts.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/_components/TestAccounts.tsx) | อ่าน TEST_ACCOUNTS จาก constants แล้วเรียก fillAccount ของ page เพื่อเติม input เท่านั้น ไม่สร้างผู้ใช้ในฐานข้อมูล |
+
+ไฟล์ประกอบ:
+
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/constants.ts): `TEST_ACCOUNTS`
+- [utils.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/utils.ts): `getLoginErrorMessage`
+
+การทำงานของ helper:
+
+- `getLoginErrorMessage`: ตรวจ axios.isAxiosError แล้วอ่านข้อความ API หรือใช้ข้อความ login ไม่สำเร็จ
+
+### 9.2 ผู้ใช้ค้นหาและจองรถ
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/booking/page.tsx) — vehicles, vehicleTypes, selectedType, searchDate, bookingData, selectedVehicle, modal/loading/error/success; page คุม searchVehicles และ submitBooking
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [VehicleSearchFilters.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/booking/_components/VehicleSearchFilters.tsx) | แสดงประเภทรถและช่วงเวลา รับค่าขั้นต่ำ minEndDateTime; ส่งค่าที่เปลี่ยนกลับด้วย setter และเรียก searchVehicles เมื่อกดค้นหา |
+| [VehicleSearchResults.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/booking/_components/VehicleSearchResults.tsx) | วน vehicles เป็นรายการรถ แสดงข้อมูล/คะแนนแนะนำจาก API และเรียก openBookingForm(vehicle) เมื่อเลือก |
+| [VehicleSearchPlaceholder.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/booking/_components/VehicleSearchPlaceholder.tsx) | แสดงข้อความเมื่อไม่มีรายการที่จะแสดง; page เป็นผู้ตัดสินใจว่าจะ render เมื่อใด |
+| [BookingFormModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/booking/_components/BookingFormModal.tsx) | แสดงรถและช่วงเวลาที่เลือก รับ purpose/destination ผ่าน bookingData; onSubmit เรียก submitBooking และปุ่มปิดเรียก closeBookingForm |
+
+ไฟล์ประกอบ:
+
+- [types.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/booking/types.ts): `Vehicle`, `VehicleType`, `BookingData`, `SearchDate`
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/booking/constants.ts): `INITIAL_BOOKING_DATA`, `INITIAL_SEARCH_DATE`
+- [utils.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/booking/utils.ts): `getErrorMessage`, `getLocalDateTimeInputValue`
+
+การทำงานของ helper:
+
+- `getErrorMessage`: ดึง message จาก Axios response หรือ fallback; บาง feature ใช้ type assertion ส่วนบาง feature ตรวจ axios.isAxiosError จึงไม่ควรอธิบายว่าทุกไฟล์ทำ runtime guard เหมือนกัน
+- `getLocalDateTimeInputValue`: ชดเชย timezone offset ของ Date แล้วตัด ISO เป็น YYYY-MM-DDTHH:mm สำหรับ input datetime-local; ไม่ใช่การบังคับทุกเครื่องให้เป็นเวลา Bangkok
+
+ชื่อ hasSearched ใน page คำนวณจากการมี startDate และ endDate ไม่ได้เป็น state ว่าผู้ใช้กดค้นหาแล้วจริง ดังนั้นชื่ออย่างเดียวไม่ใช่หลักฐานว่ามี request เกิดขึ้น ต้องดู searchVehicles และเงื่อนไข render ประกอบ
+
+### 9.3 การจองของฉัน
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/page.tsx) — bookings, selectedStatus, stats, selectedBooking, modalType, editForm, mileageInput และ request state; page คุมแก้/ยกเลิก/รับ/คืน
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [BookingStatusFilters.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/_components/BookingStatusFilters.tsx) | แสดงจำนวนตาม INITIAL_STATS/STATUS_FILTERS และเปลี่ยน selectedStatus ผ่าน setter |
+| [BookingList.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/_components/BookingList.tsx) | แสดง filteredBookings และเลือกปุ่มตามสถานะกับ canManageOwnBookings; ส่ง booking กลับไปให้ detail/edit/cancel/mileage handler |
+| [BookingDetailModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/_components/BookingDetailModal.tsx) | ครอบรายละเอียดด้วย ModalHeader, BookingDetailPanel และ PrimaryButton; ปิดผ่าน closeModal |
+| [BookingDetailPanel.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/_components/BookingDetailPanel.tsx) | แสดงข้อมูล booking, รถ, เวลา, ผู้อนุมัติ และระยะทาง; ใช้ getDistance จาก utils และไม่เขียน DB |
+| [BookingEditModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/_components/BookingEditModal.tsx) | แสดงวันเวลา purpose/destination ของ editForm; ส่ง setter และ handleEditSubmit กลับ page; ใช้ ModalHeader/ModalActions |
+| [MileageModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/_components/MileageModal.tsx) | ฟอร์มเลขไมล์ใช้ซ้ำสำหรับ pickup และ return; page กำหนด title/label/min/tone/onSubmit จึงไม่ต้องสร้างฟอร์มซ้ำสองชุด |
+| [ModalHeader.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/_components/ModalHeader.tsx) | แสดงหัวข้อ คำอธิบาย และปุ่มปิดของ modal; id เชื่อมชื่อ dialog เพื่อ accessibility |
+| [ModalActions.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/_components/ModalActions.tsx) | แสดงยกเลิกและ submit พร้อมข้อความ loading; รับ onCancel และปล่อย form จัดการ submit |
+| [PrimaryButton.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/_components/PrimaryButton.tsx) | ปุ่มหลักรับ children เป็นข้อความ/เนื้อหา และ onClick เป็นการทำงาน |
+
+ไฟล์ประกอบ:
+
+- [types.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/types.ts): `Booking`, `BookingStats`, `EditForm`, `ModalType`
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/constants.ts): `INITIAL_STATS`, `INITIAL_EDIT_FORM`, `STATUS_FILTERS`
+- [utils.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/my-bookings/utils.ts): `getErrorMessage`, `toLocalDateTimeInputValue`, `getLocalDateTimeInputValue`, `buildStats`, `getDistance`
+
+การทำงานของ helper:
+
+- `getErrorMessage`: ดึง message จาก Axios response หรือ fallback; บาง feature ใช้ type assertion ส่วนบาง feature ตรวจ axios.isAxiosError จึงไม่ควรอธิบายว่าทุกไฟล์ทำ runtime guard เหมือนกัน
+- `toLocalDateTimeInputValue`: แปลงข้อความวันที่จากข้อมูล booking เป็นค่าที่ input datetime-local แสดงใน timezone ของเครื่อง
+- `getLocalDateTimeInputValue`: ชดเชย timezone offset ของ Date แล้วตัด ISO เป็น YYYY-MM-DDTHH:mm สำหรับ input datetime-local; ไม่ใช่การบังคับทุกเครื่องให้เป็นเวลา Bangkok
+- `buildStats`: reduce รายการให้เป็นสถิติ; my-bookings นับเฉพาะ key ใน INITIAL_STATS, approver/history รวม CHANGED กับ APPROVED, maintenance นับสถานะงานซ่อม
+- `getDistance`: ถ้าเลขไมล์เริ่มหรือจบขาดให้ null มิฉะนั้นคืน mileageEnd − mileageStart; null จึงไม่เท่ากับ 0
+
+### 9.4 ผู้ใช้แจ้งซ่อม
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/maintenance/page.tsx) — รายการงานซ่อม/รถ, stats, formData และ modal; fetchData โหลดข้อมูล, handleSubmit ส่งรายงาน
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [MaintenanceStatsPanel.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/maintenance/_components/MaintenanceStatsPanel.tsx) | แสดงสถิติ total/reported/in_progress/completed ที่ page ส่งมา |
+| [MaintenanceTable.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/maintenance/_components/MaintenanceTable.tsx) | แสดงรายการแจ้งซ่อมพร้อมสถานะและ loading โดยรับ maintenances จาก page |
+| [ReportMaintenanceModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/maintenance/_components/ReportMaintenanceModal.tsx) | กรอกรถ ประเภทปัญหา รายละเอียดและวันเริ่ม; เปลี่ยน formData ผ่าน setter และส่ง handleSubmit |
+
+ไฟล์ประกอบ:
+
+- [types.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/maintenance/types.ts): `MaintenanceType`, `Maintenance`, `Vehicle`, `MaintenanceForm`, `MaintenanceStats`
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/maintenance/constants.ts): `INITIAL_STATS`, `maintenanceTypeLabels`
+- [utils.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/user/maintenance/utils.ts): `getLocalDateTimeInputValue`, `getInitialFormData`, `getErrorMessage`, `buildStats`
+
+การทำงานของ helper:
+
+- `getLocalDateTimeInputValue`: ชดเชย timezone offset ของ Date แล้วตัด ISO เป็น YYYY-MM-DDTHH:mm สำหรับ input datetime-local; ไม่ใช่การบังคับทุกเครื่องให้เป็นเวลา Bangkok
+- `getInitialFormData`: สร้างฟอร์มแจ้งซ่อมใหม่ด้วยช่องว่างและวันเริ่มปัจจุบันจาก helper เวลา
+- `getErrorMessage`: ดึง message จาก Axios response หรือ fallback; บาง feature ใช้ type assertion ส่วนบาง feature ตรวจ axios.isAxiosError จึงไม่ควรอธิบายว่าทุกไฟล์ทำ runtime guard เหมือนกัน
+- `buildStats`: reduce รายการให้เป็นสถิติ; my-bookings นับเฉพาะ key ใน INITIAL_STATS, approver/history รวม CHANGED กับ APPROVED, maintenance นับสถานะงานซ่อม
+
+### 9.5 ผู้อนุมัติพิจารณาคำขอ
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/approve/page.tsx) — bookings, selectedStatus, selectedBooking, actionType, comment, loading และ submittingRef; submitApproval อยู่ใน page
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [ApprovalHeader.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/approve/_components/ApprovalHeader.tsx) | แสดงหัวข้อและตัวกรองสถานะจาก STATUS_FILTERS; ส่งค่ากลับ setSelectedStatus |
+| [ApprovalTable.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/approve/_components/ApprovalTable.tsx) | แสดงคำขอตาม selectedStatus และส่ง booking/action ให้ openApprovalModal |
+| [ApprovalModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/approve/_components/ApprovalModal.tsx) | แสดงสรุปคำขอและช่อง comment ตาม actionType; ยืนยันเรียก submitApproval โดย page ส่ง PUT /api/approver |
+
+ไฟล์ประกอบ:
+
+- [types.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/approve/types.ts): `Booking`
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/approve/constants.ts): `STATUS_FILTERS`
+
+Feature นี้ไม่มี utils.ts ในรอบ refactor ปัจจุบัน จึงต้องเปิด page เพื่ออ่าน helper/handler ที่ยังอยู่ในนั้น
+
+### 9.6 ประวัติผู้อนุมัติ
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/history/page.tsx) — bookings, stats, selectedStatus, dateFilter และ selectedBooking; page โหลดข้อมูล กรอง และเปิดรายละเอียด
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [HistoryHeader.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/history/_components/HistoryHeader.tsx) | แสดงหัวข้อและตัวเลือกสถานะ; ส่งค่ากลับ setSelectedStatus |
+| [HistoryFilters.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/history/_components/HistoryFilters.tsx) | รับ dateFilter และแก้ช่วงวันผ่าน setDateFilter |
+| [HistoryStats.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/history/_components/HistoryStats.tsx) | แสดง total/approved/rejected คำนวณ approvalRate และเปลี่ยนสถานะที่เลือกได้; ค่าที่คำนวณนี้ใช้แสดงผลเท่านั้น |
+| [HistoryTable.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/history/_components/HistoryTable.tsx) | แสดงรายการและเรียก viewDetails(booking) เมื่อขอดูข้อมูล |
+| [BookingDetailModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/history/_components/BookingDetailModal.tsx) | แสดงรายละเอียด selectedBooking และปิดด้วย closeDetailModal |
+
+ไฟล์ประกอบ:
+
+- [types.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/history/types.ts): `Booking`, `BookingStats`, `DateFilter`
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/history/constants.ts): `INITIAL_DATE_FILTER`, `INITIAL_STATS`, `STATUS_FILTERS`
+- [utils.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/approver/history/utils.ts): `buildStats`, `filterByDate`
+
+การทำงานของ helper:
+
+- `buildStats`: reduce รายการให้เป็นสถิติ; my-bookings นับเฉพาะ key ใน INITIAL_STATS, approver/history รวม CHANGED กับ APPROVED, maintenance นับสถานะงานซ่อม
+- `filterByDate`: กรอง updatedAt ให้อยู่ระหว่างวันเริ่ม 00:00:00 ถึงวันจบ 23:59:59; ใช้ timezone ของ runtime และคืนทุกแถวเมื่อไม่เลือกวัน
+
+### 9.7 Admin จัดการผู้ใช้
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/users/page.tsx) — users/currentUser, statusFilter, filteredUsers, activeAdminCount, editingUser และ formData; page คุม fetch/create/update/toggle/delete
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [UsersTable.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/users/_components/UsersTable.tsx) | แสดงบัญชีและตัวกรอง active/inactive; ใช้ currentUser/activeAdminCount ประกอบการป้องกันปุ่ม UI ก่อนส่ง openEditModal/toggleUserStatus/deleteUser |
+| [UserFormModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/users/_components/UserFormModal.tsx) | ฟอร์มเดียวสำหรับเพิ่มและแก้; editingUser เลือกว่า submit เรียก createUser หรือ updateUser และรับ modalTitle/submitLabel จาก page |
+
+ไฟล์ประกอบ:
+
+- [types.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/users/types.ts): `User`, `CurrentUser`, `StatusFilter`, `UserFormData`
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/users/constants.ts): `INITIAL_FORM_DATA`
+- [utils.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/users/utils.ts): `getErrorMessage`, `getInitials`
+
+การทำงานของ helper:
+
+- `getErrorMessage`: ดึง message จาก Axios response หรือ fallback; บาง feature ใช้ type assertion ส่วนบาง feature ตรวจ axios.isAxiosError จึงไม่ควรอธิบายว่าทุกไฟล์ทำ runtime guard เหมือนกัน
+- `getInitials`: trim ชื่อแล้วใช้ตัวแรกเป็นตัวพิมพ์ใหญ่ ถ้าไม่มีใช้ ?
+
+### 9.8 Admin จัดการรถและประเภท
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicles/page.tsx) — vehicles/vehicleTypes, activeTab, editingVehicle/editingType, formData/typeFormData และสิทธิ์ canManageVehicles; API CRUD อยู่ใน page
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [VehiclesHeader.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicles/_components/VehiclesHeader.tsx) | เปลี่ยนแท็บรถ/ประเภทรถ และเปิด modal เพิ่มตามแท็บกับ canManageVehicles |
+| [VehicleTable.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicles/_components/VehicleTable.tsx) | แสดงรถ เลขไมล์และสถานะ; ปุ่มแก้/ลบเรียก openEditModal/deleteVehicle |
+| [VehicleTypesTable.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicles/_components/VehicleTypesTable.tsx) | แสดงประเภทและข้อมูลรถที่สัมพันธ์จาก vehicles; ปุ่มแก้/ลบส่งกลับ handler |
+| [VehicleFormModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicles/_components/VehicleFormModal.tsx) | กรอกทะเบียน ประเภท สถานะ เลขไมล์; เลือก createVehicle/updateVehicle จาก editingVehicle |
+| [VehicleTypeFormModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicles/_components/VehicleTypeFormModal.tsx) | กรอกชื่อประเภท; เลือก createVehicleType/updateVehicleType จาก editingType |
+
+ไฟล์ประกอบ:
+
+- [types.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicles/types.ts): `Vehicle`, `VehicleType`, `VehicleFormData`, `VehicleTypeFormData`
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicles/constants.ts): `INITIAL_VEHICLE_FORM`, `INITIAL_TYPE_FORM`, `VEHICLE_STATUSES`
+- [utils.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicles/utils.ts): `getErrorMessage`
+
+การทำงานของ helper:
+
+- `getErrorMessage`: ดึง message จาก Axios response หรือ fallback; บาง feature ใช้ type assertion ส่วนบาง feature ตรวจ axios.isAxiosError จึงไม่ควรอธิบายว่าทุกไฟล์ทำ runtime guard เหมือนกัน
+
+### 9.9 Admin จัดการการจอง
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/bookings/page.tsx) — bookings/users/vehicles, filters/stats, booking ที่เลือกใน modal และ input รับ–คืน/เปลี่ยนรถ; getErrorMessage/buildStats ยังอยู่ใน page
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [BookingStats.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/bookings/_components/BookingStats.tsx) | แสดงการ์ด 8 ค่า รวม CHANGED; page import โดยตั้งชื่อ BookingStatsPanel เพื่อแยกจากชื่อ type BookingStats |
+| [BookingFilters.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/bookings/_components/BookingFilters.tsx) | รับ filters/users/vehicles แล้วส่ง onChange(key,value) หรือ onReset; page import เป็น BookingFiltersPanel เพื่อแยกจาก type |
+| [BookingTable.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/bookings/_components/BookingTable.tsx) | แสดงการจองและปุ่มตาม canManageBookings/canDeleteBookings; ส่ง onChangeVehicle/onMileageAction/onEditStatus/onDelete กลับ page |
+| [BookingStatusModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/bookings/_components/BookingStatusModal.tsx) | เลือกสถานะจากตัวเลือกที่อนุญาต รับ status และส่ง onStatusChange/onSubmit/onClose |
+| [BookingMileageModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/bookings/_components/BookingMileageModal.tsx) | กรอกเลขไมล์ตาม action pickup/return แสดง error/loading; ส่ง value กลับด้วย onValueChange และบันทึกด้วย onSubmit |
+| [ChangeVehicleModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/bookings/_components/ChangeVehicleModal.tsx) | แสดง candidates ให้เลือก selectedVehicleId พร้อม reason; page เป็นผู้โหลดรถทดแทนและส่ง PUT เมื่อ onSubmit ถูกเรียก |
+
+ไฟล์ประกอบ:
+
+- [types.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/bookings/types.ts): `Booking`, `User`, `Vehicle`, `ReplacementVehicle`, `BookingFilters`, `BookingStats`, `MileageAction`
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/bookings/constants.ts): `INITIAL_FILTERS`, `INITIAL_STATS`, `BOOKING_STATUS_OPTIONS`, `STATUS_UPDATE_OPTIONS`
+
+Feature นี้ไม่มี utils.ts ในรอบ refactor ปัจจุบัน จึงต้องเปิด page เพื่ออ่าน helper/handler ที่ยังอยู่ในนั้น
+
+### 9.10 Admin จัดการซ่อม
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/maintenance/page.tsx) — maintenances/vehicles, filterStatus, editingItem, formData และสิทธิ์; validateForm/saveMaintenance/handleSubmit/handleDelete อยู่ใน page
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [MaintenanceStatusFilters.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/maintenance/_components/MaintenanceStatusFilters.tsx) | แสดงจำนวนและตัวเลือกสถานะ; ส่งค่าให้ setFilterStatus |
+| [MaintenanceTable.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/maintenance/_components/MaintenanceTable.tsx) | แสดง filteredMaintenances รวม booking ที่ได้รับผลกระทบ; ใช้ utils แสดงป้าย/สีและส่ง openEditModal/handleDelete |
+| [MaintenanceFormModal.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/maintenance/_components/MaintenanceFormModal.tsx) | กรอกข้อมูลซ่อม รวมรายละเอียด ศูนย์บริการ ค่าใช้จ่าย วันสิ้นสุดและสถานะ; รับ error จาก page แล้ว submit กลับ handleSubmit |
+
+ไฟล์ประกอบ:
+
+- [types.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/maintenance/types.ts): `MaintenanceStatus`, `MaintenanceType`, `AffectedBooking`, `Maintenance`, `Vehicle`, `FormData`
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/maintenance/constants.ts): `defaultForm`, `statusFilters`, `fieldClass`, `maintenanceTypeLabels`
+- [utils.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/maintenance/utils.ts): `getApiErrorMessage`, `isAffectedBookingsConflict`, `getVehicleStatusText`, `getVehicleStatusClass`, `getMaintenanceTypeClass`
+
+การทำงานของ helper:
+
+- `getApiErrorMessage`: ตรวจชนิด Axios error ก่อนอ่าน response.data.message มิฉะนั้นคืน fallback
+- `isAffectedBookingsConflict`: ตรวจ Axios status 409 และ code AFFECTED_BOOKINGS ให้ page แยกกรณีมี booking ได้รับผลกระทบ
+- `getVehicleStatusText`: เลือกข้อความไทยของสถานะรถสำหรับตารางงานซ่อม
+- `getVehicleStatusClass`: เลือกกลุ่ม Tailwind class สีป้ายสถานะรถ
+- `getMaintenanceTypeClass`: เลือกสีตาม BREAKDOWN/PREVENTIVE/OTHER และ fallback
+
+### 9.11 Admin กำหนดสิทธิ์
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/permissions/page.tsx) — roles/permissions/lockedAdminPermissions, activeTab และสถานะโหลด/บันทึก; isLocked/togglePermission/saveRole ยังเป็น logic ใน page
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [PermissionsLoading.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/permissions/_components/PermissionsLoading.tsx) | แสดง skeleton ขณะ page ยังโหลดข้อมูล; ไม่มี props |
+| [RoleTabs.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/permissions/_components/RoleTabs.tsx) | แสดงบทบาทจาก roles/roleMeta และเปลี่ยน activeTab ผ่าน setActiveTab |
+| [PermissionMatrixPanel.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/permissions/_components/PermissionMatrixPanel.tsx) | แสดงกลุ่ม permission และ checkbox; เรียก isLocked ก่อนให้แก้, togglePermission เมื่อเปลี่ยน และ saveRole เมื่อบันทึก |
+
+ไฟล์ประกอบ:
+
+- [types.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/permissions/types.ts): `PermissionMatrix`, `PermissionItem`, `MenuGroup`, `PermissionsResponse`, `RoleMeta`
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/permissions/constants.ts): `menuGroups`, `roleMeta`
+- [utils.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/permissions/utils.ts): `getApiErrorMessage`, `getRoleLabel`
+
+การทำงานของ helper:
+
+- `getApiErrorMessage`: ตรวจชนิด Axios error ก่อนอ่าน response.data.message มิฉะนั้นคืน fallback
+- `getRoleLabel`: อ่าน label จาก roleMeta หากไม่พบใช้ชื่อ role เดิม
+
+### 9.12 Admin รายงานประวัติรถ
+
+เจ้าของ state: [page.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/page.tsx) — items/vehicleOptions/filters/loading/error และ summary ที่คำนวณด้วย useMemo; effects ใน page เรียก API รถและตัวชี้วัด
+
+| ไฟล์ส่วนแสดงผล | หน้าที่และจุดเรียกกลับ |
+|---|---|
+| [HistoryStats.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/_components/HistoryStats.tsx) | แสดง summary 4 ค่า: totalVehicles,totalTrips,totalDistanceKm,totalMaintenance |
+| [HistoryFilters.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/_components/HistoryFilters.tsx) | แสดงช่วงเวลา/รถ ใช้ defaultFilters และ bangkokToday; ส่งการเปลี่ยนและ reset ผ่าน setFilters |
+| [HistoryCharts.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/_components/HistoryCharts.tsx) | วน chartMetrics แล้วสร้าง ChartCard แต่ละ metric โดยส่ง items ชุดเดียวกัน |
+| [ChartCard.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/_components/ChartCard.tsx) | รับ metric และ items แล้วสร้าง Recharts BarChart; dataKey เลือก usageCount/totalDistanceKm/maintenanceCount ไม่คำนวณกฎรายงานเอง |
+| [HistoryTable.tsx](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/_components/HistoryTable.tsx) | แสดงรายการสรุปรถจาก items พร้อม loading/empty state และบริบทว่ากรองอยู่หรือไม่ |
+
+ไฟล์ประกอบ:
+
+- [types.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/types.ts): `VehicleOption`, `VehicleHistoryItem`, `VehicleHistoryResponse`, `Filters`, `ChartMetric`
+- [constants.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/constants.ts): `bangkokToday`, `defaultFilters`, `fieldClass`, `chartMetrics`
+- [utils.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/utils.ts): `getBangkokToday`, `getApiErrorMessage`
+
+การทำงานของ helper:
+
+- `getBangkokToday`: Intl.DateTimeFormat ระบุ Asia/Bangkok เพื่อสร้างวันที่วันนี้; constants เรียกตอน module ถูกประเมิน ไม่ใช่นาฬิกาที่เดินทุกวินาที
+- `getApiErrorMessage`: ตรวจชนิด Axios error ก่อนอ่าน response.data.message มิฉะนั้นคืน fallback
+
+AiUsageSummaryCard.tsx และ VehicleHistoryDetails.tsx ยังอยู่ที่รากของ feature และยังมี effect/API ของตนเองตามส่วน 6 ไม่ได้ถูกย้ายไปเป็น component แสดงผลอย่างเดียวทั้งหมด `constants.ts` เรียก getBangkokToday เพื่อสร้างค่าเริ่มต้นช่วงต้นเดือนถึงวันปัจจุบันเมื่อ module โหลด
+
+## 10. ทำไมแยกแบบนี้ และอ่าน props อย่างไร
+
+`page.tsx` เป็นตัวประสานของ feature: ถือข้อมูลร่วม โหลด API เปิด–ปิด modal และส่ง callback ส่วน `_components` แสดงตาราง/ฟอร์ม/ตัวกรองเฉพาะส่วน จึงหา JSX และแก้หน้าตาแต่ละส่วนได้ง่ายขึ้น โดย handler เดิมยังอยู่ใกล้ state ที่ใช้ร่วมกัน นี่คือการแยกความรับผิดชอบของ frontend ไม่ได้ทำให้ระบบกลายเป็น microservices
+
+| รูปแบบในโค้ด | ความหมายที่ควรตอบได้ |
+|---|---|
+| `import type { Booking } from "./types"` | ใช้ตรวจชนิดขณะพัฒนา ถูกลบออกจาก JavaScript; ไม่ validate JSON ที่ API ส่งมาจริง |
+| `interface Props` หรือ type ของ parameter | สัญญาว่าต้องส่งข้อมูลและฟังก์ชันใดให้ component |
+| `Dispatch<SetStateAction<T>>` | setter ของ React รับค่าใหม่ T หรือฟังก์ชัน prev → T ได้ |
+| `setFormData(prev => ({ ...prev, purpose: value }))` | คง field เดิมแล้วสร้าง object ใหม่เปลี่ยนเฉพาะ purpose ไม่ mutate object เดิม |
+| `value={...}` ร่วมกับ `onChange` | controlled input: state เป็นแหล่งค่าของช่อง และ event ขอเปลี่ยน state |
+| `onSubmit={handler}` | ส่งตัวฟังก์ชันให้ form เรียกตอน submit; ไม่ได้สั่ง handler ทำงานระหว่าง render |
+| `onClick={() => openEditModal(booking)}` | callback จับ booking ของแถวนั้นไว้ แล้วส่งให้ page ตอนคลิก |
+| `children` | เนื้อหา JSX ภายใน component เช่นข้อความของ PrimaryButton |
+| `INITIAL_*` | ค่าเริ่มต้น/reset ของ UI; ไม่ใช่แถวที่บันทึกลง DB แล้ว |
+| `key={item.id}` | ช่วย React จับคู่สมาชิกใน list ระหว่าง render ไม่ใช่การสร้าง primary key ในฐานข้อมูล |
+
+Client boundary: page ที่มี `"use client"` import component ลูกที่ใช้ร่วมในฝั่ง client ได้ แม้ไฟล์ลูกไม่ได้ประกาศ directive ซ้ำ อย่าอธิบายว่าทุกไฟล์ที่ไม่มี directive เป็น Server Component โดยอัตโนมัติ ในกรณีนี้ callback อย่าง setFormData ส่งระหว่าง component ภายใต้ client boundary เดียวกัน ไม่ใช่ส่งฟังก์ชันธรรมดาข้ามจาก Server Component
+
+ไฟล์ `types.ts` ของแต่ละ feature มักมีชื่อซ้ำ เช่น Vehicle หรือ Booking แต่เป็นมุมมองข้อมูลที่หน้านั้นใช้ อาจมี relation หรือ field แสดงผลที่ API รวมมาให้ จึงไม่ใช่ model Prisma แบบหนึ่งต่อหนึ่งทุกฟิลด์ และไม่ใช่หลักฐานว่ามีตารางชื่อเดียวกันหลายตาราง
+
+ข้อจำกัดที่ควรอธิบายตรงไปตรงมา: หลาย component ยังรับ setter และ props จำนวนมาก จึงยังผูกกับ page ของ feature นี้; error/date helpers บางตัวซ้ำกันหลาย utils.ts; refactor ครั้งนี้ไม่ได้ย้าย data fetching เป็น custom hook ทุกหน้า และการแยกไฟล์อย่างเดียวไม่ได้ยืนยันว่ามี memoization ลด render หรือทำให้ bundle เล็กลง
+
+## 11. ตัวอย่างไล่โค้ดหลังแยก component
+
+ตัวอย่างจองรถ:
+
+```mermaid
+sequenceDiagram
+    actor User as ผู้ใช้
+    participant Filter as VehicleSearchFilters
+    participant Page as BookingPage
+    participant Modal as BookingFormModal
+    participant API as API routes
+    participant DB as PostgreSQL
+    User->>Filter: เลือกเวลาและกดค้นหา
+    Filter->>Page: setter และ searchVehicles()
+    Page->>API: GET /api/vehicles/recommend
+    API->>DB: ตรวจรถและช่วงเวลาทับซ้อน
+    API-->>Page: รายการรถและคะแนน
+    Page-->>User: VehicleSearchResults
+    User->>Page: เลือกรถผ่าน openBookingForm(vehicle)
+    Page-->>Modal: selectedVehicle / bookingData / callbacks
+    User->>Modal: กรอกข้อมูลและส่ง
+    Modal->>Page: submitBooking(event)
+    Page->>API: POST /api/booking
+    API->>DB: ตรวจสิทธิ์และเงื่อนไขแล้วสร้าง Booking
+    API-->>Page: response
+    Page-->>User: ปิด modal แสดงสำเร็จและค้นหารถใหม่
+```
+
+จุดที่ต้องจับให้ได้คือกดปุ่มใน component ลูก แต่ฟังก์ชันที่ทำงานนิยามอยู่ใน page; page ส่ง HTTP ไป route; route ใช้ Prisma เปลี่ยน DB; response กลับมาทำให้ page setState และ render ลูกด้วยข้อมูลใหม่ การเปลี่ยน state ใน browser อย่างเดียวไม่บันทึก DB
+
+ตัวอย่างรับ–คืนรถของ User: BookingList ส่ง booking และ action ไป openMileageModal → page เลือก modalType/selectedBooking → MileageModal รับค่าปัจจุบันและ onSubmit ที่เป็น handlePickup หรือ handleReturn → handler ใน page ส่ง PUT /api/booking/pickup หรือ /return → API ตรวจเจ้าของ สถานะ และเลขไมล์ → page โหลดรายการใหม่ โค้ดฟอร์ม MileageModal ชุดเดียวจึงใช้ได้สองงานโดยเปลี่ยน props
+
+ตัวอย่าง Admin เปลี่ยนรถ: BookingTable เรียก callback onChangeVehicle → page โหลด candidates จาก /api/admin/bookings/change-vehicle → ChangeVehicleModal แสดงรถที่เลือกได้ → onVehicleChange/onReasonChange เปลี่ยน state ใน page → onSubmit ส่ง PUT ไป endpoint เดิม → server ตรวจเงื่อนไขและ transaction การเปลี่ยนรถ รายละเอียด transaction ยังอยู่บท 3 ไม่อยู่ใน modal
+
+ตัวอย่างรายงาน: HistoryFilters เรียก setFilters → filters เปลี่ยน → effect ของ page โหลดตัวชี้วัด → summary เปลี่ยนและ HistoryStats/HistoryCharts/HistoryTable render ใหม่ ขณะเดียวกัน filters เดียวกันถูกส่งไป AiUsageSummaryCard และ VehicleHistoryDetails ซึ่งมีขั้นตอนโหลดของตนเอง การเปลี่ยน filter ไม่ได้หมายความว่าต้องเรียก AI ทุกครั้ง ดูเงื่อนไขกดสร้างใน AiUsageSummaryCard

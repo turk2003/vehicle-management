@@ -289,9 +289,9 @@ SMTP ล้มเหลวถูก service กลืนเป็น false แ�
 
 ## 10. การทดสอบ
 
-ผลที่รันระหว่างจัดทำคู่มือ: `npm test` ผ่าน 24 test files รวม 99 tests ส่วน `npm run lint` พบ 1 error และ 1 warning: explicit any ใน prisma/seed.ts และ unused DeepMockProxy ใน lib/__mocks__/prisma.ts ผลนี้ไม่ได้แปลว่าทุกเส้นทางของเว็บถูกทดสอบครบ
+ผลที่รันวันที่ 15 ตุลาคม 2026: `npm test` ผ่าน 24 test files รวม 99 tests; `npx tsc --noEmit --incremental false` ผ่าน; `npm run lint` exit 0 ไม่มี error และมี warning unused DeepMockProxy ใน lib/__mocks__/prisma.ts 1 จุด ข้อผิดพลาด any ใน seed เดิมถูกเปลี่ยนเป็น VehicleStatus แล้ว ผลนี้ไม่ได้แปลว่าทุกเส้นทางของเว็บถูกทดสอบครบ
 
-ไม่ได้รัน E2E, build, migrate หรือส่งอีเมล/เรียก AI จริงในงานอธิบายนี้ จึงไม่ใช้ผล unit tests ยืนยันสิ่งเหล่านั้น
+ไม่ได้รัน E2E, build, migrate, seed หรือส่งอีเมล/เรียก AI จริงในงานอธิบายนี้ โดย build ปัจจุบันมีขั้นตอน migrate ฐานข้อมูลเมื่อ VERCEL_ENV=production จึงไม่ใช้ผล unit tests/TypeScript ยืนยันว่า production deploy สำเร็จหรือ component ที่แยกแล้วผ่านทุก browser interaction
 
 ### Vitest และ mock
 
@@ -351,14 +351,16 @@ E2E มีการเตรียม/ล้างข้อมูลผ่าน
 
 | ไฟล์ | หน้าที่ |
 |---|---|
-| package.json | scripts dev/build/start/lint/test/test:watch/test:e2e และ dependency declarations |
+| package.json | scripts และ dependencies; build เรียก prisma generate → deployment migration script → next build |
 | package-lock.json | ล็อก dependency tree เพื่อความสม่ำเสมอในการติดตั้ง |
 | tsconfig.json | strict=true, noEmit=true, JSX, module resolution bundler และ @/* → root |
 | next.config.ts | export NextConfig ที่ยังไม่มี custom option |
 | next-env.d.ts | declarations ที่ Next สร้างเพื่อให้ TypeScript รู้ type ของ framework |
 | postcss.config.mjs | ใช้ @tailwindcss/postcss |
 | eslint.config.mjs | กฎ Next core-web-vitals/TypeScript และโฟลเดอร์ที่ ignore |
-| prisma.config.ts | schema/migrations/seed command และ DB URL ของ CLI |
+| prisma.config.ts | CLI ใช้ DIRECT_URL หากไม่เป็น null/undefined มิฉะนั้น DATABASE_URL; seed เรียกทั้ง seed.ts และ seedPermissions.ts |
+| scripts/deploy-migrations.mjs | บน Vercel production ตรวจ Prisma Postgres URL แล้วเรียก migrate deploy ด้วย direct host |
+| global.d.ts | declare module "*.css" ให้ TypeScript ยอมรับ side-effect CSS imports; ไม่ได้สร้าง CSS เอง |
 | docker-compose.yml | PostgreSQL 15, port 5432 และ volume pgdata เก็บข้อมูลข้าม container restart |
 | .env.example | ชื่อตัวแปร DB/JWT/SMTP/AI; เป็นตัวอย่าง ไม่ใช่ยืนยันค่าที่กำลังรัน |
 | README.md | ข้อมูลเริ่มต้นของ Next.js เป็นหลัก |
@@ -373,6 +375,8 @@ E2E มีการเตรียม/ล้างข้อมูลผ่าน
 | skills-lock.json และ .agents/skills | ข้อมูลเครื่องมือช่วยพัฒนา ไม่ได้กำหนดสิทธิ์ User ของระบบรถ |
 | app/favicon.ico | ไอคอนเว็บ |
 | public/* | static assets; อ้างด้วย URL จาก root เช่น /pea_logo.png |
+
+.env.example ยังไม่แสดง DIRECT_URL, SEED_ADMIN_EMAIL และ SEED_ADMIN_PASSWORD ที่โค้ดใหม่ใช้งาน จึงควรอ่านตารางตัวแปรและลำดับการตั้งค่าใน [บท 7](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/docs/exam-guide/07-deployment-and-postgres.md) ประกอบ ไม่ใช้ไฟล์ตัวอย่างเป็นรายการ deployment configuration ที่ครบทุกกรณี
 
 ค่าฐานข้อมูลตัวอย่างใน .env.example และ docker-compose.yml ไม่ตรงกันทั้งหมด จึงต้องกำหนด DATABASE_URL ให้ตรง instance ที่เลือกใช้จริง ห้ามตีความว่ารัน compose แล้วแอปเชื่อมได้ทันทีโดยไม่ตั้งค่า
 

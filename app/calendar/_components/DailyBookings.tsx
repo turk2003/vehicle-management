@@ -1,0 +1,56 @@
+import type { CalendarBooking } from "@/lib/calendar/types"
+import { formatCalendarDate } from "@/lib/calendar/dates"
+import { getBookingStatusColor, getBookingStatusText } from "@/lib/format"
+
+export default function DailyBookings({ day, bookings, loading, unavailable }: {
+  day: string
+  bookings: CalendarBooking[]
+  loading: boolean
+  unavailable: boolean
+}) {
+  return (
+    <section aria-labelledby="daily-bookings-title" aria-busy={loading} className="min-w-0 rounded-lg border border-gray-300 bg-white xl:max-h-[48rem] xl:overflow-y-auto">
+      <div className="border-b border-gray-200 bg-white p-4 sm:p-5 xl:sticky xl:top-0">
+        <h2 id="daily-bookings-title" className="text-lg font-semibold text-gray-950">รายการจองรายวัน</h2>
+        <p className="mt-1 text-sm text-gray-600">{formatCalendarDate(`${day}T00:00:00+07:00`, "date")}</p>
+        {!loading && !unavailable && <p role="status" className="mt-2 text-sm font-medium text-gray-700">{bookings.length} รายการ</p>}
+      </div>
+      {loading ? (
+        <div role="status" className="space-y-4 p-5">
+          <span className="sr-only">กำลังโหลดรายการจอง</span>
+          {[1, 2, 3].map((index) => <div key={index} className="h-20 rounded bg-gray-100 motion-safe:animate-pulse" />)}
+        </div>
+      ) : unavailable ? (
+        <p className="p-5 text-sm text-gray-700">ยังไม่สามารถแสดงรายการของเดือนนี้ได้ กรุณาลองใหม่</p>
+      ) : bookings.length === 0 ? (
+        <p className="p-5 text-sm leading-6 text-gray-600">ไม่มีการจองในวันนี้ เลือกวันอื่นเพื่อดูตารางการใช้รถ</p>
+      ) : (
+        <ul className="divide-y divide-gray-200">
+          {bookings.map((booking) => (
+            <li key={booking.id} className="p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="break-words font-semibold text-gray-950">{booking.vehicle.plateNumber}</h3>
+                  <p className="mt-1 break-words text-sm text-gray-600">{booking.vehicle.type.name}</p>
+                </div>
+                <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${getBookingStatusColor(booking.status)}`}>{getBookingStatusText(booking.status)}</span>
+              </div>
+              <dl className="mt-3 space-y-2 text-sm">
+                <div><dt className="text-gray-600">ผู้จอง</dt><dd className="break-words font-medium text-gray-950">{booking.user.name}</dd></div>
+                <div><dt className="text-gray-600">เริ่มใช้รถ</dt><dd className="text-gray-950">{formatCalendarDate(booking.startDate)}</dd></div>
+                <div><dt className="text-gray-600">สิ้นสุดการจอง</dt><dd className="text-gray-950">{formatCalendarDate(booking.endDate)}</dd></div>
+              </dl>
+              <details className="mt-4 text-sm">
+                <summary className="w-fit cursor-pointer rounded font-medium text-blue-700 outline-none hover:text-blue-800 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">รายละเอียดการเดินทาง</summary>
+                <dl className="mt-3 space-y-3 rounded-md bg-gray-50 p-3">
+                  <div><dt className="text-gray-600">วัตถุประสงค์</dt><dd className="mt-1 whitespace-pre-wrap break-words text-gray-950">{booking.purpose}</dd></div>
+                  <div><dt className="text-gray-600">ปลายทาง</dt><dd className="mt-1 whitespace-pre-wrap break-words text-gray-950">{booking.destination || "ไม่ระบุ"}</dd></div>
+                </dl>
+              </details>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}

@@ -275,3 +275,105 @@ Zod ตรวจรูปทรง จำนวนและความยาว
 ซ้อมโดยสุ่มปุ่มหนึ่งปุ่ม แล้วตอบ: ไฟล์ไหน → ฟังก์ชันไหน → endpoint/method → permission → ตาราง/ฟิลด์ → error ที่อาจคืน → UI เปลี่ยนอย่างไร จากนั้นใช้ดัชนีบท 6 เปิด source ตามตำแหน่ง
 
 ไม่จำเป็นต้องท่อง Tailwind ทุก class หรือไฟล์ Prisma generated ทุกบรรทัด ควรอธิบายได้ว่าแต่ละส่วนถูกสร้าง/เรียกเมื่อใด และกฎธุรกิจที่ทำให้ผลลัพธ์นั้นถูกต้องอยู่ตรงไหน
+
+## 11. คำถามเพิ่มหลัง refactor และ deploy ฐานข้อมูล — ข้อ 51–65
+
+### 51. Refactor รอบนี้เปลี่ยนอะไร และทำไปทำไม
+
+“ผมแยกหน้าที่ซับซ้อน 12 หน้าออกเป็น component ย่อย 51 ไฟล์ พร้อมแยก types/constants/utils ตาม feature ทำให้เปิดอ่านและแก้ UI ทีละส่วนได้ง่ายขึ้น page ยังถือ state และ handler ที่ใช้ร่วมกัน ส่วนกฎธุรกิจและการตรวจสิทธิ์ยังอยู่ API/server เหมือนเดิม”
+
+ยกตัวอย่างหน้า user/booking: page โหลดรถและสร้างคำขอ ส่วน VehicleSearchFilters แสดงตัวกรอง, VehicleSearchResults แสดงรถ และ BookingFormModal รับข้อมูลการจอง ดูแผนที่ครบในบท 2 ส่วน 9
+
+### 52. กดปุ่มใน component ลูก แต่ฟังก์ชันอยู่ page ได้อย่างไร
+
+“page ส่ง function ผ่าน props เช่น submitBooking ให้ BookingFormModal เมื่อ form submit ลูกเรียกฟังก์ชันที่ได้รับ page จึงส่ง POST ไป API และอัปเดต state หลังได้ response กลับมา”
+
+props ส่งข้อมูลลงมาและ callback ส่งการกระทำกลับไปยังเจ้าของ state ไม่จำเป็นต้องสร้าง state ซ้ำในลูกทุกตัว
+
+### 53. ทำไมเก็บ state ไว้ใน page ไม่เก็บในทุก component
+
+“ข้อมูลบางชุดใช้ร่วมกัน เช่นรายการ booking, แถวที่เลือก และ modal ถ้ารวม state ที่ parent ก็ส่งข้อมูลชุดเดียวให้ตารางกับฟอร์มได้ การเปิด modal จากแถวในตารางจึงสัมพันธ์กับข้อมูลเดียวกัน”
+
+ไม่ใช่กฎว่าลูกห้ามมี state เสมอ เช่น AiUsageSummaryCard และ VehicleHistoryDetails ยังจัดการการโหลดของตนเอง แต่ component แสดงผลที่แยกใหม่ส่วนใหญ่รับค่าจาก parent
+
+### 54. types.ts กับ schema.prisma ต่างกันอย่างไร
+
+“types.ts อธิบายรูปร่างข้อมูลที่ TypeScript ตรวจให้ตอนพัฒนา เช่นฟอร์มกับ response ของหน้านั้น schema.prisma อธิบาย model/relation ของฐานข้อมูลที่ Prisma ใช้สร้าง client และจัดการ migration การเปลี่ยน type ของ frontend อย่างเดียวไม่เปลี่ยนตารางใน DB และไม่ validate JSON ขณะ runtime”
+
+ตัวอย่าง Vehicle ในหน้าจออาจมีข้อมูล relation หรือคะแนนที่ API คำนวณเพิ่ม จึงไม่ใช่ทุก field ต้องเป็นคอลัมน์ของ Vehicle ใน DB
+
+### 55. _components มี URL ของตัวเองหรือไม่ และทำไมไม่มี use client ทุกไฟล์
+
+“_components เป็น private folder ที่ใช้จัด module ภายใน feature ไม่ได้เพิ่มหน้า URL เอง ลูกที่ page ฝั่ง client import อยู่ภายใต้ client boundary เดียวกัน จึงไม่ต้องประกาศ use client ซ้ำทุกตัว การไม่มี directive ในไฟล์ไม่ได้แปลว่าไฟล์นั้นเป็น Server Component เสมอ”
+
+layout ที่ตรวจสิทธิ์ก่อนเปิดหน้ากับ component ลูกของ client page มีหน้าที่และ boundary ต่างกัน
+
+### 56. constants กับ utils แยกหน้าที่อย่างไร
+
+“constants เก็บค่าเริ่มต้น ตัวเลือกและป้าย เช่น INITIAL_FILTERS ส่วน utils เป็นฟังก์ชันแปลงหรือคำนวณ เช่น buildStats และ getErrorMessage ทั้งสองเป็น module ที่ page/component import ไม่ได้เป็น API ของตัวเอง”
+
+ข้อควรยกให้ตรงโค้ด: admin/bookings และ approver/approve ยังไม่มี utils.ts; helper บางตัวจึงยังอยู่ page และ bangkokToday ใน constants ของรายงานเป็นค่าที่คำนวณตอน module โหลด ไม่ได้อัปเดตข้ามวันเองทุกวินาที
+
+### 57. หลังแยกไฟล์ เว็บเร็วขึ้นแน่นอนหรือไม่
+
+“การเปลี่ยนครั้งนี้ช่วยแยกหน้าที่และลดความยาว page แต่ยังสรุปไม่ได้ว่า runtime หรือ bundle ดีขึ้นจากจำนวนไฟล์เพียงอย่างเดียว ต้องวัดเพิ่มเติม ส่วน useMemo/useCallback ที่มีใช้ตามจุดคำนวณและ dependency ของ React ไม่ใช่ database cache”
+
+หลายลูกยังรับ props/setter จำนวนมาก จึงยังมีความสัมพันธ์กับ feature เดิม ไม่ได้กลายเป็น component กลางที่นำไปใช้ได้ทุกที่ทันที
+
+### 58. Deploy เว็บกับ deploy PostgreSQL เป็นอย่างเดียวกันหรือไม่
+
+“คนละส่วนครับ โค้ดเตรียม Next.js บน Vercel และฐานข้อมูล Prisma Postgres บน cloud แอปเชื่อม DB ผ่าน DATABASE_URL ส่วน docker-compose ใช้เปิด PostgreSQL สำหรับพัฒนาในเครื่อง การ deploy source เว็บไม่ได้อัปโหลด Docker DB local ไปด้วย”
+
+หากถามโดเมนหรือสถานะ live ให้ยืนยันจาก environment จริงเพิ่มเติม เพราะคู่มือรอบนี้ตรวจ source/config ไม่ได้ตรวจ dashboard หรือข้อมูล cloud
+
+### 59. npm run build ในฉบับใหม่ทำอะไรบ้าง
+
+“รัน prisma generate เพื่อสร้าง client ก่อน จากนั้นเรียก deploy-migrations.mjs แล้วจึง next build โดยใช้ && ให้ขั้นถัดไปทำเมื่อขั้นก่อนหน้าสำเร็จ ใน script migration จะทำงานเฉพาะ VERCEL_ENV เท่ากับ production”
+
+ดังนั้น local/preview ข้าม automatic migration ใน script นี้ และไม่ควรสรุปว่า build มีแค่ compile frontend แล้ว
+
+### 60. ทำไมต้องแยก DATABASE_URL กับ DIRECT_URL
+
+“runtime และ seed scripts อ่าน DATABASE_URL ส่วน Prisma CLI อ่าน DIRECT_URL ก่อนแล้วค่อย fallback DATABASE_URL เมื่อไม่มีค่า ตอน production build script ตรวจ URL แล้วใช้ direct host db.prisma.io ส่งเป็น DIRECT_URL ให้ child process ที่รัน migrate deploy”
+
+ชื่อ pooledUrl ใน script ไม่ได้บังคับว่ารับได้แต่ pooled: โค้ดปัจจุบันรับทั้ง pooled.db.prisma.io และ db.prisma.io แล้วกำหนด host ให้เป็น direct
+
+### 61. generate, migrate และ seed ต่างกันอย่างไร
+
+“generate สร้าง client/types จาก schema, migrate deploy apply SQL migration ที่เตรียมไว้, seed เติมข้อมูลเริ่มต้นผ่านสคริปต์ของโครงการ ทั้งสามคำสั่งไม่ใช่สิ่งเดียวกันและไม่ได้เรียกตามกันอัตโนมัติทุกกรณี”
+
+โปรเจกต์นี้ build เรียก generate และ migration script ส่วน explicit seed command เรียก seed.ts แล้ว seedPermissions.ts ไม่ได้เรียก explicit seed จาก build script
+
+### 62. ถ้า build ไม่ได้เรียก seed แล้วข้อมูลเดโมเข้า DB ได้อย่างไร
+
+“มี data migration ชื่อ 20260923140000_seed_demo_data ที่ใช้ SQL INSERT ข้อมูล Admin ประเภทรถและรถเดโม เมื่อ migrate deploy apply ชุดนี้จึงมีข้อมูลได้โดยไม่ได้เรียก seed.ts และมีอีก migration เติม baseline 13 สิทธิ์ของ ADMIN”
+
+ทั้งสองชุดเพิ่มข้อมูล ไม่เพิ่มตาราง Schema จึงยังมี 8 models เดิม และการเติมสิทธิ์ ADMIN ไม่ใช่หลักฐานว่ามี defaults ของ USER/APPROVER ครบแล้วทุก environment
+
+### 63. เปลี่ยน SEED_ADMIN_PASSWORD แล้ว seed จะเปลี่ยนรหัส Admin เดิมหรือไม่
+
+“ไม่ครับ seed.ts ตรวจรหัสสำหรับ remote ก่อน แต่ถ้าพบ email เดิมจะข้ามการสร้าง ไม่เรียก update password รหัสจาก environment ถูก hash ด้วย cost 10 เฉพาะเมื่อสร้างบัญชีใหม่ ส่วน SQL data migration มีค่า hash ในไฟล์ของตน ไม่ได้อ่าน SEED_ADMIN_PASSWORD”
+
+ปุ่มบัญชีทดสอบหน้า login เป็นเพียงการเติมฟอร์มอีกชุดหนึ่ง จึงไม่ได้รับประกันว่าตรงบัญชี cloud หรือมี USER/APPROVER เหล่านั้นใน DB แล้ว
+
+### 64. ถ้า migration fail หรือ build fail ผลต่างกันอย่างไร
+
+“ถ้า migration fail, script ส่ง exit code ที่ทำให้ && ไม่ไปต่อถึง next build แต่ถ้า migrate สำเร็จแล้ว compile Next.js fail ไม่มี transaction ที่ครอบทั้ง deployment ให้ rollback DB อัตโนมัติ ต้องอ่าน log ว่าล้มเหลวที่ขั้นใด”
+
+script ยังตรวจ protocol/host หากใช้ URL provider อื่นจะถูกปฏิเสธตามเงื่อนไข ไม่ควรอธิบายว่ารองรับทุก PostgreSQL cloud โดยไม่แก้ script
+
+### 65. มีหลักฐานอะไรว่า refactor และ deploy ทำงานถูกต้อง
+
+“ในการตรวจ working tree รอบนี้ Vitest ผ่าน 99 tests จาก 24 ไฟล์, TypeScript ผ่าน และ lint ไม่มี error มี warning ใน test mock 1 จุด สิ่งนี้รองรับโค้ดและชุดทดสอบที่ตรวจ แต่ยังไม่ได้รัน browser E2E หรือ build/migration/smoke test บน deployment จริงในรอบจัดทำคู่มือ จึงต้องแยกผลเหล่านั้นออกจากกัน”
+
+เมื่อตอบสอบให้บอกผลที่ทำจริง พร้อมเปิดไฟล์/รายงานผลประกอบได้ อย่าใช้จำนวน unit tests ไปยืนยันการเชื่อมต่อ DB, email หรือ AI provider จริงทุกกรณี
+
+## 12. ตัวอย่างเล่าฉบับปรับปรุงใน 90 วินาที
+
+“ระบบนี้ช่วยจัดการการขอใช้รถตั้งแต่ค้นหารถ จอง อนุมัติ รับรถ คืนรถ ไปจนถึงงานซ่อมและรายงาน แบ่งผู้ใช้เป็น User, Approver และ Admin และตรวจทั้ง role กับ permission ที่ฝั่ง server
+
+Frontend ใช้ Next.js กับ React รอบนี้ผมแยกหน้าใหญ่เป็น component ตาราง ฟอร์ม และตัวกรอง โดย page ยังถือ state และเรียก API ลูกได้รับข้อมูลและ callback ผ่าน props ทำให้ตามเส้นทางจากปุ่มไป handler ได้ชัดขึ้น ส่วน backend ใช้ route handlers ตรวจสิทธิ์และกฎธุรกิจ แล้วใช้ Prisma เชื่อม PostgreSQL ที่มี 8 models หลัก
+
+ด้าน deployment โค้ดเตรียมเว็บบน Vercel และ DB เป็น Prisma Postgres แยกกัน build จะ generate client และเรียก migration script เฉพาะ production โดยใช้ direct URL สำหรับ Prisma CLI ขณะที่ runtime อ่าน DATABASE_URL มี migration เติมข้อมูลเดโมและสิทธิ์ Admin ซึ่งแยกจาก explicit seed command
+
+รายงานคำนวณตัวเลขจากข้อมูลการใช้รถจริง ส่วน AI รับตัวเลขที่คำนวณแล้วไปสรุป และยังต้องตอบข้อจำกัดตามโค้ด เช่น cache ใน memory กับการทดสอบ deployment จริงที่ต้องมีหลักฐานแยกจาก unit tests”

@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle, FileText } from "lucide-react"
+import { CalendarDays, CheckCircle, FileText } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "@/lib/api"
 import RoleDashboard, {
@@ -37,6 +37,13 @@ export default function ApproverPage() {
   
   const allMenuItems: DashboardMenuItem[] = [
     {
+      title: "ปฏิทินการใช้รถ",
+      description: "ดูตารางจองรายวันและผู้ถือรถปัจจุบัน",
+      icon: CalendarDays,
+      href: "/calendar",
+      tone: "blue",
+    },
+    {
       title: "อนุมัติการจอง",
       description: "พิจารณาคำขออนุมัติการจองรถ",
       icon: CheckCircle,
@@ -56,7 +63,7 @@ export default function ApproverPage() {
    
   ]
 
-  const menuItems = allMenuItems.filter(item => permissions.includes(item.permission))
+  const menuItems = allMenuItems.filter(item => !item.permission || permissions.includes(item.permission))
 
   if (loading) {
      return <DashboardLoading />

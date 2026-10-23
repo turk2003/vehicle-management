@@ -1,5 +1,7 @@
 # บทที่ 3 — ยืนยันตัวตน สิทธิ์ API และการไหลของข้อมูล
 
+ตรวจเทียบวันที่ 15 ตุลาคม 2026: source ใน app/api, lib และ proxy.ts ยังตรงกับฐานคู่มือเดิมที่ commit `169c293` การย้าย JSX ไป component ไม่ย้ายกฎธุรกิจหรือการตรวจสิทธิ์จาก server ไป client และการเปลี่ยน DB ไป cloud ใช้ API/Prisma model ชุดเดิม
+
 ## 1. HTTP และ Route Handler
 
 ไฟล์ `app/api/.../route.ts` export ฟังก์ชันชื่อ `GET`, `POST`, `PUT`, `PATCH`, `DELETE` ให้ Next.js เลือกเรียกตาม HTTP method หนึ่ง URL จึงทำได้หลายงาน

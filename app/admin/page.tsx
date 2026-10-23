@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, Car, Calendar, Wrench, BarChart3, Shield } from "lucide-react";
+import { Users, Car, Calendar, CalendarDays, Wrench, BarChart3, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import RoleDashboard, {
@@ -27,6 +27,13 @@ export default function AdminPage() {
   }, []);
 
   const allMenuItems: DashboardMenuItem[] = [
+    {
+      title: "ปฏิทินการใช้รถ",
+      description: "ดูตารางจองรายวันและผู้ถือรถปัจจุบัน",
+      icon: CalendarDays,
+      href: "/calendar",
+      tone: "blue",
+    },
     {
       title: "จัดการผู้ใช้",
       description: "เพิ่ม แก้ไข ลบผู้ใช้ในระบบ",
@@ -78,7 +85,7 @@ export default function AdminPage() {
   ];
 
   const menuItems = allMenuItems.filter((item) =>
-    permissions.includes(item.permission),
+    !item.permission || permissions.includes(item.permission),
   );
 
   if (loading) {

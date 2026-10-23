@@ -1,6 +1,6 @@
 "use client"
 
-import { Car, FileText, Wrench } from "lucide-react"
+import { CalendarDays, Car, FileText, Wrench } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "@/lib/api"
 import RoleDashboard, {
@@ -28,6 +28,13 @@ export default function UserPage() {
   
   const allMenuItems: DashboardMenuItem[] = [
     {
+      title: "ปฏิทินการใช้รถ",
+      description: "ดูตารางจองรายวันและผู้ถือรถปัจจุบัน",
+      icon: CalendarDays,
+      href: "/calendar",
+      tone: "blue",
+    },
+    {
       title: "จองรถ",
       description: "เลือกรถและวันเวลาที่ต้องการใช้",
       icon: Car,
@@ -54,7 +61,7 @@ export default function UserPage() {
     
   ]
 
-  const menuItems = allMenuItems.filter(item => permissions.includes(item.permission))
+  const menuItems = allMenuItems.filter(item => !item.permission || permissions.includes(item.permission))
 
   if (loading) {
      return <DashboardLoading />

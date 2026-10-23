@@ -1,6 +1,6 @@
 # บทที่ 1 — ภาพรวม โครงสร้าง และฐานข้อมูล
 
-อ้างอิงโค้ดใน working tree วันที่ 5 กันยายน 2026 รวมไฟล์ที่แก้ไขอยู่และยังไม่ commit คู่มือนี้อธิบายพฤติกรรมจากโค้ด ไม่ได้ยืนยันว่าฐานข้อมูลที่กำลังใช้งานมี migration ครบแล้ว
+อ้างอิงโค้ดใน working tree วันที่ 15 ตุลาคม 2026 รวมไฟล์ที่แก้ไขอยู่และยังไม่ commit คู่มือนี้อธิบายพฤติกรรมจากโค้ด ไม่ได้ยืนยันว่าฐานข้อมูลที่กำลังใช้งานมี migration ครบแล้ว
 
 ## 1. ระบบนี้แก้ปัญหาอะไร
 
@@ -73,6 +73,8 @@ vehicle-management/
 ├── app/
 │   ├── layout.tsx               กรอบใหญ่ของเว็บและ Navbar
 │   ├── page.tsx                 หน้าเข้าสู่ระบบ /
+│   ├── _components/             ส่วนแสดงผลของหน้า login
+│   ├── constants.ts / utils.ts  ค่าตั้งต้นและ helper ของ login
 │   ├── globals.css              Tailwind และ CSS กลาง
 │   ├── component/               Navbar และ dashboard ที่ใช้ร่วมกัน
 │   ├── user/                    หน้าของผู้ขอใช้รถ
@@ -101,6 +103,8 @@ vehicle-management/
 │   ├── migrations/              SQL เปลี่ยนฐานข้อมูลตามลำดับ
 │   ├── seed.ts                  ข้อมูลตั้งต้น
 │   └── seedPermissions.ts       สิทธิ์ตั้งต้นของแต่ละบทบาท
+├── scripts/deploy-migrations.mjs  migrate DB ก่อน build บน Vercel production
+├── global.d.ts                  declaration สำหรับ import CSS
 ├── e2e/                         Playwright scenarios
 ├── public/                      ภาพ/โลโก้/SVG
 ├── docs/                        แผน การตัดสินใจ และคู่มือนี้
@@ -125,6 +129,28 @@ vehicle-management/
 `app/generated/prisma` เป็นโค้ดจาก schema มี `client.ts` สำหรับ server, `browser.ts` สำหรับ exports ที่ใช้ใน browser, `enums.ts`, `models/*.ts`, input types และ internal runtime ไม่ใช่หน้าเว็บแม้อยู่ใน `app/` เพราะไม่มี `page.tsx` หรือ `route.ts` ในโครงสร้างนั้น
 
 `.next/` เป็นผลจากการพัฒนา/build และ `node_modules/` เป็น dependencies ไม่ใช่ business logic ที่ต้องเขียนเอง ส่วนไฟล์ `.DS_Store` เป็น metadata ของ macOS
+
+หลัง refactor แต่ละ feature ที่ปรับใหม่มีโครงสร้างตัวอย่างดังนี้:
+
+```text
+app/user/booking/
+├── layout.tsx       ตรวจสิทธิ์ก่อนเข้าหน้า
+├── page.tsx         state, effect, API และ handler ของหน้า
+├── types.ts         รูปข้อมูลรถ ช่วงค้นหา และข้อมูลในฟอร์ม
+├── constants.ts     INITIAL_BOOKING_DATA / INITIAL_SEARCH_DATE
+├── utils.ts         แปลงวันสำหรับ input และอ่านข้อความ error
+└── _components/
+    ├── VehicleSearchFilters.tsx
+    ├── VehicleSearchResults.tsx
+    ├── VehicleSearchPlaceholder.tsx
+    └── BookingFormModal.tsx
+```
+
+`_components` เป็น private folder ตาม App Router จึงไม่เพิ่ม URL สาธารณะ ส่วน `types.ts`, `constants.ts`, `utils.ts` เป็น module ปกติ ไม่มี route ของตัวเอง ไม่ใช่ทุก feature ต้องมีทั้งสามไฟล์: login ไม่มี types.ts ของตน และ admin/bookings กับ approver/approve ไม่มี utils.ts ในรอบนี้
+
+การแยกไฟล์ frontend ไม่ได้สร้างตารางใหม่ `types.ts` บอก TypeScript ว่าหน้าจอคาดหวังข้อมูลรูปใด ส่วน [schema.prisma](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/prisma/schema.prisma) กำหนด model ของฐานข้อมูลจริง Schema ยังเป็น 8 models เดิมหลัง refactor รายละเอียดด้านล่างยังใช้ได้
+
+Docker เป็นทางเลือก DB ในเครื่อง ส่วน configuration deployment ปัจจุบันเตรียม Vercel สำหรับแอปและ Prisma Postgres สำหรับ DB แยกกัน ดู build/runtime flow ใน [บท 7](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/docs/exam-guide/07-deployment-and-postgres.md)
 
 ## 5. อ่านภาษา Prisma ให้เป็น
 
@@ -346,9 +372,13 @@ Schema อธิบายโครงสร้างที่ต้องกา�
 | `20260902143000_add_booking_destination` | destination |
 | `20260903120000_enforce_permission_matrix` | enum สิทธิ์เพิ่ม 3 ค่า |
 | `20260903120100_seed_enforced_permissions` | เติมสิทธิ์ที่เพิ่มและถอด REPORT_VIEW ของ APPROVER |
+| `20260923140000_seed_demo_data` | เติม Admin เดโม ประเภทรถและรถตัวอย่าง เป็น data migration ไม่เพิ่มตาราง |
+| `20260923150000_seed_admin_permissions` | เติม baseline 13 สิทธิ์ของ ADMIN โดยไม่ลบคู่สิทธิ์ที่มีอยู่ |
 
 [seed.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/prisma/seed.ts) สร้าง Admin ตั้งต้น ประเภทรถ 3 แบบ และรถตัวอย่าง 3 คัน โดยตรวจของเดิมก่อนสร้าง ไม่สร้างบัญชีทดสอบ USER/APPROVER ที่หน้า login แสดงไว้ทั้งหมด
 
-[seedPermissions.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/prisma/seedPermissions.ts) ใช้ `upsert` เพิ่มสิทธิ์ตั้งต้นตามบทบาท การรันซ้ำไม่สร้างคู่ซ้ำ แต่สามารถเปิดสิทธิ์เริ่มต้นที่เคยถอดออกกลับมาได้ ไฟล์นี้ไม่ได้ถูกเรียกจาก `seed.ts` โดยตรง และคำสั่ง seed ใน Prisma config ชี้ไป `seed.ts`
+[seedPermissions.ts](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/prisma/seedPermissions.ts) ใช้ `upsert` เพิ่มสิทธิ์ตั้งต้นตามบทบาท การรันซ้ำไม่สร้างคู่ซ้ำ แต่สามารถเปิดสิทธิ์เริ่มต้นที่เคยถอดออกกลับมาได้ ไฟล์นี้ไม่ได้ถูก import จาก `seed.ts` โดยตรง แต่คำสั่ง seed ใน Prisma config ปัจจุบันคือ `tsx prisma/seed.ts && tsx prisma/seedPermissions.ts` จึงเรียกตามกันเมื่อสคริปต์แรกสำเร็จ
+
+`seed.ts` อ่าน `SEED_ADMIN_EMAIL` และ `SEED_ADMIN_PASSWORD`; สำหรับ host ที่โค้ดจัดเป็น remote ต้องมีรหัสผ่านอย่างน้อย 12 ตัวอักษร ตรวจค่าก่อนค้นบัญชีเดิม หากอีเมลมีอยู่แล้วจะไม่เปลี่ยนรหัสผ่าน การ seed จึงไม่ใช่คำสั่ง reset password ส่วน SQL data migration ใช้ข้อมูลที่กำหนดอยู่ในไฟล์ SQL ไม่อ่านตัวแปร seed เหล่านี้ ดูรายละเอียดและข้อแตกต่างใน [บท 7](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/docs/exam-guide/07-deployment-and-postgres.md)
 
 `prisma generate` สร้าง client จาก schema โดยไม่ใช่การ migrate ฐานข้อมูล ส่วน `prisma migrate dev` ใช้จัดการ migration ในสภาพแวดล้อมพัฒนา คู่มือนี้ไม่ได้รัน migrate หรือ seed
