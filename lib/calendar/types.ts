@@ -30,7 +30,13 @@ export interface CalendarVehicle {
 
 export interface CalendarSnapshot {
   month: string
+  range?: CalendarRange
   asOf: string
   bookings: CalendarBooking[]
   vehicles: CalendarVehicle[]
+}
+
+export interface CalendarRange {
+  start: string
+  end: string
 }

@@ -68,6 +68,16 @@ describe("calendar snapshot query", () => {
     prismaMock.vehicle.findMany.mockResolvedValue([])
   })
 
+  it("loads the full visible range across months without applying the legacy month filter", async () => {
+    const snapshot = await getCalendarSnapshot(null, now, { start: "2026-10-26", end: "2026-11-02" })
+    expect(snapshot.range).toEqual({ start: "2026-10-26", end: "2026-11-02" })
+    expect(prismaMock.booking.findMany.mock.calls[0][0]?.where).toMatchObject({
+      startDate: { lt: new Date("2026-11-01T17:00:00Z") },
+      endDate: { gt: new Date("2026-10-25T17:00:00Z") },
+    })
+    expect(prismaMock.vehicle.findMany.mock.calls[0][0]?.where).toBeUndefined()
+  })
+
   it("loads overlapping bookings with a privacy-limited select and no mutations", async () => {
     const snapshot = await getCalendarSnapshot("2026-10", now)
     expect(snapshot).toEqual({ month: "2026-10", asOf: now.toISOString(), bookings: [], vehicles: [] })

@@ -5,6 +5,25 @@ const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000
 
 export class CalendarInputError extends Error {}
 
+export function resolveCalendarRange(startValue: string | null, endValue: string | null) {
+  const parse = (value: string | null) => {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000")) {
+      throw new CalendarInputError("กรุณาระบุวันเริ่มต้นและสิ้นสุดในรูปแบบ YYYY-MM-DD ให้ครบ")
+    }
+    const date = new Date(`${value}T00:00:00+07:00`)
+    if (!Number.isFinite(date.getTime()) || bangkokDateKey(date) !== value) {
+      throw new CalendarInputError("วันที่ไม่ถูกต้อง")
+    }
+    return date
+  }
+  const start = parse(startValue)
+  const endExclusive = parse(endValue)
+  if (endExclusive <= start || endExclusive.getTime() - start.getTime() > 62 * DAY_MS) {
+    throw new CalendarInputError("ช่วงวันที่ต้องมากกว่า 0 และไม่เกิน 62 วัน โดยไม่รวมวันสิ้นสุด")
+  }
+  return { month: startValue!.slice(0, 7), start, endExclusive }
+}
+
 export function bangkokDateKey(date: Date): string {
   return new Date(date.getTime() + BANGKOK_OFFSET_MS).toISOString().slice(0, 10)
 }
@@ -22,8 +41,6 @@ export function resolveCalendarMonth(value: string | null, now = new Date()) {
     start: new Date(utcMonth.getTime() - BANGKOK_OFFSET_MS),
     endExclusive: new Date(nextUtcMonth.getTime() - BANGKOK_OFFSET_MS),
     dayCount: Math.round((nextUtcMonth.getTime() - utcMonth.getTime()) / DAY_MS),
-    // Monday is the first column.
-    leadingDays: (utcMonth.getUTCDay() + 6) % 7,
   }
 }
 
@@ -33,16 +50,6 @@ export function shiftCalendarMonth(month: string, amount: number): string | null
   date.setUTCMonth(date.getUTCMonth() + amount)
   const year = date.getUTCFullYear()
   return year >= 1 && year <= 9999 ? date.toISOString().slice(0, 7) : null
-}
-
-export function monthDays(month: string): (string | null)[] {
-  const { dayCount, leadingDays } = resolveCalendarMonth(month)
-  const days: (string | null)[] = Array(leadingDays).fill(null)
-  for (let day = 1; day <= dayCount; day++) {
-    days.push(`${month}-${String(day).padStart(2, "0")}`)
-  }
-  while (days.length % 7 !== 0) days.push(null)
-  return days
 }
 
 export function bookingsForDay(bookings: CalendarBooking[], day: string) {
@@ -63,6 +70,7 @@ export function formatCalendarDate(value: string, mode: "date" | "time" | "datet
   if (mode === "time" || mode === "datetime") {
     options.hour = "2-digit"
     options.minute = "2-digit"
+    options.hourCycle = "h23"
   }
   return new Intl.DateTimeFormat("th-TH", options).format(new Date(value))
 }

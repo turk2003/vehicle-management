@@ -6,7 +6,10 @@ import { CalendarInputError } from "@/lib/calendar/dates"
 export async function GET(req: NextRequest) {
   try {
     await requireAccess(req, {})
-    const snapshot = await getCalendarSnapshot(req.nextUrl.searchParams.get("month"))
+    const params = req.nextUrl.searchParams
+    const hasRange = params.has("start") || params.has("end")
+    if (hasRange && params.has("month")) throw new CalendarInputError("เลือกส่งเดือนหรือช่วงวันที่อย่างใดอย่างหนึ่ง")
+    const snapshot = await getCalendarSnapshot(params.get("month"), new Date(), hasRange ? { start: params.get("start"), end: params.get("end") } : undefined)
     return NextResponse.json(snapshot, { headers: { "Cache-Control": "private, no-store" } })
   } catch (error) {
     const accessResponse = accessErrorResponse(error)

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import type { Prisma } from "@/app/generated/prisma/client"
-import { resolveCalendarMonth } from "./dates"
+import { bangkokDateKey, resolveCalendarMonth, resolveCalendarRange } from "./dates"
 import type { CalendarBookingStatus, CalendarSnapshot, CalendarVehicle } from "./types"
 
 const visibleStatuses: CalendarBookingStatus[] = ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS", "COMPLETED"]
@@ -47,8 +47,8 @@ export function deriveCurrentVehicle(
   }
 }
 
-export async function getCalendarSnapshot(value: string | null, now = new Date()): Promise<CalendarSnapshot> {
-  const { month, start, endExclusive } = resolveCalendarMonth(value, now)
+export async function getCalendarSnapshot(value: string | null, now = new Date(), range?: { start: string | null; end: string | null }): Promise<CalendarSnapshot> {
+  const { month, start, endExclusive } = range ? resolveCalendarRange(range.start, range.end) : resolveCalendarMonth(value, now)
   const [bookings, vehicles] = await Promise.all([
     prisma.booking.findMany({
       where: {
@@ -97,6 +97,7 @@ export async function getCalendarSnapshot(value: string | null, now = new Date()
   ])
   return {
     month,
+    ...(range && { range: { start: bangkokDateKey(start), end: bangkokDateKey(endExclusive) } }),
     asOf: now.toISOString(),
     bookings: bookings.map((booking) => ({
       ...booking,

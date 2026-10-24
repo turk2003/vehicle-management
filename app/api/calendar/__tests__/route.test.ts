@@ -46,6 +46,21 @@ describe("GET /api/calendar", () => {
     expect(prismaMock.booking.findMany).not.toHaveBeenCalled()
   })
 
+  it("supports a visible range spanning two months", async () => {
+    const req = request()
+    req.nextUrl.search = "?start=2026-10-26&end=2026-11-02"
+    const response = await GET(req)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ range: { start: "2026-10-26", end: "2026-11-02" } })
+  })
+
+  it.each(["?start=2026-10-26", "?start=2026-10-26&end=2026-11-02&month=2026-10", "?start=2026-10-26&end=2026-10-25", "?start=2026-01-01&end=2026-04-01"])("rejects invalid or ambiguous ranges: %s", async (search) => {
+    const req = request()
+    req.nextUrl.search = search
+    expect((await GET(req)).status).toBe(400)
+    expect(prismaMock.booking.findMany).not.toHaveBeenCalled()
+  })
+
   it("defaults to the current Bangkok month", async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date("2026-10-31T17:00:00Z"))

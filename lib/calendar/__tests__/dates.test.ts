@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { bangkokDateKey, bookingsForDay, monthDays, resolveCalendarMonth, shiftCalendarMonth } from "../dates"
+import { bangkokDateKey, bookingsForDay, resolveCalendarMonth, resolveCalendarRange, shiftCalendarMonth } from "../dates"
 import type { CalendarBooking } from "../types"
 
 function booking(startDate: string, endDate: string): CalendarBooking {
@@ -10,6 +10,20 @@ function booking(startDate: string, endDate: string): CalendarBooking {
 }
 
 describe("calendar dates in Bangkok", () => {
+  it("resolves a week across a month boundary with an exclusive end in Bangkok", () => {
+    const range = resolveCalendarRange("2026-10-26", "2026-11-02")
+    expect(range.start.toISOString()).toBe("2026-10-25T17:00:00.000Z")
+    expect(range.endExclusive.toISOString()).toBe("2026-11-01T17:00:00.000Z")
+  })
+
+  it.each([
+    [null, "2026-11-02"], ["2026-10-26", null], ["2026-02-30", "2026-03-02"],
+    ["2026-10-26", "2026-10-26"], ["2026-10-26", "2026-10-25"],
+    ["2026-01-01", "2026-04-01"], ["2026-1-1", "2026-01-02"],
+  ])("rejects an invalid date range %s to %s", (start, end) => {
+    expect(() => resolveCalendarRange(start, end)).toThrow()
+  })
+
   it("resolves the current month at the Thai midnight boundary", () => {
     const now = new Date("2026-10-31T17:00:00Z")
     expect(bangkokDateKey(now)).toBe("2026-11-01")
@@ -30,13 +44,6 @@ describe("calendar dates in Bangkok", () => {
     expect(shiftCalendarMonth("2026-01", -1)).toBe("2025-12")
     expect(shiftCalendarMonth("0001-01", -1)).toBeNull()
     expect(shiftCalendarMonth("9999-12", 1)).toBeNull()
-  })
-
-  it("builds complete Monday-first weeks without extra selectable days", () => {
-    const days = monthDays("2026-10")
-    expect(days.slice(0, 4)).toEqual([null, null, null, "2026-10-01"])
-    expect(days.filter(Boolean)).toHaveLength(31)
-    expect(days.length % 7).toBe(0)
   })
 
   it("shows multi-day bookings on every overlapping day, excluding an end at midnight", () => {
