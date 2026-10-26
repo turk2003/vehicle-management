@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import FullCalendar, { type CalendarRef, type DatesSetInfo, type EventInput } from "@fullcalendar/react"
 import dayGridPlugin from "@fullcalendar/react/daygrid"
 import timeGridPlugin from "@fullcalendar/react/timegrid"
@@ -12,6 +12,7 @@ import { Button } from "@/app/component/untitled-ui/button"
 import { bangkokDateKey, bookingsForDay, formatCalendarDate } from "@/lib/calendar/dates"
 import { getBookingStatusText } from "@/lib/format"
 import type { CalendarBooking, CalendarRange } from "@/lib/calendar/types"
+import type { CalendarBookingSelection } from "@/lib/calendar/booking"
 
 const plugins = [monarchTheme, dayGridPlugin, timeGridPlugin, interactionPlugin]
 const views = [
@@ -36,12 +37,18 @@ interface Props {
   onRangeChange: (range: CalendarRange, anchorDay: string, anchorEnd: string) => void
   onSelectDay: (day: string) => void
   onSelectBooking: (id: string, day: string) => void
+  canCreateBooking: boolean
+  onRequestBooking: (selection: CalendarBookingSelection, trigger: HTMLElement | null) => void
+  navigateTo: { day: string; request: number } | null
 }
 
-export default function BookingCalendar({ today, selectedDay, bookings, loading, unavailable, onRangeChange, onSelectDay, onSelectBooking }: Props) {
+export default function BookingCalendar({ today, selectedDay, bookings, loading, unavailable, onRangeChange, onSelectDay, onSelectBooking, canCreateBooking, onRequestBooking, navigateTo }: Props) {
   const calendar = useRef<CalendarRef>(null)
   const [view, setView] = useState("dayGridMonth")
   const [title, setTitle] = useState(formatCalendarDate(`${today}T00:00:00+07:00`, "month"))
+  useEffect(() => {
+    if (navigateTo) calendar.current?.getApi().gotoDate(navigateTo.day)
+  }, [navigateTo])
   const events: EventInput[] = useMemo(() => bookings.map((booking) => ({
     id: booking.id,
     title: `${booking.vehicle.plateNumber} · ${getBookingStatusText(booking.status)} · ${booking.user.name}`,
@@ -68,7 +75,7 @@ export default function BookingCalendar({ today, selectedDay, bookings, loading,
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 p-4 sm:px-5">
         <div className="min-w-0">
           <h2 aria-live="polite" className="text-lg font-semibold text-gray-950">{title}</h2>
-          <p className="mt-1 text-sm text-gray-600">เวลาไทย (UTC+7) · เลือกรายการเพื่อดูรายละเอียด</p>
+          <p className="mt-1 text-sm text-gray-600">เวลาไทย (UTC+7) · {canCreateBooking ? "เลือกวันเพื่อจองรถ หรือเลือกรายการเพื่อดูรายละเอียด" : "เลือกรายการเพื่อดูรายละเอียด"}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1">
@@ -113,8 +120,15 @@ export default function BookingCalendar({ today, selectedDay, bookings, loading,
             events={events}
             datesSet={datesSet}
             navLinks
-            navLinkDayClick={(date) => onSelectDay(bangkokDateKey(date))}
-            dateClick={(info) => onSelectDay(info.dateStr.slice(0, 10))}
+            navLinkDayClick={(date, event) => {
+              const target = event.target as HTMLElement
+              onRequestBooking({ day: bangkokDateKey(date) }, target.closest<HTMLElement>("a, button, [tabindex]") ?? target)
+            }}
+            dateClick={(info) => {
+              const trigger = info.dayEl.querySelector<HTMLElement>("a, button, [tabindex]") ?? info.dayEl
+              if (!trigger.hasAttribute("tabindex") && trigger.tabIndex < 0) trigger.tabIndex = -1
+              onRequestBooking({ day: info.dateStr.slice(0, 10), time: info.allDay ? undefined : info.dateStr.slice(11, 16) }, trigger)
+            }}
             dayCellClass={(info) => bangkokDateKey(info.date) === selectedDay ? "calendar-selected-day" : ""}
             dayCellTopContent={(info) => {
               const day = bangkokDateKey(info.date)

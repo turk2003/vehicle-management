@@ -2,15 +2,17 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowLeft, Calendar, RefreshCw01 } from "@untitledui/icons";
-import { useCallback, useEffect, useState } from "react";
+import { Calendar, RefreshCw01 } from "@untitledui/icons";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/app/component/untitled-ui/button";
 import { Badge } from "@/app/component/untitled-ui/badge";
 import api from "@/lib/api";
-import { bookingsForDay, formatCalendarDate } from "@/lib/calendar/dates";
+import { bangkokDateKey, bookingsForDay, formatCalendarDate } from "@/lib/calendar/dates";
+import type { CalendarBookingSelection } from "@/lib/calendar/booking";
 import type { CalendarRange, CalendarSnapshot } from "@/lib/calendar/types";
 import DailyBookings from "./DailyBookings";
 import FleetStatus from "./FleetStatus";
+import CalendarBookingModal from "./CalendarBookingModal";
 
 const BookingCalendar = dynamic(() => import("./BookingCalendar"), {
   ssr: false,
@@ -27,9 +29,11 @@ const BookingCalendar = dynamic(() => import("./BookingCalendar"), {
 export default function CalendarView({
   today,
   dashboardHref,
+  canCreateBooking,
 }: {
   today: string;
   dashboardHref: string;
+  canCreateBooking: boolean;
 }) {
   const [selectedDay, setSelectedDay] = useState(today);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
@@ -40,6 +44,10 @@ export default function CalendarView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [bookingSelection, setBookingSelection] = useState<CalendarBookingSelection | null>(null);
+  const [bookingSuccess, setBookingSuccess] = useState("");
+  const [navigateTo, setNavigateTo] = useState<{ day: string; request: number } | null>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
   const start = range?.start;
   const end = range?.end;
 
@@ -109,6 +117,24 @@ export default function CalendarView({
     setSelectedDay(day);
     setSelectedBookingId(id);
   }, []);
+  const onRequestBooking = useCallback((selection: CalendarBookingSelection, trigger: HTMLElement | null) => {
+    setSelectedDay(selection.day);
+    setSelectedBookingId(null);
+    if (!canCreateBooking || selection.day < bangkokDateKey(new Date())) return;
+    returnFocus.current = trigger;
+    setBookingSuccess("");
+    setBookingSelection(selection);
+  }, [canCreateBooking]);
+  const onBooked = (day: string) => {
+    setBookingSelection(null);
+    setBookingSuccess("ส่งคำขอจองรถสำเร็จ รอการอนุมัติ");
+    setSelectedDay(day);
+    setSelectedBookingId(null);
+    if (!start || !end || day < start || day >= end) {
+      setNavigateTo((previous) => ({ day, request: (previous?.request ?? 0) + 1 }));
+    }
+    setRefreshKey((key) => key + 1);
+  };
   const currentData =
     data?.range?.start === start && data?.range?.end === end ? data : null;
   const rangeLoading = !currentData && (loading || !error);
@@ -155,6 +181,7 @@ export default function CalendarView({
             </p>
           </div>
         </header>
+        {bookingSuccess && <p role="status" className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">{bookingSuccess}</p>}
         {error && (
           <div
             role="alert"
@@ -180,6 +207,9 @@ export default function CalendarView({
               onRangeChange={onRangeChange}
               onSelectDay={onSelectDay}
               onSelectBooking={onSelectBooking}
+              canCreateBooking={canCreateBooking}
+              onRequestBooking={onRequestBooking}
+              navigateTo={navigateTo}
             />
             <div
               className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600"
@@ -202,7 +232,7 @@ export default function CalendarView({
               </Badge>
             </div>
             <p className="text-sm leading-6 text-gray-600">
-              เลือกวันหรือรายการจองเพื่อดูรายละเอียด ซ่อนรายการยกเลิกและปฏิเสธ
+              {canCreateBooking ? "เลือกวันที่หรือช่องว่างเพื่อจองรถ เลือกรายการจองเพื่อดูรายละเอียด" : "เลือกวันหรือรายการจองเพื่อดูรายละเอียด"} · ซ่อนรายการยกเลิกและปฏิเสธ
             </p>
           </div>
           <DailyBookings
@@ -218,7 +248,9 @@ export default function CalendarView({
         ) : !error ? (
           <FleetStatus vehicles={[]} loading />
         ) : null}
+        <Link href={dashboardHref} className="inline-flex min-h-11 items-center text-sm font-semibold text-blue-700 hover:text-blue-800">กลับ Dashboard</Link>
       </div>
+      {bookingSelection && <CalendarBookingModal selection={bookingSelection} returnFocus={returnFocus.current} onClose={() => setBookingSelection(null)} onBooked={onBooked} />}
     </main>
   );
 }

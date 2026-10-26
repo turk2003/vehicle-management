@@ -180,6 +180,8 @@ test("fits a mobile screen and supports keyboard selection", async ({ page }, te
   await day.focus()
   await page.keyboard.press("Enter")
   await expect(calendarRegion(page).locator(`[data-date="${today}"]`)).toHaveClass(/calendar-selected-day/)
+  // USER day activation now opens booking; close it before checking the calendar.
+  if (await page.getByRole("dialog", { name: "จองรถ", exact: true }).isVisible()) await page.keyboard.press("Escape")
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: testInfo.outputPath("calendar-mobile.png"), fullPage: true })
   await page.setViewportSize({ width: 1440, height: 1000 })
@@ -298,6 +300,7 @@ test("loads both sides of a month boundary in the week view", async ({ page }) =
   const calendar = calendarRegion(page)
   await expect(page.getByRole("button", { name: "รีเฟรชข้อมูล", exact: true })).toBeEnabled()
   await calendar.locator(`[data-date="${monthLastDay}"]`).getByRole("link").first().click()
+  if (await page.getByRole("dialog", { name: "จองรถ", exact: true }).isVisible()) await page.keyboard.press("Escape")
   const loaded = page.waitForResponse((response) => response.url().includes("/api/calendar?") && response.ok())
   await calendar.getByRole("group", { name: "มุมมองปฏิทิน" }).getByRole("button", { name: "สัปดาห์", exact: true }).click()
   const snapshot: CalendarSnapshot = await (await loaded).json()
@@ -329,4 +332,238 @@ test("week and day views fit mobile without making the whole page scroll sideway
   await expect(page.getByRole("button", { name: "รีเฟรชข้อมูล", exact: true })).toBeEnabled()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: testInfo.outputPath("calendar-day-mobile.png"), fullPage: true })
+})
+
+const bookingDay = `${shiftCalendarMonth(month, 1)}-15`
+const bookingDialog = (page: Page) => page.getByRole("dialog", { name: "จองรถ", exact: true })
+
+async function openCalendarBooking(page: Page) {
+  await login(page)
+  await page.goto("/calendar")
+  await page.getByRole("button", { name: "เดือนถัดไป", exact: true }).click()
+  const dayLink = calendarRegion(page).locator(`[data-date="${bookingDay}"]`).getByRole("link").first()
+  await dayLink.click()
+  await expect(bookingDialog(page)).toBeVisible()
+  return dayLink
+}
+
+async function fillPeriod(page: Page, endDay = bookingDay) {
+  const dialog = bookingDialog(page)
+  await dialog.getByLabel("เวลาเริ่มต้น", { exact: false }).fill("09:00")
+  await dialog.getByLabel("วันสิ้นสุด", { exact: false }).fill(endDay)
+  await dialog.getByLabel("เวลาสิ้นสุด", { exact: false }).fill("10:00")
+}
+
+const recommendedVehicle = {
+  id: vehicleId, plateNumber: plate, type: { id: typeId, name: "รถทดสอบ" },
+  recommended: true, currentMileage: 0, maintenanceCount: 0, score: 0, status: "AVAILABLE",
+}
+
+test("books a multi-day trip on the calendar using Bangkok time and refreshes immediately", async ({ page }, testInfo) => {
+  await openCalendarBooking(page)
+  const dialog = bookingDialog(page)
+  await expect(dialog.getByLabel("วันเริ่มต้น", { exact: false })).toHaveValue(bookingDay)
+  await expect(dialog.getByLabel("เวลาเริ่มต้น", { exact: false })).toHaveValue("")
+  await expect(dialog.getByLabel("เวลาสิ้นสุด", { exact: false })).toHaveValue("")
+  const editedDay = `${shiftCalendarMonth(month, 2)}-15`
+  await dialog.getByLabel("วันเริ่มต้น", { exact: false }).fill(editedDay)
+  await fillPeriod(page, `${shiftCalendarMonth(month, 2)}-16`)
+  await dialog.getByRole("button", { name: "ค้นหารถว่าง", exact: true }).click()
+  await dialog.getByLabel("รถที่ต้องการจอง").selectOption(vehicleId)
+  const purpose = `จองผ่านปฏิทิน ${suffix}`
+  await dialog.getByLabel("วัตถุประสงค์").fill(purpose)
+  await dialog.getByLabel("ปลายทาง").fill(`ปลายทางปฏิทิน ${suffix}`)
+  await expect(dialog.getByRole("button", { name: "ยืนยันการจอง", exact: true })).toBeInViewport({ ratio: 1 })
+  await page.screenshot({ path: testInfo.outputPath("calendar-booking-desktop.png"), fullPage: true })
+  const posted = page.waitForResponse((response) => response.url().endsWith("/api/booking") && response.request().method() === "POST")
+  await dialog.getByRole("button", { name: "ยืนยันการจอง", exact: true }).click()
+  const response = await posted
+  expect(response.status()).toBe(200)
+  const booking = await response.json()
+  bookingIds.push(booking.id)
+  expect(booking.status).toBe("PENDING")
+  expect(booking.startDate).toBe(`${editedDay}T02:00:00.000Z`)
+  expect(booking.endDate).toBe(`${shiftCalendarMonth(month, 2)}-16T03:00:00.000Z`)
+  await expect(dialog).toHaveCount(0)
+  await expect(page.getByRole("status").filter({ hasText: "ส่งคำขอจองรถสำเร็จ" })).toBeVisible()
+  const daily = page.getByRole("region", { name: "รายการจองรายวัน" })
+  await expect(daily.locator(`[data-booking-id="${booking.id}"]`)).toContainText("รออนุมัติ")
+  const stored = await pool.query<{ status: string; purpose: string }>(`SELECT "status", "purpose" FROM "Booking" WHERE "id" = $1`, [booking.id])
+  expect(stored.rows[0]).toEqual({ status: "PENDING", purpose })
+})
+
+test("booking dialog validates dates, resets changed searches and retains details after a conflict", async ({ page }) => {
+  let searches = 0
+  await page.route("**/api/vehicles/recommend?**", (route) => {
+    searches += 1
+    return route.fulfill({ json: [recommendedVehicle] })
+  })
+  await openCalendarBooking(page)
+  const dialog = bookingDialog(page)
+  await dialog.getByRole("button", { name: "ค้นหารถว่าง", exact: true }).click()
+  await expect(dialog.getByRole("alert")).toContainText("ครบถ้วน")
+  expect(searches).toBe(0)
+  const pastDay = bangkokDateKey(new Date(new Date(`${today}T00:00:00+07:00`).getTime() - 86_400_000))
+  await dialog.getByLabel("วันเริ่มต้น", { exact: false }).fill(pastDay)
+  await fillPeriod(page)
+  await dialog.getByRole("button", { name: "ค้นหารถว่าง", exact: true }).click()
+  await expect(dialog.getByRole("alert")).toContainText("ไม่สามารถจองย้อนหลังได้")
+  expect(searches).toBe(0)
+  await dialog.getByLabel("วันเริ่มต้น", { exact: false }).fill(bookingDay)
+  await fillPeriod(page)
+  await dialog.getByLabel("เวลาสิ้นสุด", { exact: false }).fill("08:00")
+  await dialog.getByRole("button", { name: "ค้นหารถว่าง", exact: true }).click()
+  await expect(dialog.getByRole("alert")).toContainText("สิ้นสุดต้องหลัง")
+  expect(searches).toBe(0)
+  await dialog.getByLabel("เวลาสิ้นสุด", { exact: false }).fill("10:00")
+  await dialog.getByRole("button", { name: "ค้นหารถว่าง", exact: true }).click()
+  await dialog.getByLabel("รถที่ต้องการจอง").selectOption(vehicleId)
+  await dialog.getByLabel("วัตถุประสงค์").fill("   ")
+  await dialog.getByRole("button", { name: "ยืนยันการจอง", exact: true }).click()
+  await expect(dialog.getByRole("alert")).toContainText("กรุณาระบุวัตถุประสงค์")
+  await dialog.getByLabel("วัตถุประสงค์").fill("รายละเอียดที่ต้องเก็บ")
+  await dialog.getByLabel("ปลายทาง").fill("สำนักงานเขต")
+  await dialog.getByLabel("เวลาเริ่มต้น", { exact: false }).fill("09:30")
+  await expect(dialog.getByLabel("รถที่ต้องการจอง")).toHaveCount(0)
+  await expect(dialog.getByRole("button", { name: "ยืนยันการจอง", exact: true })).toBeDisabled()
+  await dialog.getByRole("button", { name: "ค้นหารถว่าง", exact: true }).click()
+  await dialog.getByLabel("รถที่ต้องการจอง").selectOption(vehicleId)
+  await page.route("**/api/booking", (route) => route.fulfill({ status: 409, json: { message: "รถคันนี้มีการจองในช่วงเวลาดังกล่าวแล้ว" } }))
+  await dialog.getByRole("button", { name: "ยืนยันการจอง", exact: true }).click()
+  await expect(dialog.getByRole("alert")).toContainText("มีการจอง")
+  await expect(dialog.getByLabel("รถที่ต้องการจอง")).toHaveValue("")
+  await expect(dialog.getByLabel("วัตถุประสงค์")).toHaveValue("รายละเอียดที่ต้องเก็บ")
+  await expect(dialog.getByLabel("ปลายทาง")).toHaveValue("สำนักงานเขต")
+  expect(searches).toBe(3)
+})
+
+test("booking search handles errors, no availability and superseded responses", async ({ page }) => {
+  await page.route("**/api/vehicles/recommend?**", (route) => route.fulfill({ status: 500, json: { message: "ค้นหาไม่สำเร็จ" } }))
+  await openCalendarBooking(page)
+  const dialog = bookingDialog(page)
+  await fillPeriod(page)
+  await dialog.getByRole("button", { name: "ค้นหารถว่าง", exact: true }).click()
+  await expect(dialog.getByRole("alert")).toContainText("ค้นหาไม่สำเร็จ")
+  await page.unroute("**/api/vehicles/recommend?**")
+  await page.route("**/api/vehicles/recommend?**", (route) => route.fulfill({ json: [] }))
+  await dialog.getByRole("button", { name: "ค้นหารถว่าง", exact: true }).click()
+  await expect(dialog.getByRole("status")).toContainText("ไม่มีรถว่าง")
+  await page.unroute("**/api/vehicles/recommend?**")
+  let release!: () => void
+  const delayed = new Promise<void>((resolve) => { release = resolve })
+  await page.route("**/api/vehicles/recommend?**", async (route) => {
+    await delayed
+    await route.fulfill({ json: [recommendedVehicle] }).catch(() => {})
+  })
+  const requested = page.waitForRequest("**/api/vehicles/recommend?**")
+  await dialog.getByRole("button", { name: "ค้นหารถว่าง", exact: true }).click()
+  await requested
+  await dialog.getByLabel("เวลาเริ่มต้น", { exact: false }).fill("09:30")
+  release()
+  await expect(dialog.getByLabel("รถที่ต้องการจอง")).toHaveCount(0)
+  await expect(dialog.getByRole("button", { name: "ยืนยันการจอง", exact: true })).toBeDisabled()
+})
+
+test("booking dialog fits mobile, traps focus, restores focus and blocks closing during submission", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route("**/api/vehicles/recommend?**", (route) => route.fulfill({ json: [recommendedVehicle] }))
+  const trigger = await openCalendarBooking(page)
+  const dialog = bookingDialog(page)
+  expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(true)
+  await dialog.getByRole("button", { name: "ปิดหน้าต่าง", exact: true }).focus()
+  await page.keyboard.press("Shift+Tab")
+  expect(await dialog.evaluate((element) => ({ contained: element.contains(document.activeElement), active: document.activeElement?.tagName, modal: element.matches(":modal") }))).toMatchObject({ contained: true, modal: true })
+  await page.keyboard.press("Escape")
+  await expect(dialog).toHaveCount(0)
+  await expect(trigger).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(dialog).toBeVisible()
+  await fillPeriod(page)
+  await dialog.getByRole("button", { name: "ค้นหารถว่าง", exact: true }).click()
+  await dialog.getByLabel("รถที่ต้องการจอง").selectOption(vehicleId)
+  await dialog.getByLabel("วัตถุประสงค์").fill("ทดสอบการส่ง")
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath("calendar-booking-mobile.png"), fullPage: true })
+  let posts = 0
+  let release!: () => void
+  const delayed = new Promise<void>((resolve) => { release = resolve })
+  await page.route("**/api/booking", async (route) => {
+    posts += 1
+    await delayed
+    await route.fulfill({ status: 500, json: { message: "ส่งไม่สำเร็จ" } }).catch(() => {})
+  })
+  const requested = page.waitForRequest((request) => request.url().endsWith("/api/booking") && request.method() === "POST")
+  await dialog.getByRole("button", { name: "ยืนยันการจอง", exact: true }).click()
+  await requested
+  await expect(dialog.getByRole("button", { name: "กำลังส่งคำขอ…", exact: true })).toBeDisabled()
+  await expect(dialog.getByRole("button", { name: "ปิดหน้าต่าง", exact: true })).toBeDisabled()
+  await page.keyboard.press("Escape")
+  await expect(dialog).toBeVisible()
+  await dialog.locator("form").evaluate((form) => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })))
+  release()
+  await expect(dialog.getByRole("alert")).toContainText("ส่งไม่สำเร็จ")
+  expect(posts).toBe(1)
+  await expect(dialog.getByLabel("วัตถุประสงค์")).toHaveValue("ทดสอบการส่ง")
+  await dialog.getByRole("button", { name: "ยกเลิก", exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+})
+
+for (const role of ["ADMIN", "APPROVER"] as const) {
+  test(`${role} day clicks only show details`, async ({ page }) => {
+    await login(page, role)
+    await page.goto("/calendar")
+    await calendarRegion(page).locator(`[data-date="${today}"]`).getByRole("link").first().click()
+    await expect(bookingDialog(page)).toHaveCount(0)
+    await expect(calendarRegion(page).locator(`[data-date="${today}"]`)).toHaveClass(/calendar-selected-day/)
+  })
+}
+
+test("past dates and Today navigation do not open booking", async ({ page }) => {
+  await login(page)
+  await page.goto("/calendar")
+  await page.getByRole("button", { name: "เดือนก่อนหน้า", exact: true }).click()
+  const pastDay = `${shiftCalendarMonth(month, -1)}-15`
+  await calendarRegion(page).locator(`[data-date="${pastDay}"]`).getByRole("link").first().click()
+  await expect(bookingDialog(page)).toHaveCount(0)
+  await page.getByRole("button", { name: "วันนี้", exact: true }).click()
+  await expect(bookingDialog(page)).toHaveCount(0)
+  await calendarRegion(page).getByText(/ดูเพิ่มเติม \+/).first().click()
+  await expect(bookingDialog(page)).toHaveCount(0)
+})
+
+for (const view of ["สัปดาห์", "วัน"] as const) {
+  test(`${view} empty time slot prefills the Bangkok start time`, async ({ page }) => {
+    await openCalendarBooking(page)
+    await page.keyboard.press("Escape")
+    const calendar = calendarRegion(page)
+    await calendar.getByRole("group", { name: "มุมมองปฏิทิน" }).getByRole("button", { name: view, exact: true }).click()
+    // Slat rows sit behind the day columns; click their intersection as a user would.
+    const lane = calendar.locator('[data-time="09:00:00"]').last()
+    await lane.scrollIntoViewIfNeeded()
+    const slotBounds = await lane.boundingBox()
+    const dayBounds = await calendar.locator(`[data-date="${bookingDay}"]`).last().boundingBox()
+    expect(slotBounds).not.toBeNull()
+    expect(dayBounds).not.toBeNull()
+    await page.mouse.click(dayBounds!.x + dayBounds!.width / 2, slotBounds!.y + 2)
+    const dialog = bookingDialog(page)
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByLabel("เวลาเริ่มต้น", { exact: false })).toHaveValue("09:00")
+    await expect(dialog.getByLabel("เวลาสิ้นสุด", { exact: false })).toHaveValue("")
+    await expect(dialog.getByLabel("วันเริ่มต้น", { exact: false })).toHaveValue(await dialog.getByLabel("วันสิ้นสุด", { exact: false }).inputValue())
+  })
+}
+
+test("an empty month cell opens booking with dates and no preset times", async ({ page }) => {
+  await openCalendarBooking(page)
+  await page.keyboard.press("Escape")
+  const cell = calendarRegion(page).locator(`[data-date="${bookingDay}"]`)
+  const bounds = await cell.boundingBox()
+  expect(bounds).not.toBeNull()
+  await cell.click({ position: { x: bounds!.width / 2, y: bounds!.height - 10 } })
+  const dialog = bookingDialog(page)
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByLabel("วันเริ่มต้น", { exact: false })).toHaveValue(bookingDay)
+  await expect(dialog.getByLabel("วันสิ้นสุด", { exact: false })).toHaveValue(bookingDay)
+  await expect(dialog.getByLabel("เวลาเริ่มต้น", { exact: false })).toHaveValue("")
+  await expect(dialog.getByLabel("เวลาสิ้นสุด", { exact: false })).toHaveValue("")
 })
