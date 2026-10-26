@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react"
 import { isAxiosError } from "axios"
 import { X } from "lucide-react"
+import { ToastDialogTarget, useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import { bangkokDateKey } from "@/lib/calendar/dates"
 import { bookingPeriod, validateBookingPeriod, type CalendarBookingPeriod, type CalendarBookingSelection } from "@/lib/calendar/booking"
@@ -21,6 +22,7 @@ const secondaryClass = "inline-flex min-h-11 items-center justify-center rounded
 const primaryClass = "inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
 
 export default function CalendarBookingModal({ selection, returnFocus, onClose, onBooked }: Props) {
+  const toast = useToast()
   const dialog = useRef<HTMLDialogElement>(null)
   const [period, setPeriod] = useState(() => bookingPeriod(selection))
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -109,8 +111,12 @@ export default function CalendarBookingModal({ selection, returnFocus, onClose, 
         destination: destination.trim(),
       })
     } catch (cause) {
-      setError(getErrorMessage(cause, "ไม่สามารถจองรถได้ กรุณาลองใหม่อีกครั้ง"))
-      if (isAxiosError(cause) && cause.response?.status === 409) await searchVehicles(true)
+      const message = getErrorMessage(cause, "ไม่สามารถจองรถได้ กรุณาลองใหม่อีกครั้ง")
+      toast.error(message)
+      if (isAxiosError(cause) && cause.response?.status === 409) {
+        setError(message)
+        await searchVehicles(true)
+      }
       submittingRef.current = false
       setSubmitting(false)
       return
@@ -204,6 +210,7 @@ export default function CalendarBookingModal({ selection, returnFocus, onClose, 
           <button type="submit" disabled={submitting || searching || !vehicleId || !searched} className={primaryClass}>{submitting ? "กำลังส่งคำขอ…" : "ยืนยันการจอง"}</button>
         </div>
       </form>
+      <ToastDialogTarget />
     </dialog>
   )
 }

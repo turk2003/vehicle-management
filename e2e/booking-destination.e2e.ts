@@ -100,20 +100,21 @@ test("stores, displays, edits and clears a booking destination", async ({ page }
   const editDialog = page.getByRole("dialog", { name: "แก้ไขการจอง" })
   await editDialog.locator("#edit-destination").fill(`  ${updatedDestination}  `)
   await editDialog.getByRole("button", { name: "บันทึกการแก้ไข" }).click()
-  await expect(page.getByRole("status")).toContainText("บันทึกการแก้ไขการจอง")
+  await expect(page.getByRole("region", { name: "การแจ้งเตือน" }).getByRole("status")).toContainText("บันทึกการแก้ไขการจอง")
 
   const updated = await pool.query<{ destination: string | null }>(
     `SELECT "destination" FROM "Booking" WHERE "id" = $1`,
     [bookingId]
   )
   expect(updated.rows[0].destination).toBe(updatedDestination)
+  await page.getByRole("region", { name: "การแจ้งเตือน" }).getByRole("button", { name: "ปิดการแจ้งเตือน" }).click()
 
   const updatedCard = page.locator("article").filter({ hasText: purpose })
   await updatedCard.getByRole("button", { name: "แก้ไข" }).click()
   const clearDialog = page.getByRole("dialog", { name: "แก้ไขการจอง" })
   await clearDialog.locator("#edit-destination").fill("")
   await clearDialog.getByRole("button", { name: "บันทึกการแก้ไข" }).click()
-  await expect(page.getByRole("status")).toContainText("บันทึกการแก้ไขการจอง")
+  await expect(page.getByRole("region", { name: "การแจ้งเตือน" }).getByRole("status")).toContainText("บันทึกการแก้ไขการจอง")
 
   const cleared = await pool.query<{ destination: string | null }>(
     `SELECT "destination" FROM "Booking" WHERE "id" = $1`,

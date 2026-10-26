@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { AxiosError } from "axios"
+import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import type * as React from "react"
 import type { Booking } from "./types"
@@ -10,6 +11,7 @@ import ApprovalTable from "./_components/ApprovalTable"
 import ApprovalModal from "./_components/ApprovalModal"
 
 export default function ApproverBookingsPage() {
+  const toast = useToast()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedStatus, setSelectedStatus] = useState("PENDING")
@@ -20,7 +22,6 @@ export default function ApproverBookingsPage() {
   )
   const [comment, setComment] = useState("")
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
   const submittingRef = useRef(false)
 
   const fetchBookings = useCallback(async () => {
@@ -44,7 +45,6 @@ export default function ApproverBookingsPage() {
     setActionType(action)
     setComment("")
     setError("")
-    setSuccess("")
     setShowModal(true)
   }
 
@@ -69,14 +69,14 @@ export default function ApproverBookingsPage() {
         comment,
       })
 
-      setSuccess(
+      toast.success(
         `การจองได้รับการ${actionType === "APPROVED" ? "อนุมัติ" : "ปฏิเสธ"}แล้ว`,
       )
       closeApprovalModal()
       await fetchBookings()
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message?: string }>
-      setError(axiosError.response?.data?.message || "เกิดข้อผิดพลาด")
+      toast.error(axiosError.response?.data?.message || "เกิดข้อผิดพลาด")
     } finally {
       submittingRef.current = false
       setLoading(false)
@@ -105,16 +105,6 @@ export default function ApproverBookingsPage() {
           selectedStatus={selectedStatus}
           setSelectedStatus={setSelectedStatus}
         />
-
-        {/* Success Message */}
-        {success && (
-          <div
-            role="status"
-            className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
-          >
-            {success}
-          </div>
-        )}
 
         {/* Error Message */}
         {error && (

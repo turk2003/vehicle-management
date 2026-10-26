@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { ShieldCheck } from "lucide-react"
+import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import type * as React from "react"
 import type { Vehicle, VehicleType, BookingData, SearchDate } from "./types"
@@ -13,6 +14,7 @@ import VehicleSearchPlaceholder from "./_components/VehicleSearchPlaceholder"
 import BookingFormModal from "./_components/BookingFormModal"
 
 export default function BookingPage() {
+  const toast = useToast()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([])
   const [loading, setLoading] = useState(false)
@@ -21,7 +23,6 @@ export default function BookingPage() {
   const [showBookingForm, setShowBookingForm] = useState(false)
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
   const [bookingData, setBookingData] =
     useState<BookingData>(INITIAL_BOOKING_DATA)
 
@@ -34,11 +35,10 @@ export default function BookingPage() {
     }
   }, [])
 
-  const searchVehicles = useCallback(async (clearSuccess = true) => {
+  const searchVehicles = useCallback(async () => {
     try {
       setLoading(true)
       setError("")
-      if (clearSuccess) setSuccess("")
 
       const params = new URLSearchParams()
       if (selectedType) params.append("vehicleTypeId", selectedType)
@@ -67,7 +67,6 @@ export default function BookingPage() {
       destination: "",
     })
     setError("")
-    setSuccess("")
     setShowBookingForm(true)
   }
 
@@ -85,11 +84,11 @@ export default function BookingPage() {
       setError("")
 
       await api.post("/api/booking", bookingData)
-      setSuccess("ส่งคำขอจองรถสำเร็จ รอการอนุมัติจากผู้อนุมัติ")
+      toast.success("ส่งคำขอจองรถสำเร็จ รอการอนุมัติจากผู้อนุมัติ")
       closeBookingForm()
-      await searchVehicles(false)
+      await searchVehicles()
     } catch (error: unknown) {
-      setError(getErrorMessage(error, "ไม่สามารถจองรถได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถจองรถได้"))
     } finally {
       setLoading(false)
     }
@@ -155,15 +154,6 @@ export default function BookingPage() {
             </div>
           </div>
         </header>
-
-        {success && (
-          <div
-            role="status"
-            className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
-          >
-            {success}
-          </div>
-        )}
 
         {error && (
           <div

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { UserPlus } from "lucide-react"
+import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import type * as React from "react"
 import type { User, CurrentUser, StatusFilter, UserFormData } from "./types"
@@ -12,6 +13,7 @@ import UsersTable from "./_components/UsersTable"
 import UserFormModal from "./_components/UserFormModal"
 
 export default function AdminUsersPage() {
+  const toast = useToast()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
@@ -20,7 +22,7 @@ export default function AdminUsersPage() {
   const [formData, setFormData] = useState<UserFormData>(INITIAL_FORM_DATA)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL")
-  const [statusMessage, setStatusMessage] = useState("")
+  const [affectedBookingCount, setAffectedBookingCount] = useState(0)
 
   const fetchUsers = async () => {
     try {
@@ -58,9 +60,10 @@ export default function AdminUsersPage() {
       setError("")
       const response = await api.post<User>("/api/user", formData)
       setUsers((currentUsers) => [response.data, ...currentUsers])
+      toast.success("เพิ่มผู้ใช้เรียบร้อยแล้ว")
       closeModal()
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถสร้างผู้ใช้ได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถสร้างผู้ใช้ได้"))
     } finally {
       setLoading(false)
     }
@@ -84,9 +87,10 @@ export default function AdminUsersPage() {
           user.id === editingUser.id ? response.data : user,
         ),
       )
+      toast.success("บันทึกการแก้ไขผู้ใช้เรียบร้อยแล้ว")
       closeModal()
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถแก้ไขผู้ใช้ได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถแก้ไขผู้ใช้ได้"))
     } finally {
       setLoading(false)
     }
@@ -101,8 +105,9 @@ export default function AdminUsersPage() {
       setError("")
       await api.delete(`/api/user?id=${id}`)
       setUsers((currentUsers) => currentUsers.filter((user) => user.id !== id))
+      toast.success("ลบผู้ใช้เรียบร้อยแล้ว")
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถลบผู้ใช้ได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถลบผู้ใช้ได้"))
     } finally {
       setLoading(false)
     }
@@ -123,7 +128,7 @@ export default function AdminUsersPage() {
     try {
       setLoading(true)
       setError("")
-      setStatusMessage("")
+      setAffectedBookingCount(0)
       const response = await api.patch<User & { affectedBookingCount: number }>(
         "/api/user",
         { id: user.id, isActive: nextActive },
@@ -135,13 +140,14 @@ export default function AdminUsersPage() {
             : item,
         ),
       )
-      setStatusMessage(
+      setAffectedBookingCount(nextActive ? 0 : response.data.affectedBookingCount)
+      toast.success(
         nextActive
           ? `เปิดใช้งานบัญชี ${user.name} แล้ว`
-          : `ปิดใช้งานบัญชี ${user.name} แล้ว การจองที่ยังดำเนินการอยู่ ${response.data.affectedBookingCount} รายการยังคงอยู่`,
+          : `ปิดใช้งานบัญชี ${user.name} แล้ว`,
       )
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถเปลี่ยนสถานะบัญชีได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถเปลี่ยนสถานะบัญชีได้"))
     } finally {
       setLoading(false)
     }
@@ -217,12 +223,11 @@ export default function AdminUsersPage() {
           </div>
         )}
 
-        {statusMessage && (
+        {affectedBookingCount > 0 && (
           <div
-            role="status"
             className="mb-4 flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 sm:flex-row sm:items-center sm:justify-between"
           >
-            <span>{statusMessage}</span>
+            <span>การจองที่ยังดำเนินการอยู่ {affectedBookingCount} รายการยังคงอยู่</span>
             <Link href="/admin/bookings" className="font-semibold text-blue-700 underline underline-offset-2">
               ไปจัดการการจอง
             </Link>

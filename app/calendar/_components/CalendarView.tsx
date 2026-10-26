@@ -6,6 +6,7 @@ import { Calendar, RefreshCw01 } from "@untitledui/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/app/component/untitled-ui/button";
 import { Badge } from "@/app/component/untitled-ui/badge";
+import { useToast } from "@/app/component/toast-provider";
 import api from "@/lib/api";
 import { bangkokDateKey, bookingsForDay, formatCalendarDate } from "@/lib/calendar/dates";
 import type { CalendarBookingSelection } from "@/lib/calendar/booking";
@@ -35,6 +36,7 @@ export default function CalendarView({
   dashboardHref: string;
   canCreateBooking: boolean;
 }) {
+  const toast = useToast();
   const [selectedDay, setSelectedDay] = useState(today);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
     null,
@@ -45,7 +47,6 @@ export default function CalendarView({
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [bookingSelection, setBookingSelection] = useState<CalendarBookingSelection | null>(null);
-  const [bookingSuccess, setBookingSuccess] = useState("");
   const [navigateTo, setNavigateTo] = useState<{ day: string; request: number } | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const start = range?.start;
@@ -122,12 +123,11 @@ export default function CalendarView({
     setSelectedBookingId(null);
     if (!canCreateBooking || selection.day < bangkokDateKey(new Date())) return;
     returnFocus.current = trigger;
-    setBookingSuccess("");
     setBookingSelection(selection);
   }, [canCreateBooking]);
   const onBooked = (day: string) => {
     setBookingSelection(null);
-    setBookingSuccess("ส่งคำขอจองรถสำเร็จ รอการอนุมัติ");
+    toast.success("ส่งคำขอจองรถสำเร็จ รอการอนุมัติ");
     setSelectedDay(day);
     setSelectedBookingId(null);
     if (!start || !end || day < start || day >= end) {
@@ -181,7 +181,6 @@ export default function CalendarView({
             </p>
           </div>
         </header>
-        {bookingSuccess && <p role="status" className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">{bookingSuccess}</p>}
         {error && (
           <div
             role="alert"

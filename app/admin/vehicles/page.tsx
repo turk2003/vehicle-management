@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import { usePermissions } from "@/lib/use-permissions"
 import type * as React from "react"
@@ -14,6 +15,7 @@ import VehicleFormModal from "./_components/VehicleFormModal"
 import VehicleTypeFormModal from "./_components/VehicleTypeFormModal"
 
 export default function AdminVehiclesPage() {
+  const toast = useToast()
   const { hasPermission } = usePermissions()
   const canManageVehicles = hasPermission("VEHICLE_MANAGE")
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -83,9 +85,10 @@ export default function AdminVehiclesPage() {
       setError("")
       const response = await api.post<Vehicle>("/api/verhicle", formData)
       setVehicles((currentVehicles) => [response.data, ...currentVehicles])
+      toast.success("เพิ่มรถเรียบร้อยแล้ว")
       closeVehicleModal()
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถเพิ่มรถได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถเพิ่มรถได้"))
     } finally {
       setLoading(false)
     }
@@ -108,9 +111,10 @@ export default function AdminVehiclesPage() {
           vehicle.id === editingVehicle.id ? response.data : vehicle,
         ),
       )
+      toast.success("บันทึกการแก้ไขข้อมูลรถเรียบร้อยแล้ว")
       closeVehicleModal()
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถแก้ไขข้อมูลรถได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถแก้ไขข้อมูลรถได้"))
     } finally {
       setLoading(false)
     }
@@ -127,8 +131,9 @@ export default function AdminVehiclesPage() {
       setVehicles((currentVehicles) =>
         currentVehicles.filter((vehicle) => vehicle.id !== id),
       )
+      toast.success("ลบรถเรียบร้อยแล้ว")
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถลบรถได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถลบรถได้"))
     } finally {
       setLoading(false)
     }
@@ -145,9 +150,10 @@ export default function AdminVehiclesPage() {
         typeFormData,
       )
       setVehicleTypes((currentTypes) => [response.data, ...currentTypes])
+      toast.success("เพิ่มประเภทรถเรียบร้อยแล้ว")
       closeTypeModal()
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถเพิ่มประเภทรถได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถเพิ่มประเภทรถได้"))
     } finally {
       setLoading(false)
     }
@@ -170,9 +176,10 @@ export default function AdminVehiclesPage() {
           type.id === editingType.id ? response.data : type,
         ),
       )
+      toast.success("บันทึกการแก้ไขประเภทรถเรียบร้อยแล้ว")
       closeTypeModal()
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถแก้ไขประเภทรถได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถแก้ไขประเภทรถได้"))
     } finally {
       setLoading(false)
     }
@@ -189,8 +196,9 @@ export default function AdminVehiclesPage() {
       setVehicleTypes((currentTypes) =>
         currentTypes.filter((type) => type.id !== id),
       )
+      toast.success("ลบประเภทรถเรียบร้อยแล้ว")
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถลบประเภทรถได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถลบประเภทรถได้"))
     } finally {
       setLoading(false)
     }

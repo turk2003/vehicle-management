@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Plus } from "lucide-react"
+import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import { usePermissions } from "@/lib/use-permissions"
 import type * as React from "react"
@@ -12,13 +13,13 @@ import MaintenanceTable from "./_components/MaintenanceTable"
 import ReportMaintenanceModal from "./_components/ReportMaintenanceModal"
 
 export default function UserMaintenancePage() {
+  const toast = useToast()
   const { hasPermission } = usePermissions()
   const canReportMaintenance = hasPermission("MAINTENANCE_REPORT")
   const [maintenances, setMaintenances] = useState<Maintenance[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
   const [showModal, setShowModal] = useState(false)
   const [formData, setFormData] =
     useState<MaintenanceForm>(getInitialFormData)
@@ -45,7 +46,6 @@ export default function UserMaintenancePage() {
   const openReportModal = () => {
     setFormData(getInitialFormData())
     setError("")
-    setSuccess("")
     setShowModal(true)
   }
 
@@ -62,11 +62,11 @@ export default function UserMaintenancePage() {
       setError("")
 
       await api.post("/api/user/maintenance", formData)
-      setSuccess("แจ้งซ่อมเรียบร้อยแล้ว")
+      toast.success("แจ้งซ่อมเรียบร้อยแล้ว")
       closeReportModal()
       await fetchData()
     } catch (error: unknown) {
-      setError(getErrorMessage(error, "เกิดข้อผิดพลาด"))
+      toast.error(getErrorMessage(error, "เกิดข้อผิดพลาด"))
     } finally {
       setLoading(false)
     }
@@ -116,15 +116,6 @@ export default function UserMaintenancePage() {
             )}
           </div>
         </header>
-
-        {success && (
-          <div
-            role="status"
-            className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
-          >
-            {success}
-          </div>
-        )}
 
         {error && !showModal && (
           <div

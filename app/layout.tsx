@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "./component/navbar";
+import { ToastProvider } from "./component/toast-provider";
 
 export const metadata: Metadata = {
   title: "PEA Vehicle Management System",
@@ -15,8 +16,10 @@ export default function RootLayout({
   return (
     <html lang="th">
       <body className="antialiased">
-        <Navbar />
-        {children}
+        <ToastProvider>
+          <Navbar />
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

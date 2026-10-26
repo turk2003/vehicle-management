@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { CheckCircle, Shield, X } from "lucide-react"
+import { Shield, X } from "lucide-react"
+import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import type { PermissionMatrix, PermissionsResponse } from "./types"
 import { menuGroups } from "./constants"
@@ -11,6 +12,7 @@ import RoleTabs from "./_components/RoleTabs"
 import PermissionMatrixPanel from "./_components/PermissionMatrixPanel"
 
 export default function AdminPermissionsPage() {
+  const toast = useToast()
   const [permissions, setPermissions] = useState<PermissionMatrix>({});
   const [roles, setRoles] = useState<string[]>([]);
   const [lockedAdminPermissions, setLockedAdminPermissions] = useState<
@@ -18,7 +20,6 @@ export default function AdminPermissionsPage() {
   >([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
-  const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<string>("USER");
 
@@ -80,10 +81,9 @@ export default function AdminPermissionsPage() {
         permissions: enabledPermissions,
       });
 
-      setSuccess(`บันทึกสิทธิ์ของ ${getRoleLabel(role)} เรียบร้อยแล้ว`);
-      setTimeout(() => setSuccess(""), 3000);
+      toast.success(`บันทึกสิทธิ์ของ ${getRoleLabel(role)} เรียบร้อยแล้ว`);
     } catch (err) {
-      setError(getApiErrorMessage(err, "เกิดข้อผิดพลาดขณะบันทึกสิทธิ์"));
+      toast.error(getApiErrorMessage(err, "เกิดข้อผิดพลาดขณะบันทึกสิทธิ์"));
     } finally {
       setSaving(null);
     }
@@ -125,23 +125,6 @@ export default function AdminPermissionsPage() {
             </div>
           </div>
         </section>
-
-        {success && (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 flex-none" />
-              <span>{success}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSuccess("")}
-              className="rounded-md p-1 text-emerald-700 transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              aria-label="ปิดข้อความสำเร็จ"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
 
         {error && (
           <div className="flex items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">

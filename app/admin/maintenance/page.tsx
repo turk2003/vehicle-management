@@ -3,6 +3,7 @@
 import axios from "axios"
 import { FormEvent, useEffect, useState } from "react"
 import { Plus, Wrench, X } from "lucide-react"
+import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import { formatDateTime } from "@/lib/format"
 import { usePermissions } from "@/lib/use-permissions"
@@ -14,13 +15,13 @@ import MaintenanceTable from "./_components/MaintenanceTable"
 import MaintenanceFormModal from "./_components/MaintenanceFormModal"
 
 export default function AdminMaintenancePage() {
+  const toast = useToast()
   const { hasPermission } = usePermissions()
   const canManageMaintenance = hasPermission("MAINTENANCE_MANAGE")
   const [maintenances, setMaintenances] = useState<Maintenance[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
   const [filterStatus, setFilterStatus] = useState<"" | MaintenanceStatus>("")
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState<Maintenance | null>(null)
@@ -160,7 +161,7 @@ export default function AdminMaintenancePage() {
         await saveMaintenance(true)
       }
 
-      setSuccess(
+      toast.success(
         editingItem
           ? "อัปเดตรายการบำรุงรักษาเรียบร้อยแล้ว"
           : "เพิ่มรายการบำรุงรักษาเรียบร้อยแล้ว",
@@ -168,7 +169,7 @@ export default function AdminMaintenancePage() {
       closeModal()
       fetchData()
     } catch (err) {
-      setError(getApiErrorMessage(err, "เกิดข้อผิดพลาดขณะบันทึกข้อมูล"))
+      toast.error(getApiErrorMessage(err, "เกิดข้อผิดพลาดขณะบันทึกข้อมูล"))
     } finally {
       setLoading(false)
     }
@@ -180,10 +181,10 @@ export default function AdminMaintenancePage() {
     try {
       setLoading(true)
       await api.delete(`/api/admin/maintenance?id=${item.id}`)
-      setSuccess("ลบรายการบำรุงรักษาเรียบร้อยแล้ว")
+      toast.success("ลบรายการบำรุงรักษาเรียบร้อยแล้ว")
       fetchData()
     } catch (err) {
-      setError(getApiErrorMessage(err, "ไม่สามารถลบรายการบำรุงรักษาได้"))
+      toast.error(getApiErrorMessage(err, "ไม่สามารถลบรายการบำรุงรักษาได้"))
     } finally {
       setLoading(false)
     }
@@ -192,13 +193,6 @@ export default function AdminMaintenancePage() {
   useEffect(() => {
     fetchData()
   }, [])
-
-  useEffect(() => {
-    if (!success) return
-
-    const timer = setTimeout(() => setSuccess(""), 3000)
-    return () => clearTimeout(timer)
-  }, [success])
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
@@ -231,20 +225,6 @@ export default function AdminMaintenancePage() {
             )}
           </div>
         </section>
-
-        {success && (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            <span>{success}</span>
-            <button
-              type="button"
-              onClick={() => setSuccess("")}
-              className="rounded-md p-1 text-emerald-700 transition hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              aria-label="ปิดข้อความสำเร็จ"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
 
         {error && !showModal && (
           <div className="flex items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">

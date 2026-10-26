@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import axios from "axios"
+import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import { usePermissions } from "@/lib/use-permissions"
 import { getBookingStatusText } from "@/lib/format"
@@ -44,6 +45,7 @@ function buildStats(bookings: Booking[]): BookingStats {
 }
 
 export default function AdminBookingsPage() {
+  const toast = useToast()
   const { hasPermission } = usePermissions()
   const canManageBookings = hasPermission("BOOKING_MANAGE")
   const canDeleteBookings = hasPermission("BOOKING_DELETE")
@@ -52,7 +54,6 @@ export default function AdminBookingsPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
   const [filters, setFilters] = useState<BookingFilters>(INITIAL_FILTERS)
   const [showModal, setShowModal] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
@@ -104,16 +105,15 @@ export default function AdminBookingsPage() {
     try {
       setLoading(true)
       setError("")
-      setSuccess("")
       await api.put("/api/admin/bookings", {
         id: selectedBooking.id,
         status: newStatus,
       })
-      setSuccess(`อัพเดทสถานะเป็น ${getBookingStatusText(newStatus)} แล้ว`)
+      toast.success(`อัพเดทสถานะเป็น ${getBookingStatusText(newStatus)} แล้ว`)
       closeStatusModal()
       await fetchData()
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถอัพเดทสถานะได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถอัพเดทสถานะได้"))
     } finally {
       setLoading(false)
     }
@@ -128,12 +128,11 @@ export default function AdminBookingsPage() {
     try {
       setLoading(true)
       setError("")
-      setSuccess("")
       await api.delete(`/api/admin/bookings?id=${booking.id}`)
-      setSuccess("ลบการจองเรียบร้อยแล้ว")
+      toast.success("ลบการจองเรียบร้อยแล้ว")
       await fetchData()
     } catch (error) {
-      setError(getErrorMessage(error, "ไม่สามารถลบการจองได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถลบการจองได้"))
     } finally {
       setLoading(false)
     }
@@ -230,7 +229,6 @@ export default function AdminBookingsPage() {
       setMileageLoading(true)
       setMileageError("")
       setError("")
-      setSuccess("")
 
       const endpoint =
         mileageAction === "pickup"
@@ -244,7 +242,7 @@ export default function AdminBookingsPage() {
         [mileageField]: mileage,
       })
 
-      setSuccess(
+      toast.success(
         mileageAction === "pickup"
           ? `บันทึกรับรถ ${selectedBooking.vehicle.plateNumber} เรียบร้อยแล้ว`
           : `บันทึกคืนรถ ${selectedBooking.vehicle.plateNumber} เรียบร้อยแล้ว`,
@@ -252,7 +250,7 @@ export default function AdminBookingsPage() {
       closeMileageModal()
       await fetchData()
     } catch (error) {
-      setMileageError(
+      toast.error(
         getErrorMessage(
           error,
           mileageAction === "pickup"
@@ -276,7 +274,6 @@ export default function AdminBookingsPage() {
       setChangeLoading(true)
       setChangeError("")
       setError("")
-      setSuccess("")
       const response = await api.put<{
         booking: Booking
         previousVehiclePlate: string
@@ -286,13 +283,13 @@ export default function AdminBookingsPage() {
         newVehicleId: selectedReplacementId,
         reason: changeReason.trim(),
       })
-      setSuccess(
+      toast.success(
         `เปลี่ยนรถจาก ${response.data.previousVehiclePlate} เป็น ${response.data.newVehiclePlate} และแจ้งผู้จองแล้ว`,
       )
       closeChangeVehicleModal()
       await fetchData()
     } catch (error) {
-      setChangeError(getErrorMessage(error, "ไม่สามารถเปลี่ยนรถได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถเปลี่ยนรถได้"))
     } finally {
       setChangeLoading(false)
     }
@@ -320,15 +317,6 @@ export default function AdminBookingsPage() {
 
           <BookingStatsPanel stats={stats} />
         </header>
-
-        {success && (
-          <div
-            role="status"
-            className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
-          >
-            {success}
-          </div>
-        )}
         {error && (
           <div
             role="alert"

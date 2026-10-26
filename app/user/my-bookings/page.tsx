@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Car } from "lucide-react"
+import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import { usePermissions } from "@/lib/use-permissions"
 import type * as React from "react"
@@ -15,12 +16,12 @@ import BookingDetailModal from "./_components/BookingDetailModal"
 import BookingEditModal from "./_components/BookingEditModal"
 
 export default function MyBookingsPage() {
+  const toast = useToast()
   const { hasPermission } = usePermissions()
   const canManageOwnBookings = hasPermission("BOOKING_CREATE")
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("ALL")
   const [activeModal, setActiveModal] = useState<ModalType>(null)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
@@ -58,12 +59,11 @@ export default function MyBookingsPage() {
     try {
       setLoading(true)
       setError("")
-      setSuccess("")
       await api.put("/api/booking", { id: booking.id, status: "CANCELLED" })
-      setSuccess("ยกเลิกการจองเรียบร้อยแล้ว")
+      toast.success("ยกเลิกการจองเรียบร้อยแล้ว")
       await fetchBookings()
     } catch (error: unknown) {
-      setError(getErrorMessage(error, "ไม่สามารถยกเลิกการจองได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถยกเลิกการจองได้"))
     } finally {
       setLoading(false)
     }
@@ -84,7 +84,6 @@ export default function MyBookingsPage() {
       destination: booking.destination || "",
     })
     setError("")
-    setSuccess("")
     setActiveModal("edit")
   }
 
@@ -92,7 +91,6 @@ export default function MyBookingsPage() {
     setSelectedBooking(booking)
     setMileageInput("")
     setError("")
-    setSuccess("")
     setActiveModal(modal)
   }
 
@@ -102,13 +100,12 @@ export default function MyBookingsPage() {
     try {
       setLoading(true)
       setError("")
-      setSuccess("")
       await api.patch("/api/booking", editForm)
-      setSuccess("บันทึกการแก้ไขการจองเรียบร้อยแล้ว")
+      toast.success("บันทึกการแก้ไขการจองเรียบร้อยแล้ว")
       closeModal()
       await fetchBookings()
     } catch (error: unknown) {
-      setError(getErrorMessage(error, "ไม่สามารถแก้ไขการจองได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถแก้ไขการจองได้"))
     } finally {
       setLoading(false)
     }
@@ -121,16 +118,15 @@ export default function MyBookingsPage() {
     try {
       setLoading(true)
       setError("")
-      setSuccess("")
       await api.put("/api/booking/pickup", {
         bookingId: selectedBooking.id,
         mileageStart: Number(mileageInput),
       })
-      setSuccess("บันทึกการรับรถเรียบร้อยแล้ว")
+      toast.success("บันทึกการรับรถเรียบร้อยแล้ว")
       closeModal()
       await fetchBookings()
     } catch (error: unknown) {
-      setError(getErrorMessage(error, "ไม่สามารถรับรถได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถรับรถได้"))
     } finally {
       setLoading(false)
     }
@@ -143,16 +139,15 @@ export default function MyBookingsPage() {
     try {
       setLoading(true)
       setError("")
-      setSuccess("")
       await api.put("/api/booking/return", {
         bookingId: selectedBooking.id,
         mileageEnd: Number(mileageInput),
       })
-      setSuccess("บันทึกการคืนรถเรียบร้อยแล้ว")
+      toast.success("บันทึกการคืนรถเรียบร้อยแล้ว")
       closeModal()
       await fetchBookings()
     } catch (error: unknown) {
-      setError(getErrorMessage(error, "ไม่สามารถคืนรถได้"))
+      toast.error(getErrorMessage(error, "ไม่สามารถคืนรถได้"))
     } finally {
       setLoading(false)
     }
@@ -220,15 +215,6 @@ export default function MyBookingsPage() {
             </div>
           </div>
         </header>
-
-        {success && (
-          <div
-            role="status"
-            className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
-          >
-            {success}
-          </div>
-        )}
 
         {error && (
           <div

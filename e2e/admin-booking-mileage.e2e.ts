@@ -161,7 +161,7 @@ test("admin records pickup and return mileage on behalf of a user", async ({
   await pickupDialog.locator("#admin-booking-mileage").fill("42010")
   await pickupDialog.getByRole("button", { name: "ยืนยันรับรถ" }).click()
 
-  await expect(page.getByRole("status")).toContainText("บันทึกรับรถ")
+  await expect(page.getByRole("region", { name: "การแจ้งเตือน" }).getByRole("status").filter({ hasText: "บันทึกรับรถ" })).toContainText("บันทึกรับรถ")
   await expect(bookingRow).toContainText("กำลังใช้งาน")
   await expect(bookingRow.getByRole("button", { name: "แก้ไข" })).toHaveCount(0)
   await bookingRow.getByRole("button", { name: "คืนรถแทนผู้ใช้" }).click()
@@ -172,7 +172,7 @@ test("admin records pickup and return mileage on behalf of a user", async ({
   await returnDialog.locator("#admin-booking-mileage").fill("42075")
   await returnDialog.getByRole("button", { name: "ยืนยันคืนรถ" }).click()
 
-  await expect(page.getByRole("status")).toContainText("บันทึกคืนรถ")
+  await expect(page.getByRole("region", { name: "การแจ้งเตือน" }).getByRole("status").filter({ hasText: "บันทึกคืนรถ" })).toContainText("บันทึกคืนรถ")
   await expect(bookingRow).toContainText("เสร็จสิ้น")
   await expect(bookingRow).toContainText("ระยะทาง: 65 km")
 

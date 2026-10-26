@@ -195,7 +195,7 @@ test("user reports an emergency and admin replaces the vehicle", async ({
     .getByRole("dialog")
     .getByRole("button", { name: "ยืนยันแจ้งซ่อม" })
     .click()
-  await expect(userPage.getByRole("status")).toContainText(
+  await expect(userPage.getByRole("region", { name: "การแจ้งเตือน" }).getByRole("status")).toContainText(
     "แจ้งซ่อมเรียบร้อยแล้ว"
   )
 
@@ -240,7 +240,7 @@ test("user reports an emergency and admin replaces the vehicle", async ({
   await changeDialog
     .getByRole("button", { name: "ยืนยันเปลี่ยนรถ" })
     .click()
-  await expect(adminPage.getByRole("status")).toContainText(newPlate)
+  await expect(adminPage.getByRole("region", { name: "การแจ้งเตือน" }).getByRole("status")).toContainText(newPlate)
 
   await userPage.goto("/user/my-bookings")
   const changedBooking = userPage.getByText(newPlate).first()
@@ -257,14 +257,14 @@ test("user reports an emergency and admin replaces the vehicle", async ({
   await expect(userRow).toContainText("การจองที่ยังดำเนินการ 1 รายการ")
   adminPage.once("dialog", (dialog) => dialog.accept())
   await userRow.getByRole("button", { name: "ปิดบัญชี" }).click()
-  await expect(adminPage.getByRole("status")).toContainText("ปิดใช้งานบัญชี")
+  await expect(adminPage.getByRole("region", { name: "การแจ้งเตือน" }).getByRole("status").filter({ hasText: "ปิดใช้งานบัญชี" })).toContainText("ปิดใช้งานบัญชี")
 
   const blockedResponse = await userPage.request.get("/api/booking?action=my-bookings")
   expect(blockedResponse.status()).toBe(401)
 
   adminPage.once("dialog", (dialog) => dialog.accept())
   await userRow.getByRole("button", { name: "เปิดบัญชี" }).click()
-  await expect(adminPage.getByRole("status")).toContainText("เปิดใช้งานบัญชี")
+  await expect(adminPage.getByRole("region", { name: "การแจ้งเตือน" }).getByRole("status").filter({ hasText: "เปิดใช้งานบัญชี" })).toContainText("เปิดใช้งานบัญชี")
   await login(userPage, userEmail)
   await expect(userPage).toHaveURL(/\/user/)
 
