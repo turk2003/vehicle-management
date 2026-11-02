@@ -265,9 +265,9 @@ UI แยก ALL/ACTIVE/INACTIVE ป้องกันกดปิดบัญ�
 
 parent ส่ง filters เดียวกันให้ `AiUsageSummaryCard` และ `VehicleHistoryDetails` เพื่อให้รายงานทั้งสามส่วนอยู่ในขอบเขตเดียวกัน
 
-### app/admin/vehicle-history/VehicleHistoryDetails.tsx
+### app/admin/vehicle-history/_components/VehicleHistoryDetails.tsx
 
-[VehicleHistoryDetails](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/VehicleHistoryDetails.tsx) แสดงแท็บ trips/mileage/maintenance โดยใช้ TripsTable, MileageTable และ MaintenanceTable แยก JSX ของแต่ละรูปแบบ
+[VehicleHistoryDetails](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/_components/VehicleHistoryDetails.tsx) แสดงแท็บ trips/mileage/maintenance โดยใช้ TripsTable, MileageTable และ MaintenanceTable แยก JSX ของแต่ละรูปแบบ
 
 effect สร้าง query พร้อม `pageSize=20` ไป `/api/admin/vehicles/history/details` ใช้ AbortController ยกเลิก request เดิมเมื่อ filter/tab/page เปลี่ยน เพื่อไม่ให้ response เก่าแสดงทับหน้าใหม่ `previousFilterKey` ช่วย reset page เป็น 1 เมื่อเปลี่ยนตัวกรอง
 
@@ -275,9 +275,9 @@ effect สร้าง query พร้อม `pageSize=20` ไป `/api/admin/ve
 
 แท็บ trips แสดงหลายสถานะ แต่ตัวชี้วัดรายงานและแท็บ mileage ใช้ COMPLETED ตามเงื่อนไขฝั่ง server จึงไม่จำเป็นต้องมีจำนวนแถวเท่ากัน
 
-### app/admin/vehicle-history/AiUsageSummaryCard.tsx
+### app/admin/vehicle-history/_components/AiUsageSummaryCard.tsx
 
-[AiUsageSummaryCard](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/AiUsageSummaryCard.tsx) รอ Admin กดสร้าง ไม่เรียก AI อัตโนมัติทุกครั้งที่เปิดรายงาน
+[AiUsageSummaryCard](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/app/admin/vehicle-history/_components/AiUsageSummaryCard.tsx) รอ Admin กดสร้าง ไม่เรียก AI อัตโนมัติทุกครั้งที่เปิดรายงาน
 
 `canGenerate` ตรวจว่า report โหลดแล้ว ไม่มี request ค้าง มีเที่ยวใช้งาน และมีช่วงวัน; `generateSummary()` POST filters ไป `/api/admin/vehicles/history/analysis`; effect ล้างผลเดิมเมื่อ filter เปลี่ยน
 
@@ -588,7 +588,7 @@ Feature นี้ไม่มี utils.ts ในรอบ refactor ปัจจ�
 - `getBangkokToday`: Intl.DateTimeFormat ระบุ Asia/Bangkok เพื่อสร้างวันที่วันนี้; constants เรียกตอน module ถูกประเมิน ไม่ใช่นาฬิกาที่เดินทุกวินาที
 - `getApiErrorMessage`: ตรวจชนิด Axios error ก่อนอ่าน response.data.message มิฉะนั้นคืน fallback
 
-AiUsageSummaryCard.tsx และ VehicleHistoryDetails.tsx ยังอยู่ที่รากของ feature และยังมี effect/API ของตนเองตามส่วน 6 ไม่ได้ถูกย้ายไปเป็น component แสดงผลอย่างเดียวทั้งหมด `constants.ts` เรียก getBangkokToday เพื่อสร้างค่าเริ่มต้นช่วงต้นเดือนถึงวันปัจจุบันเมื่อ module โหลด
+AiUsageSummaryCard.tsx และ VehicleHistoryDetails.tsx อยู่ใน `_components` ของ feature และยังมี effect/API ของตนเองตามส่วน 6 ไม่ได้ถูกย้ายไปเป็น component แสดงผลอย่างเดียวทั้งหมด `constants.ts` เรียก getBangkokToday เพื่อสร้างค่าเริ่มต้นช่วงต้นเดือนถึงวันปัจจุบันเมื่อ module โหลด
 
 ## 10. ทำไมแยกแบบนี้ และอ่าน props อย่างไร
 

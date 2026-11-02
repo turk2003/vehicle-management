@@ -133,7 +133,7 @@ prompt วางกติกาคงที่ไว้ก่อน และว
 
 ### 5. เพิ่ม UI ในหน้าประวัติรถ
 
-แยก client component ใหม่ เช่น `app/admin/vehicle-history/AiUsageSummaryCard.tsx` และวางหลังตัวกรอง/KPI ก่อนกราฟและตาราง:
+แยก client component ใหม่ เช่น `app/admin/vehicle-history/_components/AiUsageSummaryCard.tsx` และวางหลังตัวกรอง/KPI ก่อนกราฟและตาราง:
 
 - เริ่มด้วยปุ่ม “สร้างบทสรุป AI”
 - แสดง loading และปิดการกดซ้ำระหว่าง request

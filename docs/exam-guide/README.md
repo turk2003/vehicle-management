@@ -15,6 +15,10 @@
 | [5. ซ้อมสอบและตัวอย่างคำตอบ](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/docs/exam-guide/05-defense-practice.md) | ตัวอย่างเล่าโครงการ flow หนึ่งรายการ คำถาม 65 ข้อ และข้อจำกัดที่ต้องตอบให้ตรงกับโค้ด |
 | [6. ดัชนีไฟล์และจุดเรียกใช้](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/docs/exam-guide/06-source-index.md) | ทุก source file ที่เขียนใน app/lib, local imports, ผู้ import, URL ที่อ้าง, ฟังก์ชัน/ชนิดข้อมูล และรายการ tests |
 | [7. Deployment และ PostgreSQL บน cloud](/Users/chatchaponchuwongwut/Desktop/mut/project_1/vehicle-management/docs/exam-guide/07-deployment-and-postgres.md) | build pipeline, pooled/direct URL, migrations, seed, environment และเส้นทาง request หลัง deploy |
+| [8. แผนเตรียมสอบโครงงาน 2 วันที่ 8 พฤศจิกายน 2569](08-exam-preparation-plan.md) | แผนรายวัน ข้อกำหนดในประกาศ โครงสไลด์ครบ 5 บท 18 นาที และ checklist วันสอบ |
+| [9. บทซ้อม Demo โค้ด และตอบกรรมการ](09-demo-code-and-rehearsal.md) | Demo หนึ่งรายการ โค้ดสำคัญ 4 จุด บทเปิด แนวตอบ 12 คำถาม และแบบประเมินตนเอง |
+
+บท 8–9 เพิ่มวันที่ 31 ตุลาคม 2569 สำหรับการสอบโครงงาน 2 โดยเฉพาะ ผลตรวจรอบนี้ `npm test` ผ่าน 161 tests จาก 29 ไฟล์, TypeScript และ lint ผ่าน จำนวนในเนื้อหาบท 1–7 บางส่วนเป็นหลักฐานจากรอบก่อนตามวันที่กำกับ ยังไม่ได้ปรับปรุงทุกบทให้เป็นผลล่าสุด
 
 ## สิ่งที่ปรับปรุงในฉบับนี้
 

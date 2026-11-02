@@ -1,111 +1,115 @@
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { accessErrorResponse, requireAccess } from "@/lib/permissions"
-import { syncAllVehicleStatuses } from "@/lib/syncStatuses"
-import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { accessErrorResponse, requireAccess } from "@/lib/permissions";
+import { syncAllVehicleStatuses } from "@/lib/syncStatuses";
+import { notifyBookingEvent } from "@/lib/email/bookingNotifications";
 
-const MAX_DESTINATION_LENGTH = 255
+const MAX_DESTINATION_LENGTH = 255;
 
 class BookingInputError extends Error {}
 
 function normalizeDestination(value: unknown) {
-  if (value === undefined) return undefined
-  if (value === null) return null
+  if (value === undefined) return undefined;
+  if (value === null) return null;
   if (typeof value !== "string") {
-    throw new BookingInputError("ปลายทางไม่ถูกต้อง")
+    throw new BookingInputError("ปลายทางไม่ถูกต้อง");
   }
 
-  const destination = value.trim()
+  const destination = value.trim();
   if (destination.length > MAX_DESTINATION_LENGTH) {
     throw new BookingInputError(
-      `ปลายทางต้องมีความยาวไม่เกิน ${MAX_DESTINATION_LENGTH} ตัวอักษร`
-    )
+      `ปลายทางต้องมีความยาวไม่เกิน ${MAX_DESTINATION_LENGTH} ตัวอักษร`,
+    );
   }
-  return destination || null
+  return destination || null;
 }
 
 function bookingInputErrorResponse(error: unknown) {
   if (error instanceof BookingInputError) {
-    return NextResponse.json({ message: error.message }, { status: 400 })
+    return NextResponse.json({ message: error.message }, { status: 400 });
   }
-  return null
+  return null;
 }
 
 // GET
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const action = searchParams.get("action")
+    const { searchParams } = new URL(req.url);
+    const action = searchParams.get("action");
     const decoded = await requireAccess(req, {
       roles: ["USER"],
       permission: action === "my-bookings" ? "BOOKING_VIEW" : "BOOKING_CREATE",
-    })
+    });
 
     // ✅ Sync สถานะรถจาก shared helper
-    await syncAllVehicleStatuses()
+    await syncAllVehicleStatuses();
 
     if (action === "my-bookings") {
       const bookings = await prisma.booking.findMany({
         where: { userId: decoded.userId },
         include: {
           vehicle: { include: { type: true } },
-          approver: { select: { id: true, name: true, email: true } }
+          approver: { select: { id: true, name: true, email: true } },
         },
-        orderBy: { createdAt: "desc" }
-      })
-      return NextResponse.json(bookings)
+        orderBy: { createdAt: "desc" },
+      });
+      return NextResponse.json(bookings);
     }
 
     // ดึงรถที่จองได้ (ตามช่วงเวลา)
-    const startDate = searchParams.get("startDate")
-    const endDate = searchParams.get("endDate")
-    const vehicleTypeId = searchParams.get("vehicleTypeId")
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const vehicleTypeId = searchParams.get("vehicleTypeId");
 
     let availableVehicles = await prisma.vehicle.findMany({
       where: {
         // ✅ ดึงทั้ง AVAILABLE และ BOOKED (เพราะ BOOKED อาจว่างในช่วงที่ต้องการจอง)
         status: { in: ["AVAILABLE", "BOOKED"] },
-        ...(vehicleTypeId && { typeId: vehicleTypeId })
+        ...(vehicleTypeId && { typeId: vehicleTypeId }),
       },
-      include: { type: true }
-    })
+      include: { type: true },
+    });
 
     if (startDate && endDate) {
-      const start = new Date(startDate)
-      const end = new Date(endDate)
+      const start = new Date(startDate);
+      const end = new Date(endDate);
 
       // เช็ค booking ที่ทับช่วงเวลา
       const conflictingBookings = await prisma.booking.findMany({
         where: {
           status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
           startDate: { lte: end },
-          endDate: { gte: start }
+          endDate: { gte: start },
         },
-        select: { vehicleId: true }
-      })
+        select: { vehicleId: true },
+      });
 
       // เช็ค maintenance ที่ทับช่วงเวลา
       const conflictingMaintenances = await prisma.maintenance.findMany({
         where: {
           status: { in: ["REPORTED", "IN_PROGRESS"] },
           startDate: { lte: end },
-          OR: [{ endDate: null }, { endDate: { gte: start } }]
+          OR: [{ endDate: null }, { endDate: { gte: start } }],
         },
-        select: { vehicleId: true }
-      })
+        select: { vehicleId: true },
+      });
 
       const conflictIds = [
-        ...conflictingBookings.map(b => b.vehicleId),
-        ...conflictingMaintenances.map(m => m.vehicleId)
-      ]
+        ...conflictingBookings.map((b) => b.vehicleId),
+        ...conflictingMaintenances.map((m) => m.vehicleId),
+      ];
 
-      availableVehicles = availableVehicles.filter(v => !conflictIds.includes(v.id))
+      availableVehicles = availableVehicles.filter(
+        (v) => !conflictIds.includes(v.id),
+      );
     }
 
-    return NextResponse.json(availableVehicles)
+    return NextResponse.json(availableVehicles);
   } catch (error: unknown) {
-    return accessErrorResponse(error) ||
+    return (
+      accessErrorResponse(error) ||
       NextResponse.json({ message: "Server error" }, { status: 500 })
+    );
   }
 }
 
@@ -115,37 +119,50 @@ export async function POST(req: NextRequest) {
     const decoded = await requireAccess(req, {
       roles: ["USER"],
       permission: "BOOKING_CREATE",
-    })
-    const { vehicleId, startDate, endDate, purpose, destination } = await req.json()
+    });
+    const { vehicleId, startDate, endDate, purpose, destination } =
+      await req.json();
 
     if (!vehicleId || !startDate || !endDate || !purpose) {
-      return NextResponse.json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" }, { status: 400 })
+      return NextResponse.json(
+        { message: "กรุณากรอกข้อมูลให้ครบถ้วน" },
+        { status: 400 },
+      );
     }
 
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    const now = new Date()
-    const normalizedDestination = normalizeDestination(destination)
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const now = new Date();
+    const normalizedDestination = normalizeDestination(destination);
 
     if (start >= end) {
-      return NextResponse.json({ message: "วันที่สิ้นสุดต้องหลังวันที่เริ่มต้น" }, { status: 400 })
+      return NextResponse.json(
+        { message: "วันที่สิ้นสุดต้องหลังวันที่เริ่มต้น" },
+        { status: 400 },
+      );
     }
     if (start < now) {
-      return NextResponse.json({ message: "ไม่สามารถจองย้อนหลังได้" }, { status: 400 })
+      return NextResponse.json(
+        { message: "ไม่สามารถจองย้อนหลังได้" },
+        { status: 400 },
+      );
     }
 
     const vehicle = await prisma.vehicle.findUnique({
       where: { id: vehicleId },
-      include: { type: true }
-    })
+      include: { type: true },
+    });
 
     if (!vehicle) {
-      return NextResponse.json({ message: "ไม่พบรถคันนี้" }, { status: 404 })
+      return NextResponse.json({ message: "ไม่พบรถคันนี้" }, { status: 404 });
     }
 
     // ✅ MAINTENANCE = ห้ามจองเด็ดขาด
     if (vehicle.status === "MAINTENANCE") {
-      return NextResponse.json({ message: "รถคันนี้อยู่ระหว่างซ่อมบำรุง" }, { status: 400 })
+      return NextResponse.json(
+        { message: "รถคันนี้อยู่ระหว่างซ่อมบำรุง" },
+        { status: 400 },
+      );
     }
 
     // เช็ค booking conflict ในช่วงเวลา
@@ -154,12 +171,15 @@ export async function POST(req: NextRequest) {
         vehicleId,
         status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
         startDate: { lte: end },
-        endDate: { gte: start }
-      }
-    })
+        endDate: { gte: start },
+      },
+    });
 
     if (conflictingBooking) {
-      return NextResponse.json({ message: "รถคันนี้มีการจองในช่วงเวลาดังกล่าวแล้ว" }, { status: 409 })
+      return NextResponse.json(
+        { message: "รถคันนี้มีการจองในช่วงเวลาดังกล่าวแล้ว" },
+        { status: 409 },
+      );
     }
 
     // เช็ค maintenance conflict ในช่วงเวลา
@@ -168,14 +188,18 @@ export async function POST(req: NextRequest) {
         vehicleId,
         status: { in: ["REPORTED", "IN_PROGRESS"] },
         startDate: { lte: end },
-        OR: [{ endDate: null }, { endDate: { gte: start } }]
-      }
-    })
+        OR: [{ endDate: null }, { endDate: { gte: start } }],
+      },
+    });
 
     if (conflictingMaintenance) {
-      return NextResponse.json({
-        message: "รถคันนี้มีกำหนดการซ่อมบำรุงในช่วงเวลาดังกล่าว ไม่สามารถจองได้"
-      }, { status: 409 })
+      return NextResponse.json(
+        {
+          message:
+            "รถคันนี้มีกำหนดการซ่อมบำรุงในช่วงเวลาดังกล่าว ไม่สามารถจองได้",
+        },
+        { status: 409 },
+      );
     }
 
     const booking = await prisma.booking.create({
@@ -186,33 +210,33 @@ export async function POST(req: NextRequest) {
         endDate: end,
         purpose,
         ...(normalizedDestination !== undefined && {
-          destination: normalizedDestination
+          destination: normalizedDestination,
         }),
-        status: "PENDING"
+        status: "PENDING",
         // ✅ ไม่เปลี่ยนสถานะรถตอนจอง เพราะยังไม่ได้ใช้จริง
       },
       include: {
         vehicle: { include: { type: true } },
-        user: { select: { name: true, email: true } }
-      }
-    })
+        user: { select: { name: true, email: true } },
+      },
+    });
 
     // Create execution log
     await prisma.log.create({
       data: {
         userId: decoded.userId,
-        action: `Created booking ${booking.id} for vehicle ${vehicle.plateNumber}`
-      }
-    })
+        action: `Created booking ${booking.id} for vehicle ${vehicle.plateNumber}`,
+      },
+    });
 
-    return NextResponse.json(booking)
+    return NextResponse.json(booking);
   } catch (error: unknown) {
-    const inputResponse = bookingInputErrorResponse(error)
-    if (inputResponse) return inputResponse
-    const accessResponse = accessErrorResponse(error)
-    if (accessResponse) return accessResponse
-    console.error("Create booking error:", error)
-    return NextResponse.json({ message: "Server error" }, { status: 500 })
+    const inputResponse = bookingInputErrorResponse(error);
+    if (inputResponse) return inputResponse;
+    const accessResponse = accessErrorResponse(error);
+    if (accessResponse) return accessResponse;
+    console.error("Create booking error:", error);
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }
 
@@ -222,25 +246,28 @@ export async function PUT(req: NextRequest) {
     const decoded = await requireAccess(req, {
       roles: ["USER"],
       permission: "BOOKING_CREATE",
-    })
-    const { id, status } = await req.json()
+    });
+    const { id, status } = await req.json();
 
     if (!id || status !== "CANCELLED") {
-      return NextResponse.json({ message: "Invalid request" }, { status: 400 })
+      return NextResponse.json({ message: "Invalid request" }, { status: 400 });
     }
 
-    const booking = await prisma.booking.findUnique({ where: { id } })
+    const booking = await prisma.booking.findUnique({ where: { id } });
 
     if (!booking) {
-      return NextResponse.json({ message: "ไม่พบการจอง" }, { status: 404 })
+      return NextResponse.json({ message: "ไม่พบการจอง" }, { status: 404 });
     }
 
     if (booking.userId !== decoded.userId) {
-      return NextResponse.json({ message: "ไม่มีสิทธิ์" }, { status: 403 })
+      return NextResponse.json({ message: "ไม่มีสิทธิ์" }, { status: 403 });
     }
 
     if (booking.status !== "PENDING") {
-      return NextResponse.json({ message: "ยกเลิกได้เฉพาะการจองที่รออนุมัติเท่านั้น" }, { status: 400 })
+      return NextResponse.json(
+        { message: "ยกเลิกได้เฉพาะการจองที่รออนุมัติเท่านั้น" },
+        { status: 400 },
+      );
     }
 
     const updated = await prisma.booking.update({
@@ -248,28 +275,28 @@ export async function PUT(req: NextRequest) {
       data: { status: "CANCELLED" },
       include: {
         user: { select: { name: true, email: true } },
-        vehicle: { include: { type: true } }
-      }
-    })
+        vehicle: { include: { type: true } },
+      },
+    });
 
     await notifyBookingEvent({
       event: "CANCELLED",
-      booking: updated
-    })
+      booking: updated,
+    });
 
     // Create execution log
     await prisma.log.create({
       data: {
         userId: decoded.userId,
-        action: `Cancelled booking ${id} for vehicle ${updated.vehicle.plateNumber}`
-      }
-    })
+        action: `Cancelled booking ${id} for vehicle ${updated.vehicle.plateNumber}`,
+      },
+    });
 
-    return NextResponse.json(updated)
+    return NextResponse.json(updated);
   } catch (error: unknown) {
-    const accessResponse = accessErrorResponse(error)
-    if (accessResponse) return accessResponse
-    return NextResponse.json({ message: "Server error" }, { status: 500 })
+    const accessResponse = accessErrorResponse(error);
+    if (accessResponse) return accessResponse;
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }
 
@@ -279,37 +306,49 @@ export async function PATCH(req: NextRequest) {
     const decoded = await requireAccess(req, {
       roles: ["USER"],
       permission: "BOOKING_CREATE",
-    })
-    const { id, startDate, endDate, purpose, destination } = await req.json()
+    });
+    const { id, startDate, endDate, purpose, destination } = await req.json();
 
     if (!id || !startDate || !endDate || !purpose) {
-      return NextResponse.json({ message: "กรุณากรอกข้อมูลให้ครบถ้วน" }, { status: 400 })
+      return NextResponse.json(
+        { message: "กรุณากรอกข้อมูลให้ครบถ้วน" },
+        { status: 400 },
+      );
     }
 
-    const booking = await prisma.booking.findUnique({ where: { id } })
+    const booking = await prisma.booking.findUnique({ where: { id } });
 
     if (!booking) {
-      return NextResponse.json({ message: "ไม่พบการจอง" }, { status: 404 })
+      return NextResponse.json({ message: "ไม่พบการจอง" }, { status: 404 });
     }
 
     if (booking.userId !== decoded.userId) {
-      return NextResponse.json({ message: "ไม่มีสิทธิ์" }, { status: 403 })
+      return NextResponse.json({ message: "ไม่มีสิทธิ์" }, { status: 403 });
     }
 
     if (booking.status !== "PENDING") {
-      return NextResponse.json({ message: "แก้ไขได้เฉพาะการจองที่ยังรออนุมัติเท่านั้น" }, { status: 400 })
+      return NextResponse.json(
+        { message: "แก้ไขได้เฉพาะการจองที่ยังรออนุมัติเท่านั้น" },
+        { status: 400 },
+      );
     }
 
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    const now = new Date()
-    const normalizedDestination = normalizeDestination(destination)
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const now = new Date();
+    const normalizedDestination = normalizeDestination(destination);
 
     if (start >= end) {
-      return NextResponse.json({ message: "วันที่สิ้นสุดต้องหลังวันที่เริ่มต้น" }, { status: 400 })
+      return NextResponse.json(
+        { message: "วันที่สิ้นสุดต้องหลังวันที่เริ่มต้น" },
+        { status: 400 },
+      );
     }
     if (start < now) {
-      return NextResponse.json({ message: "ไม่สามารถจองย้อนหลังได้" }, { status: 400 })
+      return NextResponse.json(
+        { message: "ไม่สามารถจองย้อนหลังได้" },
+        { status: 400 },
+      );
     }
 
     // Check booking conflict in the new time range (excluding this booking itself)
@@ -319,12 +358,15 @@ export async function PATCH(req: NextRequest) {
         id: { not: id },
         status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
         startDate: { lte: end },
-        endDate: { gte: start }
-      }
-    })
+        endDate: { gte: start },
+      },
+    });
 
     if (conflictingBooking) {
-      return NextResponse.json({ message: "รถคันนี้มีการจองในช่วงเวลาดังกล่าวแล้ว" }, { status: 409 })
+      return NextResponse.json(
+        { message: "รถคันนี้มีการจองในช่วงเวลาดังกล่าวแล้ว" },
+        { status: 409 },
+      );
     }
 
     // Check maintenance conflict
@@ -333,14 +375,18 @@ export async function PATCH(req: NextRequest) {
         vehicleId: booking.vehicleId,
         status: { in: ["REPORTED", "IN_PROGRESS"] },
         startDate: { lte: end },
-        OR: [{ endDate: null }, { endDate: { gte: start } }]
-      }
-    })
+        OR: [{ endDate: null }, { endDate: { gte: start } }],
+      },
+    });
 
     if (conflictingMaintenance) {
-      return NextResponse.json({
-        message: "รถคันนี้มีกำหนดการซ่อมบำรุงในช่วงเวลาดังกล่าว ไม่สามารถจองได้"
-      }, { status: 409 })
+      return NextResponse.json(
+        {
+          message:
+            "รถคันนี้มีกำหนดการซ่อมบำรุงในช่วงเวลาดังกล่าว ไม่สามารถจองได้",
+        },
+        { status: 409 },
+      );
     }
 
     const updated = await prisma.booking.update({
@@ -350,27 +396,27 @@ export async function PATCH(req: NextRequest) {
         endDate: end,
         purpose,
         ...(normalizedDestination !== undefined && {
-          destination: normalizedDestination
-        })
+          destination: normalizedDestination,
+        }),
       },
-      include: { vehicle: true }
-    })
+      include: { vehicle: true },
+    });
 
     // Create execution log
     await prisma.log.create({
       data: {
         userId: decoded.userId,
-        action: `Edited booking ${id} for vehicle ${updated.vehicle.plateNumber}`
-      }
-    })
+        action: `Edited booking ${id} for vehicle ${updated.vehicle.plateNumber}`,
+      },
+    });
 
-    return NextResponse.json(updated)
+    return NextResponse.json(updated);
   } catch (error) {
-    const inputResponse = bookingInputErrorResponse(error)
-    if (inputResponse) return inputResponse
-    const accessResponse = accessErrorResponse(error)
-    if (accessResponse) return accessResponse
-    console.error("Edit booking error:", error)
-    return NextResponse.json({ message: "Server error" }, { status: 500 })
+    const inputResponse = bookingInputErrorResponse(error);
+    if (inputResponse) return inputResponse;
+    const accessResponse = accessErrorResponse(error);
+    if (accessResponse) return accessResponse;
+    console.error("Edit booking error:", error);
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }
