@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Calendar, RefreshCw01 } from "@untitledui/icons";
+import { RefreshCw01 } from "@untitledui/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/app/component/untitled-ui/button";
 import { Badge } from "@/app/component/untitled-ui/badge";
@@ -14,6 +14,7 @@ import type { CalendarRange, CalendarSnapshot } from "@/lib/calendar/types";
 import DailyBookings from "./DailyBookings";
 import FleetStatus from "./FleetStatus";
 import CalendarBookingModal from "./CalendarBookingModal";
+import PageHeader from "@/app/component/page-header"
 
 const BookingCalendar = dynamic(() => import("./BookingCalendar"), {
   ssr: false,
@@ -143,44 +144,30 @@ export default function CalendarView({
   return (
     <main className="calendar-page min-h-screen bg-gray-50 text-gray-950">
       <div className="mx-auto max-w-[1504px] space-y-6 px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <header className="space-y-5 border p-4 rounded-xl bg-white border-gray-200 pb-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex min-w-0 items-start gap-3">
-              <div className="hidden size-12 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white sm:flex">
-                <Calendar className="size-6 text-gray-700" aria-hidden="true" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-gray-950">
-                  ปฏิทินการใช้รถ
-                </h1>
-                <p className="mt-1 text-sm leading-6 text-gray-600">
-                  วางแผนการใช้รถ ดูรายละเอียดการจอง และติดตามผู้ถือรถปัจจุบัน
-                </p>
-              </div>
-            </div>
-            <Button
-              isLoading={loading}
-              iconLeading={
-                <RefreshCw01 className="size-4" aria-hidden="true" />
-              }
-              onPress={() => setRefreshKey((key) => key + 1)}
-            >
-              {loading ? "กำลังอัปเดต" : "รีเฟรชข้อมูล"}
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-gray-200 pb-5">
-            <Badge dot color="blue">
-              ทุกบทบาทเข้าดูได้
-            </Badge>
-            <p role="status" className="text-sm text-gray-600">
-              {data
-                ? `อัปเดตล่าสุด ${formatCalendarDate(data.asOf)} · ทุก 30 วินาที`
-                : error
-                  ? "ยังไม่มีข้อมูลที่อัปเดตสำเร็จ"
-                  : "กำลังเตรียมข้อมูลปฏิทิน"}
-            </p>
-          </div>
-        </header>
+        <PageHeader
+          title="ปฏิทินการใช้รถ"
+          description="วางแผนการใช้รถ ดูรายละเอียดการจอง และติดตามผู้ถือรถปัจจุบัน"
+          actions={
+            <>
+              <p role="status" className="text-sm text-gray-600">
+                {data
+                  ? `อัปเดตล่าสุด ${formatCalendarDate(data.asOf)} · ทุก 30 วินาที`
+                  : error
+                    ? "ยังไม่มีข้อมูลที่อัปเดตสำเร็จ"
+                    : "กำลังเตรียมข้อมูลปฏิทิน"}
+              </p>
+              <Button
+                isLoading={loading}
+                iconLeading={
+                  <RefreshCw01 className="size-4" aria-hidden="true" />
+                }
+                onPress={() => setRefreshKey((key) => key + 1)}
+              >
+                {loading ? "กำลังอัปเดต" : "รีเฟรชข้อมูล"}
+              </Button>
+            </>
+          }
+        />
         {error && (
           <div
             role="alert"

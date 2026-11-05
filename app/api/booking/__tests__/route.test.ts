@@ -8,7 +8,9 @@ const prismaMock = vi.hoisted(() => ({
   booking: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   vehicle: { findMany: vi.fn(), findUnique: vi.fn() },
   maintenance: { findMany: vi.fn(), findFirst: vi.fn() },
-  log: { create: vi.fn() }
+  log: { create: vi.fn() },
+  $transaction: vi.fn(),
+  $executeRaw: vi.fn()
 }))
 
 // Setup global mocks
@@ -28,6 +30,8 @@ describe('Booking API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireAccess).mockResolvedValue({ userId: 'user1', role: 'USER', isActive: true })
+    // interactive transaction: รัน callback ด้วย client ตัวเดียวกัน (mock)
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => unknown) => fn(prismaMock))
   })
 
   describe('GET /api/booking', () => {
@@ -155,6 +159,62 @@ describe('Booking API', () => {
       expect(prismaMock.log.create).toHaveBeenCalled()
     })
 
+    it('should lock the vehicle schedule before checking conflicts and creating, all in one transaction', async () => {
+      prismaMock.vehicle.findUnique.mockResolvedValue({ id: 'v1', status: 'AVAILABLE', plateNumber: '1111' })
+      prismaMock.booking.findFirst.mockResolvedValue(null)
+      prismaMock.maintenance.findFirst.mockResolvedValue(null)
+      prismaMock.booking.create.mockResolvedValue({ id: 'b1' })
+
+      const req = new Request('http://localhost:3000/api/booking', {
+        method: 'POST',
+        body: JSON.stringify({ vehicleId: 'v1', startDate: '2050-05-01', endDate: '2050-05-05', purpose: 'Trip' })
+      })
+
+      const response = await POST(req as Parameters<typeof POST>[0])
+
+      expect(response.status).toBe(200)
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1)
+      expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1)
+      expect(prismaMock.$executeRaw.mock.calls[0]).toContain('v1')
+      const lockOrder = prismaMock.$executeRaw.mock.invocationCallOrder[0]
+      expect(lockOrder).toBeLessThan(prismaMock.booking.findFirst.mock.invocationCallOrder[0])
+      expect(lockOrder).toBeLessThan(prismaMock.booking.create.mock.invocationCallOrder[0])
+    })
+
+    it('should return 409 and not create when maintenance overlaps', async () => {
+      prismaMock.vehicle.findUnique.mockResolvedValue({ id: 'v1', status: 'AVAILABLE' })
+      prismaMock.booking.findFirst.mockResolvedValue(null)
+      prismaMock.maintenance.findFirst.mockResolvedValue({ id: 'm1' })
+
+      const req = new Request('http://localhost:3000/api/booking', {
+        method: 'POST',
+        body: JSON.stringify({ vehicleId: 'v1', startDate: '2050-05-01', endDate: '2050-05-05', purpose: 'Trip' })
+      })
+
+      const response = await POST(req as Parameters<typeof POST>[0])
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({
+        message: 'รถคันนี้มีกำหนดการซ่อมบำรุงในช่วงเวลาดังกล่าว ไม่สามารถจองได้'
+      })
+      expect(prismaMock.booking.create).not.toHaveBeenCalled()
+      expect(prismaMock.log.create).not.toHaveBeenCalled()
+    })
+
+    it('should return 500 when the transaction fails', async () => {
+      prismaMock.vehicle.findUnique.mockResolvedValue({ id: 'v1', status: 'AVAILABLE' })
+      prismaMock.$transaction.mockRejectedValue(new Error('connection lost'))
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const req = new Request('http://localhost:3000/api/booking', {
+        method: 'POST',
+        body: JSON.stringify({ vehicleId: 'v1', startDate: '2050-05-01', endDate: '2050-05-05', purpose: 'Trip' })
+      })
+
+      const response = await POST(req as Parameters<typeof POST>[0])
+      expect(response.status).toBe(500)
+    })
+
     it('should reject destinations longer than 255 characters', async () => {
       const req = new Request('http://localhost:3000/api/booking', {
         method: 'POST',
@@ -250,6 +310,44 @@ describe('Booking API', () => {
       expect(prismaMock.booking.update).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ destination: 'ศูนย์ราชการ' })
       }))
+    })
+
+    it('should return 409 when the booking was approved while waiting for the lock', async () => {
+      prismaMock.booking.findUnique
+        .mockResolvedValueOnce({ id: 'b1', userId: 'user1', vehicleId: 'v1', status: 'PENDING' })
+        .mockResolvedValueOnce({ status: 'APPROVED', vehicleId: 'v1' })
+
+      const req = new Request('http://localhost:3000/api/booking', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: 'b1', startDate: '2050-05-01', endDate: '2050-05-05', purpose: 'Trip' })
+      })
+
+      const response = await PATCH(req as Parameters<typeof PATCH>[0])
+
+      expect(response.status).toBe(409)
+      expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1)
+      expect(prismaMock.booking.update).not.toHaveBeenCalled()
+    })
+
+    it('should return 409 when the new time range conflicts with another booking', async () => {
+      prismaMock.booking.findUnique
+        .mockResolvedValueOnce({ id: 'b1', userId: 'user1', vehicleId: 'v1', status: 'PENDING' })
+        .mockResolvedValueOnce({ status: 'PENDING', vehicleId: 'v1' })
+      prismaMock.booking.findFirst.mockResolvedValue({ id: 'b2' })
+
+      const req = new Request('http://localhost:3000/api/booking', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: 'b1', startDate: '2050-05-01', endDate: '2050-05-05', purpose: 'Trip' })
+      })
+
+      const response = await PATCH(req as Parameters<typeof PATCH>[0])
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ message: 'รถคันนี้มีการจองในช่วงเวลาดังกล่าวแล้ว' })
+      expect(prismaMock.booking.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ id: { not: 'b1' }, vehicleId: 'v1' })
+      }))
+      expect(prismaMock.booking.update).not.toHaveBeenCalled()
     })
 
     it('should clear a destination when the submitted value is blank', async () => {

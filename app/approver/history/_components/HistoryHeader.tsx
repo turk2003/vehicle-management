@@ -1,3 +1,4 @@
+import PageHeader from "@/app/component/page-header"
 import type { Dispatch, SetStateAction } from "react"
 import { STATUS_FILTERS } from "../constants"
 
@@ -11,22 +12,12 @@ export default function HistoryHeader({
   setSelectedStatus,
 }: HistoryHeaderProps) {
   return (
-    <header className="mb-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="mb-2 text-sm font-medium text-blue-700">
-            ผู้อนุมัติ
-          </p>
-          <h1 className="text-2xl font-bold leading-tight text-gray-950">
-            ประวัติการอนุมัติ
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
-            ตรวจสอบผลการพิจารณาคำขอจองรถย้อนหลังตามสถานะและช่วงวันที่
-          </p>
-        </div>
-
+    <PageHeader
+      title="ประวัติการอนุมัติ"
+      description="ตรวจสอบผลการพิจารณาคำขอจองรถย้อนหลังตามสถานะและช่วงวันที่"
+      actions={
         <div
-          className="flex flex-wrap gap-2"
+          className="inline-flex flex-wrap gap-1 rounded-lg bg-gray-200/60 p-1"
           role="tablist"
           aria-label="กรองสถานะประวัติการอนุมัติ"
         >
@@ -37,10 +28,10 @@ export default function HistoryHeader({
               role="tab"
               aria-selected={selectedStatus === value}
               onClick={() => setSelectedStatus(value)}
-              className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-600/25 ${
+              className={`inline-flex min-h-9 items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors duration-150 ${
                 selectedStatus === value
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-white text-gray-950 shadow-sm"
+                  : "text-gray-600 hover:text-gray-950"
               }`}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
@@ -48,7 +39,7 @@ export default function HistoryHeader({
             </button>
           ))}
         </div>
-      </div>
-    </header>
+      }
+    />
   )
 }

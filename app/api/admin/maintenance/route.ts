@@ -246,7 +246,7 @@ export async function POST(req: NextRequest) {
         cost: parsedCost,
         startDate: start,
         endDate: parsedEnd,
-        status: resolvedStatus  // ✅ ไม่มี error แล้ว
+        status: resolvedStatus
       },
       include: {
         vehicle: { include: { type: true } },
@@ -321,7 +321,7 @@ export async function PUT(req: NextRequest) {
     const parsedEnd = parseOptionalDate(endDate, "วันที่เสร็จ")
     const finalEnd = parsedEnd === undefined ? existing.endDate : parsedEnd
 
-    // ✅ ใช้ MaintenanceStatus enum
+    // ใช้ MaintenanceStatus enum
     let resolvedStatus: MaintenanceStatus | undefined = status
       ? status as MaintenanceStatus
       : undefined
@@ -384,7 +384,7 @@ export async function PUT(req: NextRequest) {
         ...(cost !== undefined && { cost: parsedCost }),
         ...(startDate && { startDate: newStart }),
         ...(endDate !== undefined && { endDate: parsedEnd }),
-        ...(resolvedStatus && { status: resolvedStatus })  // ✅ ไม่มี error แล้ว
+        ...(resolvedStatus && { status: resolvedStatus })
       },
       include: {
         vehicle: { include: { type: true } },

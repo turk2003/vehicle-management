@@ -11,6 +11,7 @@ import { INITIAL_FORM_DATA } from "./constants"
 import { getErrorMessage } from "./utils"
 import UsersTable from "./_components/UsersTable"
 import UserFormModal from "./_components/UserFormModal"
+import PageHeader from "@/app/component/page-header"
 
 export default function AdminUsersPage() {
   const toast = useToast()
@@ -189,29 +190,20 @@ export default function AdminUsersPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="mb-2 text-sm font-medium text-blue-700">
-                ผู้ดูแลระบบ
-              </p>
-              <h1 className="text-2xl font-bold leading-tight text-gray-950">
-                จัดการผู้ใช้
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
-                เพิ่ม แก้ไข และกำหนดบทบาทผู้ใช้ที่สามารถเข้าถึงระบบจัดการยานพาหนะ
-              </p>
-            </div>
+        <PageHeader
+          title="จัดการผู้ใช้"
+          description="เพิ่ม แก้ไข และกำหนดบทบาทผู้ใช้ที่สามารถเข้าถึงระบบจัดการยานพาหนะ"
+          actions={
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors duration-150 hover:bg-blue-700"
             >
               <UserPlus className="h-4 w-4" aria-hidden="true" />
               เพิ่มผู้ใช้
             </button>
-          </div>
-        </header>
+          }
+        />
 
         {error && (
           <div

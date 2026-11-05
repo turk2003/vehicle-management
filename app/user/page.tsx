@@ -1,12 +1,9 @@
 "use client"
 
-import { CalendarDays, Car, FileText, Wrench } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "@/lib/api"
-import RoleDashboard, {
-  DashboardLoading,
-  type DashboardMenuItem,
-} from "@/app/component/role-dashboard"
+import RoleDashboard, { DashboardLoading } from "@/app/component/role-dashboard"
+import { getRoleMenu } from "@/app/component/role-menus"
 
 export default function UserPage() {
   const [permissions, setPermissions] = useState<string[]>([])
@@ -25,43 +22,6 @@ export default function UserPage() {
     }
     fetchMe()
   }, [])
-  
-  const allMenuItems: DashboardMenuItem[] = [
-    {
-      title: "ปฏิทินการใช้รถ",
-      description: "ดูตารางจองรายวันและผู้ถือรถปัจจุบัน",
-      icon: CalendarDays,
-      href: "/calendar",
-      tone: "blue",
-    },
-    {
-      title: "จองรถ",
-      description: "เลือกรถและวันเวลาที่ต้องการใช้",
-      icon: Car,
-      href: "/user/booking",
-      tone: "blue",
-      permission: "BOOKING_CREATE"
-    },
-    {
-      title: "การจองของฉัน",
-      description: "ดูการจองของคุณ",
-      icon: FileText,
-      href: "/user/my-bookings",
-      tone: "green",
-      permission: "BOOKING_VIEW"
-    },
-    {
-      title: "แจ้งซ่อมบำรุง",
-      description: "แจ้งปัญหารถเสียและติดตามสถานะ",
-      icon: Wrench,
-      href: "/user/maintenance",
-      tone: "orange",
-      permission: "MAINTENANCE_VIEW"
-    },
-    
-  ]
-
-  const menuItems = allMenuItems.filter(item => !item.permission || permissions.includes(item.permission))
 
   if (loading) {
      return <DashboardLoading />
@@ -69,9 +29,9 @@ export default function UserPage() {
 
   return (
     <RoleDashboard
-      title="ผู้ใช้งาน Dashboard"
+      title="หน้าหลัก"
       description="จองรถ ตรวจการจองของคุณ และแจ้งซ่อมบำรุงเมื่อพบปัญหา"
-      items={menuItems}
+      items={getRoleMenu("USER", permissions)}
     />
   )
 }

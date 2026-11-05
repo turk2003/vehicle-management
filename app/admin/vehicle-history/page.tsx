@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { BarChart3 } from "lucide-react"
 import api from "@/lib/api"
 import AiUsageSummaryCard from "./_components/AiUsageSummaryCard"
 import VehicleHistoryDetails from "./_components/VehicleHistoryDetails"
@@ -12,6 +11,7 @@ import HistoryStats from "./_components/HistoryStats"
 import HistoryFilters from "./_components/HistoryFilters"
 import HistoryCharts from "./_components/HistoryCharts"
 import HistoryTable from "./_components/HistoryTable"
+import PageHeader from "@/app/component/page-header"
 
 export default function AdminVehicleHistoryPage() {
   const [loading, setLoading] = useState(false)
@@ -92,30 +92,20 @@ export default function AdminVehicleHistoryPage() {
   }, [filters])
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 px-4 py-8 text-gray-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700 ring-1 ring-orange-100">
-                <BarChart3 className="h-3.5 w-3.5" />
-                รายงานประวัติรถ
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-                  ประวัติการใช้งานรถ
-                </h1>
-                <p className="mt-1 max-w-3xl text-sm text-slate-600">
-                  สรุปการใช้งาน ระยะทาง ผู้ใช้งาน และประวัติซ่อม เพื่อช่วยตัดสินใจเรื่องความพร้อมของรถแต่ละคัน
-                </p>
-              </div>
-            </div>
-            <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
-              <span className="font-medium text-slate-900">มุมมองปัจจุบัน:</span>{" "}
-              {selectedVehicle ? selectedVehicle.plateNumber : "รถทุกคัน"}
-            </div>
-          </div>
-        </section>
+        <PageHeader
+          title="ประวัติการใช้งานรถ"
+          description="สรุปการใช้งาน ระยะทาง ผู้ใช้งาน และประวัติซ่อม เพื่อช่วยตัดสินใจเรื่องความพร้อมของรถแต่ละคัน"
+          actions={
+            <p className="text-sm text-gray-600">
+              มุมมองปัจจุบัน:{" "}
+              <span className="font-semibold text-gray-950">
+                {selectedVehicle ? selectedVehicle.plateNumber : "รถทุกคัน"}
+              </span>
+            </p>
+          }
+        />
 
         {error && (
           <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">

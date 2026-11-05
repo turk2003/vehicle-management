@@ -3,10 +3,62 @@ import { prisma } from "@/lib/prisma";
 import { accessErrorResponse, requireAccess } from "@/lib/permissions";
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses";
 import { notifyBookingEvent } from "@/lib/email/bookingNotifications";
+import { lockVehicleSchedule } from "@/lib/booking/lock";
+import type { Prisma } from "@/app/generated/prisma/client";
 
 const MAX_DESTINATION_LENGTH = 255;
 
-class BookingInputError extends Error {}
+const BOOKING_CONFLICT_MESSAGE = "รถคันนี้มีการจองในช่วงเวลาดังกล่าวแล้ว";
+const MAINTENANCE_CONFLICT_MESSAGE =
+  "รถคันนี้มีกำหนดการซ่อมบำรุงในช่วงเวลาดังกล่าว ไม่สามารถจองได้";
+
+class BookingInputError extends Error {
+  constructor(
+    message: string,
+    readonly status = 400,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * เช็คว่าช่วงเวลานี้ชนกับการจองหรือการซ่อมบำรุงอื่นไหม — throw 409 ถ้าชน
+ * ต้องเรียกภายใน transaction หลัง lockVehicleSchedule() เท่านั้น
+ */
+async function assertVehicleScheduleFree(
+  tx: Prisma.TransactionClient,
+  vehicleId: string,
+  start: Date,
+  end: Date,
+  excludeBookingId?: string,
+) {
+  const conflictingBooking = await tx.booking.findFirst({
+    where: {
+      vehicleId,
+      ...(excludeBookingId && { id: { not: excludeBookingId } }),
+      status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
+      startDate: { lte: end },
+      endDate: { gte: start },
+    },
+    select: { id: true },
+  });
+  if (conflictingBooking) {
+    throw new BookingInputError(BOOKING_CONFLICT_MESSAGE, 409);
+  }
+
+  const conflictingMaintenance = await tx.maintenance.findFirst({
+    where: {
+      vehicleId,
+      status: { in: ["REPORTED", "IN_PROGRESS"] },
+      startDate: { lte: end },
+      OR: [{ endDate: null }, { endDate: { gte: start } }],
+    },
+    select: { id: true },
+  });
+  if (conflictingMaintenance) {
+    throw new BookingInputError(MAINTENANCE_CONFLICT_MESSAGE, 409);
+  }
+}
 
 function normalizeDestination(value: unknown) {
   if (value === undefined) return undefined;
@@ -26,7 +78,10 @@ function normalizeDestination(value: unknown) {
 
 function bookingInputErrorResponse(error: unknown) {
   if (error instanceof BookingInputError) {
-    return NextResponse.json({ message: error.message }, { status: 400 });
+    return NextResponse.json(
+      { message: error.message },
+      { status: error.status },
+    );
   }
   return null;
 }
@@ -41,7 +96,7 @@ export async function GET(req: NextRequest) {
       permission: action === "my-bookings" ? "BOOKING_VIEW" : "BOOKING_CREATE",
     });
 
-    // ✅ Sync สถานะรถจาก shared helper
+    // Sync สถานะรถจาก shared helper
     await syncAllVehicleStatuses();
 
     if (action === "my-bookings") {
@@ -63,7 +118,7 @@ export async function GET(req: NextRequest) {
 
     let availableVehicles = await prisma.vehicle.findMany({
       where: {
-        // ✅ ดึงทั้ง AVAILABLE และ BOOKED (เพราะ BOOKED อาจว่างในช่วงที่ต้องการจอง)
+        // ดึงทั้ง AVAILABLE และ BOOKED (เพราะ BOOKED อาจว่างในช่วงที่ต้องการจอง)
         status: { in: ["AVAILABLE", "BOOKED"] },
         ...(vehicleTypeId && { typeId: vehicleTypeId }),
       },
@@ -157,7 +212,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "ไม่พบรถคันนี้" }, { status: 404 });
     }
 
-    // ✅ MAINTENANCE = ห้ามจองเด็ดขาด
+    // MAINTENANCE = ห้ามจองเด็ดขาด
     if (vehicle.status === "MAINTENANCE") {
       return NextResponse.json(
         { message: "รถคันนี้อยู่ระหว่างซ่อมบำรุง" },
@@ -165,68 +220,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // เช็ค booking conflict ในช่วงเวลา
-    const conflictingBooking = await prisma.booking.findFirst({
-      where: {
-        vehicleId,
-        status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
-        startDate: { lte: end },
-        endDate: { gte: start },
-      },
-    });
+    // เช็ค conflict + สร้าง booking ภายใต้ lock ของรถคันนี้
+    // กันสอง request ที่มาพร้อมกันผ่านการเช็คทั้งคู่แล้วได้ booking ซ้อนกัน
+    const booking = await prisma.$transaction(async (tx) => {
+      await lockVehicleSchedule(tx, vehicleId);
+      await assertVehicleScheduleFree(tx, vehicleId, start, end);
 
-    if (conflictingBooking) {
-      return NextResponse.json(
-        { message: "รถคันนี้มีการจองในช่วงเวลาดังกล่าวแล้ว" },
-        { status: 409 },
-      );
-    }
-
-    // เช็ค maintenance conflict ในช่วงเวลา
-    const conflictingMaintenance = await prisma.maintenance.findFirst({
-      where: {
-        vehicleId,
-        status: { in: ["REPORTED", "IN_PROGRESS"] },
-        startDate: { lte: end },
-        OR: [{ endDate: null }, { endDate: { gte: start } }],
-      },
-    });
-
-    if (conflictingMaintenance) {
-      return NextResponse.json(
-        {
-          message:
-            "รถคันนี้มีกำหนดการซ่อมบำรุงในช่วงเวลาดังกล่าว ไม่สามารถจองได้",
+      const created = await tx.booking.create({
+        data: {
+          userId: decoded.userId,
+          vehicleId,
+          startDate: start,
+          endDate: end,
+          purpose,
+          ...(normalizedDestination !== undefined && {
+            destination: normalizedDestination,
+          }),
+          status: "PENDING",
+          // ไม่เปลี่ยนสถานะรถตอนจอง เพราะยังไม่ได้ใช้จริง
         },
-        { status: 409 },
-      );
-    }
+        include: {
+          vehicle: { include: { type: true } },
+          user: { select: { name: true, email: true } },
+        },
+      });
 
-    const booking = await prisma.booking.create({
-      data: {
-        userId: decoded.userId,
-        vehicleId,
-        startDate: start,
-        endDate: end,
-        purpose,
-        ...(normalizedDestination !== undefined && {
-          destination: normalizedDestination,
-        }),
-        status: "PENDING",
-        // ✅ ไม่เปลี่ยนสถานะรถตอนจอง เพราะยังไม่ได้ใช้จริง
-      },
-      include: {
-        vehicle: { include: { type: true } },
-        user: { select: { name: true, email: true } },
-      },
-    });
+      await tx.log.create({
+        data: {
+          userId: decoded.userId,
+          action: `Created booking ${created.id} for vehicle ${vehicle.plateNumber}`,
+        },
+      });
 
-    // Create execution log
-    await prisma.log.create({
-      data: {
-        userId: decoded.userId,
-        action: `Created booking ${booking.id} for vehicle ${vehicle.plateNumber}`,
-      },
+      return created;
     });
 
     return NextResponse.json(booking);
@@ -351,63 +377,48 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // Check booking conflict in the new time range (excluding this booking itself)
-    const conflictingBooking = await prisma.booking.findFirst({
-      where: {
-        vehicleId: booking.vehicleId,
-        id: { not: id },
-        status: { in: ["PENDING", "APPROVED", "CHANGED", "IN_PROGRESS"] },
-        startDate: { lte: end },
-        endDate: { gte: start },
-      },
-    });
+    const updated = await prisma.$transaction(async (tx) => {
+      await lockVehicleSchedule(tx, booking.vehicleId);
 
-    if (conflictingBooking) {
-      return NextResponse.json(
-        { message: "รถคันนี้มีการจองในช่วงเวลาดังกล่าวแล้ว" },
-        { status: 409 },
-      );
-    }
+      // อ่านซ้ำหลังได้ lock: ระหว่างรอ lock การจองอาจถูกอนุมัติ/ยกเลิก/เปลี่ยนรถไปแล้ว
+      const current = await tx.booking.findUnique({
+        where: { id },
+        select: { status: true, vehicleId: true },
+      });
+      if (
+        !current ||
+        current.status !== "PENDING" ||
+        current.vehicleId !== booking.vehicleId
+      ) {
+        throw new BookingInputError(
+          "การจองนี้ถูกเปลี่ยนแปลงไปแล้ว กรุณารีเฟรชแล้วลองใหม่",
+          409,
+        );
+      }
 
-    // Check maintenance conflict
-    const conflictingMaintenance = await prisma.maintenance.findFirst({
-      where: {
-        vehicleId: booking.vehicleId,
-        status: { in: ["REPORTED", "IN_PROGRESS"] },
-        startDate: { lte: end },
-        OR: [{ endDate: null }, { endDate: { gte: start } }],
-      },
-    });
+      await assertVehicleScheduleFree(tx, booking.vehicleId, start, end, id);
 
-    if (conflictingMaintenance) {
-      return NextResponse.json(
-        {
-          message:
-            "รถคันนี้มีกำหนดการซ่อมบำรุงในช่วงเวลาดังกล่าว ไม่สามารถจองได้",
+      const result = await tx.booking.update({
+        where: { id },
+        data: {
+          startDate: start,
+          endDate: end,
+          purpose,
+          ...(normalizedDestination !== undefined && {
+            destination: normalizedDestination,
+          }),
         },
-        { status: 409 },
-      );
-    }
+        include: { vehicle: true },
+      });
 
-    const updated = await prisma.booking.update({
-      where: { id },
-      data: {
-        startDate: start,
-        endDate: end,
-        purpose,
-        ...(normalizedDestination !== undefined && {
-          destination: normalizedDestination,
-        }),
-      },
-      include: { vehicle: true },
-    });
+      await tx.log.create({
+        data: {
+          userId: decoded.userId,
+          action: `Edited booking ${id} for vehicle ${result.vehicle.plateNumber}`,
+        },
+      });
 
-    // Create execution log
-    await prisma.log.create({
-      data: {
-        userId: decoded.userId,
-        action: `Edited booking ${id} for vehicle ${updated.vehicle.plateNumber}`,
-      },
+      return result;
     });
 
     return NextResponse.json(updated);

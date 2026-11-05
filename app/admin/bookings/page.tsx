@@ -22,6 +22,7 @@ import type {
   User,
   Vehicle,
 } from "./types"
+import PageHeader from "@/app/component/page-header"
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError<{ message?: string }>(error)) {
@@ -302,21 +303,12 @@ export default function AdminBookingsPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <div>
-            <p className="mb-2 text-sm font-medium text-blue-700">
-              ผู้ดูแลระบบ
-            </p>
-            <h1 className="text-2xl font-bold leading-tight text-gray-950">
-              จัดการการจอง
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
-              ตรวจสอบคำขอจองรถ กรองข้อมูลตามสถานะ ผู้จอง รถ และช่วงวันที่
-            </p>
-          </div>
+        <PageHeader
+          title="จัดการการจอง"
+          description="ตรวจสอบคำขอจองรถ กรองข้อมูลตามสถานะ ผู้จอง รถ และช่วงวันที่"
+        />
 
-          <BookingStatsPanel stats={stats} />
-        </header>
+        <BookingStatsPanel stats={stats} />
         {error && (
           <div
             role="alert"

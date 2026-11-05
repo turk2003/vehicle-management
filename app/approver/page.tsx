@@ -1,12 +1,9 @@
 "use client"
 
-import { CalendarDays, CheckCircle, FileText } from "lucide-react"
 import { useEffect, useState } from "react"
 import api from "@/lib/api"
-import RoleDashboard, {
-  DashboardLoading,
-  type DashboardMenuItem,
-} from "@/app/component/role-dashboard"
+import RoleDashboard, { DashboardLoading } from "@/app/component/role-dashboard"
+import { getRoleMenu } from "@/app/component/role-menus"
 
 export default function ApproverPage() {
   const [permissions, setPermissions] = useState<string[]>([])
@@ -35,35 +32,11 @@ export default function ApproverPage() {
     fetchData()
   }, [])
   
-  const allMenuItems: DashboardMenuItem[] = [
-    {
-      title: "ปฏิทินการใช้รถ",
-      description: "ดูตารางจองรายวันและผู้ถือรถปัจจุบัน",
-      icon: CalendarDays,
-      href: "/calendar",
-      tone: "blue",
-    },
-    {
-      title: "อนุมัติการจอง",
-      description: "พิจารณาคำขออนุมัติการจองรถ",
-      icon: CheckCircle,
-      href: "/approver/approve",
-      tone: "blue",
-      badge: pendingCount > 0 ? `${pendingCount} รายการรออนุมัติ` : undefined,
-      permission: "BOOKING_APPROVE"
-    },
-    {
-      title: "ประวัติการอนุมัติ",
-      description: "ดูประวัติการอนุมัติทั้งหมด",
-      icon: FileText,
-      href: "/approver/history",
-      tone: "green",
-      permission: "BOOKING_VIEW"
-    },
-   
-  ]
-
-  const menuItems = allMenuItems.filter(item => !item.permission || permissions.includes(item.permission))
+  const menuItems = getRoleMenu("APPROVER", permissions).map((item) =>
+    item.href === "/approver/approve" && pendingCount > 0
+      ? { ...item, badge: `${pendingCount} รายการรออนุมัติ` }
+      : item,
+  )
 
   if (loading) {
      return <DashboardLoading />
@@ -71,7 +44,7 @@ export default function ApproverPage() {
 
   return (
     <RoleDashboard
-      title="ผู้อนุมัติ Dashboard"
+      title="หน้าหลักผู้อนุมัติ"
       description="ตรวจคำขออนุมัติและดูประวัติการตัดสินใจเกี่ยวกับการจองรถ"
       items={menuItems}
     />

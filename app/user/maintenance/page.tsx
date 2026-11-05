@@ -11,6 +11,7 @@ import { getInitialFormData, getErrorMessage, buildStats } from "./utils"
 import MaintenanceStatsPanel from "./_components/MaintenanceStatsPanel"
 import MaintenanceTable from "./_components/MaintenanceTable"
 import ReportMaintenanceModal from "./_components/ReportMaintenanceModal"
+import PageHeader from "@/app/component/page-header"
 
 export default function UserMaintenancePage() {
   const toast = useToast()
@@ -90,32 +91,22 @@ export default function UserMaintenancePage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="mb-2 text-sm font-medium text-blue-700">
-                ผู้ใช้งาน
-              </p>
-              <h1 className="text-2xl font-bold leading-tight text-gray-950">
-                แจ้งซ่อมบำรุงรถ
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
-                รายงานปัญหารถที่พบระหว่างใช้งาน และติดตามสถานะการซ่อมบำรุงของรายการที่คุณแจ้ง
-              </p>
-            </div>
-
-            {canReportMaintenance && (
+        <PageHeader
+          title="แจ้งซ่อมบำรุงรถ"
+          description="รายงานปัญหารถที่พบระหว่างใช้งาน และติดตามสถานะการซ่อมบำรุงของรายการที่คุณแจ้ง"
+          actions={
+            canReportMaintenance && (
               <button
                 type="button"
                 onClick={openReportModal}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors duration-150 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 แจ้งซ่อม
               </button>
-            )}
-          </div>
-        </header>
+            )
+          }
+        />
 
         {error && !showModal && (
           <div

@@ -12,6 +12,7 @@ import VehicleSearchFilters from "./_components/VehicleSearchFilters"
 import VehicleSearchResults from "./_components/VehicleSearchResults"
 import VehicleSearchPlaceholder from "./_components/VehicleSearchPlaceholder"
 import BookingFormModal from "./_components/BookingFormModal"
+import PageHeader from "@/app/component/page-header"
 
 export default function BookingPage() {
   const toast = useToast()
@@ -122,38 +123,16 @@ export default function BookingPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-6 rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="mb-2 text-sm font-medium text-blue-700">
-                ผู้ใช้งาน
-              </p>
-              <h1 className="text-2xl font-bold leading-tight text-gray-950">
-                จองรถ
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
-                เลือกช่วงเวลาและประเภทรถ ระบบจะแสดงรถที่ว่างและแนะนำรถที่เหมาะสมจากเลขไมล์และประวัติซ่อม
-              </p>
-            </div>
-
-            <div className="rounded-lg bg-blue-50 px-4 py-3 ring-1 ring-blue-100">
-              <div className="flex items-start gap-3">
-                <ShieldCheck
-                  className="mt-0.5 h-5 w-5 text-blue-700"
-                  aria-hidden="true"
-                />
-                <div>
-                  <p className="text-sm font-medium text-blue-900">
-                    สถานะหลังส่งคำขอ
-                  </p>
-                  <p className="mt-1 text-sm text-blue-800">
-                    คำขอจะเข้าสถานะรออนุมัติทันที
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
+        <PageHeader
+          title="จองรถ"
+          description="เลือกช่วงเวลาและประเภทรถ ระบบจะแสดงรถที่ว่างและแนะนำรถที่เหมาะสมจากเลขไมล์และประวัติซ่อม"
+          actions={
+            <p className="inline-flex items-center gap-2 text-sm text-gray-600">
+              <ShieldCheck className="h-4 w-4 text-gray-500" aria-hidden="true" />
+              ส่งคำขอแล้วจะเข้าสถานะรออนุมัติทันที
+            </p>
+          }
+        />
 
         {error && (
           <div

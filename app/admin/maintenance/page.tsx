@@ -2,7 +2,7 @@
 
 import axios from "axios"
 import { FormEvent, useEffect, useState } from "react"
-import { Plus, Wrench, X } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import { formatDateTime } from "@/lib/format"
@@ -13,6 +13,7 @@ import { getApiErrorMessage, isAffectedBookingsConflict } from "./utils"
 import MaintenanceStatusFilters from "./_components/MaintenanceStatusFilters"
 import MaintenanceTable from "./_components/MaintenanceTable"
 import MaintenanceFormModal from "./_components/MaintenanceFormModal"
+import PageHeader from "@/app/component/page-header"
 
 export default function AdminMaintenancePage() {
   const toast = useToast()
@@ -195,36 +196,24 @@ export default function AdminMaintenancePage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 px-4 py-8 text-gray-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700 ring-1 ring-orange-100">
-                <Wrench className="h-3.5 w-3.5" />
-                ศูนย์ควบคุมงานซ่อมบำรุง
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-                  จัดการการบำรุงรักษา
-                </h1>
-                <p className="mt-1 text-sm text-slate-600">
-                  กำหนดรอบซ่อม ติดตามสถานะ และควบคุมความพร้อมของรถทุกคันจากจุดเดียว
-                </p>
-              </div>
-            </div>
-            {canManageMaintenance && (
+        <PageHeader
+          title="จัดการการบำรุงรักษา"
+          description="กำหนดรอบซ่อม ติดตามสถานะ และควบคุมความพร้อมของรถทุกคันจากจุดเดียว"
+          actions={
+            canManageMaintenance && (
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors duration-150 hover:bg-blue-700"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4" aria-hidden="true" />
                 เพิ่มรายการบำรุงรักษา
               </button>
-            )}
-          </div>
-        </section>
+            )
+          }
+        />
 
         {error && !showModal && (
           <div className="flex items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">

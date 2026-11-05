@@ -1,11 +1,14 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Bell, CheckCheck, LogOut, Wrench } from "lucide-react"
+import { Bell, CheckCheck, ChevronDown, LogOut, Wrench } from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import axios from "axios"
-import { getRoleColor, getRoleDisplayName } from "@/lib/format"
+import { getRoleDisplayName } from "@/lib/format"
 import api from "@/lib/api"
+import { getRoleHome, getRoleMenu } from "./role-menus"
 
 interface User {
   id: string
@@ -24,17 +27,29 @@ type NotificationItem = {
   createdAt: string
 }
 
+type OpenMenu = "notifications" | "account" | null
+
+const navLinkClass = (active: boolean) =>
+  `inline-flex h-9 shrink-0 items-center rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors duration-150 ${
+    active
+      ? "bg-blue-50 text-blue-700"
+      : "text-gray-600 hover:bg-gray-100 hover:text-gray-950"
+  }`
+
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
+  const [permissions, setPermissions] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [notificationsOpen, setNotificationsOpen] = useState(false)
-  const notificationRef = useRef<HTMLDivElement>(null)
+  const [openMenu, setOpenMenu] = useState<OpenMenu>(null)
+  const menusRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    setOpenMenu(null)
+
     if (pathname === "/") {
       setLoading(false)
       return
@@ -44,10 +59,14 @@ export default function Navbar() {
 
     const fetchUser = async () => {
       try {
-        setLoading(true)
-        const response = await api.get<{ user: User }>("/api/auth/me")
+        const response = await api.get<{ user: User; permissions?: string[] }>(
+          "/api/auth/me",
+        )
 
-        if (active) setUser(response.data.user)
+        if (active) {
+          setUser(response.data.user)
+          setPermissions(response.data.permissions ?? [])
+        }
       } catch {
         if (active) setUser(null)
       } finally {
@@ -86,18 +105,18 @@ export default function Navbar() {
   }, [fetchNotifications, user])
 
   useEffect(() => {
-    if (!notificationsOpen) return
+    if (!openMenu) return
 
     const handlePointerDown = (event: PointerEvent) => {
       if (
-        notificationRef.current &&
-        !notificationRef.current.contains(event.target as Node)
+        menusRef.current &&
+        !menusRef.current.contains(event.target as Node)
       ) {
-        setNotificationsOpen(false)
+        setOpenMenu(null)
       }
     }
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setNotificationsOpen(false)
+      if (event.key === "Escape") setOpenMenu(null)
     }
 
     document.addEventListener("pointerdown", handlePointerDown)
@@ -106,11 +125,14 @@ export default function Navbar() {
       document.removeEventListener("pointerdown", handlePointerDown)
       document.removeEventListener("keydown", handleKeyDown)
     }
-  }, [notificationsOpen])
+  }, [openMenu])
 
   if (pathname === "/") {
     return null
   }
+
+  const toggleMenu = (menu: Exclude<OpenMenu, null>) =>
+    setOpenMenu((current) => (current === menu ? null : menu))
 
   const handleLogout = async () => {
     try {
@@ -137,7 +159,7 @@ export default function Navbar() {
       }
     }
 
-    setNotificationsOpen(false)
+    setOpenMenu(null)
     if (notification.type === "MAINTENANCE" && user.role === "ADMIN") {
       router.push("/admin/maintenance")
     } else if (notification.type === "BOOKING") {
@@ -159,15 +181,13 @@ export default function Navbar() {
 
   if (loading) {
     return (
-      <header className="bg-white shadow-sm ring-1 ring-gray-200">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex min-h-20 items-center justify-between gap-4 py-4">
-            <div className="min-w-0 flex-1">
-              <div className="h-6 w-48 animate-pulse rounded bg-gray-200" />
-              <div className="mt-2 h-4 w-64 max-w-full animate-pulse rounded bg-gray-100" />
-            </div>
-            <div className="hidden h-10 w-28 animate-pulse rounded-lg bg-gray-100 sm:block" />
+      <header className="app-header sticky top-0 border-b border-gray-200 bg-white">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 animate-pulse rounded-md bg-gray-200" />
+            <div className="h-4 w-36 animate-pulse rounded bg-gray-200" />
           </div>
+          <div className="h-9 w-9 animate-pulse rounded-full bg-gray-100" />
         </div>
       </header>
     )
@@ -177,46 +197,85 @@ export default function Navbar() {
     return null
   }
 
-  return (
-    <header className="bg-white shadow-sm ring-1 ring-gray-200">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold leading-tight text-gray-950 sm:text-2xl">
-              ระบบจัดการยานพาหนะ
-            </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-              <span className="max-w-full truncate text-gray-600">
-                ยินดีต้อนรับ, {user.name}
-              </span>
-              <span
-                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getRoleColor(user.role)}`}
-              >
-                {getRoleDisplayName(user.role)}
-              </span>
-            </div>
-          </div>
+  const home = getRoleHome(user.role)
+  const navItems = [
+    { href: home, label: "หน้าหลัก" },
+    ...getRoleMenu(user.role, permissions).map((item) => ({
+      href: item.href,
+      label: item.navLabel,
+    })),
+  ]
+  const isActive = (href: string) =>
+    href === home
+      ? pathname === home
+      : pathname === href || pathname.startsWith(`${href}/`)
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative self-end sm:self-auto" ref={notificationRef}>
+  const navLinks = navItems.map((item) => {
+    const active = isActive(item.href)
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        className={navLinkClass(active)}
+      >
+        {item.label}
+      </Link>
+    )
+  })
+
+  return (
+    <header className="app-header sticky top-0 border-b border-gray-200 bg-white">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center gap-6">
+          <Link
+            href={home}
+            className="flex shrink-0 items-center gap-2.5 rounded-md"
+          >
+            <Image
+              src="/pea_logo.png"
+              alt=""
+              width={32}
+              height={32}
+              className="h-8 w-8"
+            />
+            <span className="text-base font-semibold leading-tight text-gray-950">
+              <span className="hidden sm:inline">ระบบจัดการยานพาหนะ</span>
+              <span className="sm:hidden">ยานพาหนะ</span>
+            </span>
+          </Link>
+
+          <nav
+            aria-label="เมนูหลัก"
+            className="hidden min-w-0 flex-1 items-center gap-1 lg:flex"
+          >
+            {navLinks}
+          </nav>
+
+          <div
+            ref={menusRef}
+            className="ml-auto flex shrink-0 items-center gap-1.5"
+          >
+            <div className="relative">
               <button
                 type="button"
-                onClick={() => setNotificationsOpen((open) => !open)}
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg bg-gray-50 text-gray-700 ring-1 ring-gray-200 transition-colors duration-150 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                onClick={() => toggleMenu("notifications")}
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-gray-600 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-950"
                 aria-label={`การแจ้งเตือน${unreadCount > 0 ? `ที่ยังไม่อ่าน ${unreadCount} รายการ` : ""}`}
-                aria-expanded={notificationsOpen}
+                aria-expanded={openMenu === "notifications"}
                 aria-haspopup="true"
               >
                 <Bell className="h-5 w-5" aria-hidden="true" />
                 {unreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white">
+                  <span className="absolute right-0.5 top-0.5 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-semibold leading-none text-white ring-2 ring-white tabular-nums">
                     {unreadCount > 99 ? "99+" : unreadCount}
                   </span>
                 )}
               </button>
 
-              {notificationsOpen && (
-                <div className="absolute right-0 z-40 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-gray-200">
+              {openMenu === "notifications" && (
+                <div className="app-dropdown fixed inset-x-4 top-16 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-gray-200 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96">
                   <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
                     <div>
                       <h2 className="text-base font-semibold text-gray-950">
@@ -230,7 +289,7 @@ export default function Navbar() {
                       <button
                         type="button"
                         onClick={markAllAsRead}
-                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-blue-700 transition-colors duration-150 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-blue-700 transition-colors duration-150 hover:bg-blue-50"
                       >
                         <CheckCheck className="h-4 w-4" aria-hidden="true" />
                         อ่านทั้งหมด
@@ -248,8 +307,8 @@ export default function Navbar() {
                         <p className="mt-3 text-sm font-medium text-gray-700">
                           ยังไม่มีการแจ้งเตือน
                         </p>
-                        <p className="mt-1 text-sm text-gray-500">
-                          รายการใหม่จะปรากฏที่นี่
+                        <p className="mt-1 text-sm text-gray-600">
+                          การอนุมัติ การเปลี่ยนสถานะ และงานซ่อมจะแจ้งที่นี่
                         </p>
                       </div>
                     ) : (
@@ -258,8 +317,8 @@ export default function Navbar() {
                           key={notification.id}
                           type="button"
                           onClick={() => openNotification(notification)}
-                          className={`flex w-full gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors duration-150 last:border-0 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-600/25 ${
-                            notification.isRead ? "bg-white" : "bg-blue-50/70"
+                          className={`flex w-full gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors duration-150 last:border-0 hover:bg-gray-50 focus-visible:outline-offset-[-2px] ${
+                            notification.isRead ? "bg-white" : "bg-blue-50/60"
                           }`}
                         >
                           <span
@@ -279,7 +338,7 @@ export default function Navbar() {
                             <span className="block text-sm leading-5 text-gray-900">
                               {notification.message}
                             </span>
-                            <span className="mt-1 block text-xs text-gray-500">
+                            <span className="mt-1 block text-xs text-gray-600">
                               {new Date(notification.createdAt).toLocaleString(
                                 "th-TH",
                                 {
@@ -303,24 +362,71 @@ export default function Navbar() {
               )}
             </div>
 
-            <div className="min-w-0 rounded-lg bg-gray-50 px-3 py-2 ring-1 ring-gray-200 sm:max-w-64 sm:text-right">
-              <p className="truncate text-sm font-medium text-gray-950">
-                {user.name}
-              </p>
-              <p className="truncate text-sm text-gray-600">{user.email}</p>
-            </div>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => toggleMenu("account")}
+                className="flex h-10 items-center gap-2.5 rounded-full py-1 pl-1 pr-2 transition-colors duration-150 hover:bg-gray-100 md:pr-3"
+                aria-label="เมนูบัญชีผู้ใช้"
+                aria-expanded={openMenu === "account"}
+                aria-haspopup="true"
+              >
+                <span
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-900 text-sm font-semibold text-white"
+                  aria-hidden="true"
+                >
+                  {user.name.trim().charAt(0).toUpperCase()}
+                </span>
+                <span className="hidden max-w-40 text-left md:block">
+                  <span className="block truncate text-sm font-medium leading-tight text-gray-950">
+                    {user.name}
+                  </span>
+                  <span className="block truncate text-xs leading-tight text-gray-600">
+                    {getRoleDisplayName(user.role)}
+                  </span>
+                </span>
+                <ChevronDown
+                  className="hidden h-4 w-4 text-gray-500 md:block"
+                  aria-hidden="true"
+                />
+              </button>
 
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-colors duration-150 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600/25"
-            >
-              <LogOut className="h-4 w-4" aria-hidden="true" />
-              ออกจากระบบ
-            </button>
+              {openMenu === "account" && (
+                <div className="app-dropdown absolute right-0 top-full mt-2 w-72 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-gray-200">
+                  <div className="border-b border-gray-200 px-4 py-3">
+                    <p className="truncate text-sm font-semibold text-gray-950">
+                      {user.name}
+                    </p>
+                    <p className="truncate text-sm text-gray-600">
+                      {user.email}
+                    </p>
+                    <p className="mt-2 text-xs font-medium text-gray-700">
+                      บทบาท: {getRoleDisplayName(user.role)}
+                    </p>
+                  </div>
+                  <div className="p-1.5">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-red-700 transition-colors duration-150 hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" aria-hidden="true" />
+                      ออกจากระบบ
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      <nav
+        aria-label="เมนูหลัก"
+        className="no-scrollbar flex gap-1 overflow-x-auto border-t border-gray-100 px-4 py-2 sm:px-6 lg:hidden"
+      >
+        {navLinks}
+      </nav>
     </header>
   )
 }

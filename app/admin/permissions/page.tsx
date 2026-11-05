@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Shield, X } from "lucide-react"
+import { X } from "lucide-react"
 import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import type { PermissionMatrix, PermissionsResponse } from "./types"
@@ -10,6 +10,7 @@ import { getApiErrorMessage, getRoleLabel } from "./utils"
 import PermissionsLoading from "./_components/PermissionsLoading"
 import RoleTabs from "./_components/RoleTabs"
 import PermissionMatrixPanel from "./_components/PermissionMatrixPanel"
+import PageHeader from "@/app/component/page-header"
 
 export default function AdminPermissionsPage() {
   const toast = useToast()
@@ -100,31 +101,20 @@ export default function AdminPermissionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 px-4 py-8 text-gray-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-6">
-        <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700 ring-1 ring-orange-100">
-                <Shield className="h-3.5 w-3.5" />
-                ศูนย์ควบคุมสิทธิ์
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-                  จัดการสิทธิ์การใช้งาน
-                </h1>
-                <p className="mt-1 max-w-3xl text-sm text-slate-600">
-                  กำหนดเมนูที่แต่ละบทบาทเข้าถึงได้
-                  โดยยึดตามหน้าที่จริงของพนักงานจองรถ ผู้อนุมัติ และผู้ดูแลระบบ
-                </p>
-              </div>
-            </div>
-            <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200">
-              <span className="font-medium text-slate-900">บทบาทที่เลือก:</span>{" "}
-              {getRoleLabel(activeTab)}
-            </div>
-          </div>
-        </section>
+        <PageHeader
+          title="จัดการสิทธิ์การใช้งาน"
+          description="กำหนดเมนูที่แต่ละบทบาทเข้าถึงได้ โดยยึดตามหน้าที่จริงของพนักงานจองรถ ผู้อนุมัติ และผู้ดูแลระบบ"
+          actions={
+            <p className="text-sm text-gray-600">
+              บทบาทที่เลือก:{" "}
+              <span className="font-semibold text-gray-950">
+                {getRoleLabel(activeTab)}
+              </span>
+            </p>
+          }
+        />
 
         {error && (
           <div className="flex items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
