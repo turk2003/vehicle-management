@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import axios from "axios"
 import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import { usePermissions } from "@/lib/use-permissions"
@@ -101,10 +102,27 @@ export default function AdminVehiclesPage() {
     try {
       setLoading(true)
       setError("")
-      const response = await api.put<Vehicle>("/api/verhicle", {
-        id: editingVehicle.id,
-        ...formData,
-      })
+      const payload = { id: editingVehicle.id, ...formData }
+      const response = await api
+        .put<Vehicle>("/api/verhicle", payload)
+        .catch(async (error) => {
+          // รถมีงานซ่อมค้าง — ถามก่อนปิดงานซ่อมให้ ไม่อย่างนั้นสถานะจะกลับเป็นซ่อมบำรุง
+          if (
+            !axios.isAxiosError<{ code?: string; message?: string }>(error) ||
+            error.response?.data?.code !== "ACTIVE_MAINTENANCE"
+          ) {
+            throw error
+          }
+          const confirmed = confirm(
+            `${error.response.data.message}\nต้องการปิดงานซ่อมเป็น "เสร็จสิ้น" (วันที่เสร็จ = ตอนนี้) และเปลี่ยนรถเป็นว่างใช่หรือไม่?\nรายละเอียดการซ่อมและค่าใช้จ่ายเพิ่มภายหลังได้ที่หน้าแจ้งซ่อม`,
+          )
+          if (!confirmed) return null
+          return api.put<Vehicle>("/api/verhicle", {
+            ...payload,
+            completeMaintenance: true,
+          })
+        })
+      if (!response) return
 
       setVehicles((currentVehicles) =>
         currentVehicles.map((vehicle) =>

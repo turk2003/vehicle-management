@@ -92,8 +92,8 @@ export async function POST(req: NextRequest) {
 // PUT: update vehicle
 export async function PUT(req: NextRequest) {
   try {
-    await requireAccess(req, { roles: ["ADMIN"], permission: "VEHICLE_MANAGE" })
-    const { id, plateNumber, typeId, status, currentMileage } = await req.json()
+    const decoded = await requireAccess(req, { roles: ["ADMIN"], permission: "VEHICLE_MANAGE" })
+    const { id, plateNumber, typeId, status, currentMileage, completeMaintenance } = await req.json()
     const parsedMileage = parseCurrentMileage(currentMileage)
 
     const existingVehicle = await prisma.vehicle.findFirst({
@@ -101,6 +101,45 @@ export async function PUT(req: NextRequest) {
     })
     if (existingVehicle) {
       return NextResponse.json({ message: "Plate number already exists" }, { status: 400 })
+    }
+
+    // สถานะรถคำนวณจากงานซ่อมที่ค้างอยู่ (syncAllVehicleStatuses) — ถ้าจะตั้งเป็นว่าง ต้องปิดงานซ่อมด้วย
+    // ไม่อย่างนั้นสถานะจะถูกเปลี่ยนกลับเป็น MAINTENANCE ตอนโหลดครั้งถัดไป
+    if (status === "AVAILABLE") {
+      const now = new Date()
+      const activeMaintenances = await prisma.maintenance.findMany({
+        where: {
+          vehicleId: id,
+          status: { in: ["REPORTED", "IN_PROGRESS"] },
+          startDate: { lte: now },
+          OR: [{ endDate: null }, { endDate: { gte: now } }]
+        },
+        select: { id: true, description: true, startDate: true }
+      })
+
+      if (activeMaintenances.length > 0) {
+        if (completeMaintenance !== true) {
+          return NextResponse.json(
+            {
+              message: `รถคันนี้มีงานซ่อมที่ยังไม่เสร็จ ${activeMaintenances.length} รายการ`,
+              code: "ACTIVE_MAINTENANCE",
+              activeMaintenances
+            },
+            { status: 409 }
+          )
+        }
+
+        await prisma.maintenance.updateMany({
+          where: { id: { in: activeMaintenances.map((m) => m.id) } },
+          data: { status: "COMPLETED", endDate: now }
+        })
+        await prisma.log.create({
+          data: {
+            userId: decoded.userId,
+            action: `Completed maintenance ${activeMaintenances.map((m) => m.id).join(", ")} by setting vehicle ${plateNumber} to AVAILABLE`
+          }
+        })
+      }
     }
 
     const vehicle = await prisma.vehicle.update({
