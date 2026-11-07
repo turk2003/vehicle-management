@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { DELETE, POST, PUT } from "../route"
+import { NextRequest } from "next/server"
+import { DELETE, GET, POST, PUT } from "../route"
 import { requireAccess } from "@/lib/permissions"
+import { getVehicleStatusContexts } from "@/lib/vehicleStatusContext"
 
 const prismaMock = vi.hoisted(() => ({
   vehicle: {
@@ -9,6 +11,7 @@ const prismaMock = vi.hoisted(() => ({
     create: vi.fn(),
     delete: vi.fn(),
     update: vi.fn(),
+    findMany: vi.fn(),
   },
   booking: { findFirst: vi.fn() },
   maintenance: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
@@ -16,6 +19,8 @@ const prismaMock = vi.hoisted(() => ({
 }))
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }))
+vi.mock("@/lib/syncStatuses", () => ({ syncAllVehicleStatuses: vi.fn() }))
+vi.mock("@/lib/vehicleStatusContext", () => ({ getVehicleStatusContexts: vi.fn() }))
 vi.mock("@/lib/permissions", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/permissions")>()
   return { ...original, requireAccess: vi.fn() }
@@ -134,9 +139,22 @@ describe("vehicle mileage management", () => {
   })
 })
 
-describe("setting a vehicle with active maintenance to available", () => {
-  const putAvailable = (extra: Record<string, unknown> = {}) =>
-    PUT(
+describe("vehicle status is derived, not set directly", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(requireAccess).mockResolvedValue({
+      userId: "admin-1",
+      role: "ADMIN",
+      isActive: true,
+    })
+    prismaMock.vehicle.findUnique.mockResolvedValue(null)
+    prismaMock.vehicle.findFirst.mockResolvedValue(null)
+    prismaMock.vehicle.create.mockResolvedValue({ id: "vehicle-1" })
+    prismaMock.vehicle.update.mockResolvedValue({ id: "vehicle-1" })
+  })
+
+  it("ignores status when updating a vehicle", async () => {
+    const response = await PUT(
       new Request("http://localhost:3000/api/verhicle", {
         method: "PUT",
         body: JSON.stringify({
@@ -144,9 +162,39 @@ describe("setting a vehicle with active maintenance to available", () => {
           plateNumber: "กข 1234",
           typeId: "type-1",
           status: "AVAILABLE",
-          ...extra,
         }),
       }) as Parameters<typeof PUT>[0],
+    )
+
+    expect(response.status).toBe(200)
+    const { data } = prismaMock.vehicle.update.mock.calls[0][0]
+    expect(data).not.toHaveProperty("status")
+  })
+
+  it("always creates vehicles as available", async () => {
+    await POST(
+      new Request("http://localhost:3000/api/verhicle", {
+        method: "POST",
+        body: JSON.stringify({
+          plateNumber: "กข 1234",
+          typeId: "type-1",
+          status: "MAINTENANCE",
+        }),
+      }) as Parameters<typeof POST>[0],
+    )
+
+    expect(prismaMock.vehicle.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "AVAILABLE" }),
+      }),
+    )
+  })
+})
+
+describe("GET vehicles with status context", () => {
+  const get = (query = "") =>
+    GET(
+      new NextRequest(`http://localhost:3000/api/verhicle${query}`) as Parameters<typeof GET>[0],
     )
 
   beforeEach(() => {
@@ -156,40 +204,32 @@ describe("setting a vehicle with active maintenance to available", () => {
       role: "ADMIN",
       isActive: true,
     })
-    prismaMock.vehicle.findFirst.mockResolvedValue(null)
-    prismaMock.vehicle.update.mockResolvedValue({ id: "vehicle-1", status: "AVAILABLE" })
-    prismaMock.maintenance.findMany.mockResolvedValue([
-      { id: "maintenance-1", description: "เปลี่ยนยาง", startDate: new Date("2026-11-01") },
-    ])
-  })
-
-  it("asks for confirmation before closing active maintenance", async () => {
-    const response = await putAvailable()
-
-    expect(response.status).toBe(409)
-    await expect(response.json()).resolves.toMatchObject({ code: "ACTIVE_MAINTENANCE" })
-    expect(prismaMock.maintenance.updateMany).not.toHaveBeenCalled()
-    expect(prismaMock.vehicle.update).not.toHaveBeenCalled()
-  })
-
-  it("completes active maintenance and frees the vehicle once confirmed", async () => {
-    const response = await putAvailable({ completeMaintenance: true })
-
-    expect(response.status).toBe(200)
-    expect(prismaMock.maintenance.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["maintenance-1"] } },
-      data: { status: "COMPLETED", endDate: expect.any(Date) },
+    prismaMock.vehicle.findMany.mockResolvedValue([{ id: "vehicle-1", status: "MAINTENANCE" }])
+    vi.mocked(getVehicleStatusContexts).mockResolvedValue({
+      "vehicle-1": { activeMaintenances: [], inProgressBookings: [], scheduledBookings: [] },
     })
-    expect(prismaMock.log.create).toHaveBeenCalled()
-    expect(prismaMock.vehicle.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: "AVAILABLE" }) }),
-    )
   })
 
-  it("does not touch maintenance when the status is not set to available", async () => {
-    const response = await putAvailable({ status: "MAINTENANCE" })
+  it("returns plain vehicles by default", async () => {
+    const response = await get()
 
-    expect(response.status).toBe(200)
-    expect(prismaMock.maintenance.findMany).not.toHaveBeenCalled()
+    await expect(response.json()).resolves.toEqual([{ id: "vehicle-1", status: "MAINTENANCE" }])
+    expect(getVehicleStatusContexts).not.toHaveBeenCalled()
+  })
+
+  it("attaches the status context for admins when requested", async () => {
+    const response = await get("?include=statusContext")
+
+    expect(requireAccess).toHaveBeenLastCalledWith(expect.anything(), {
+      roles: ["ADMIN"],
+      permission: "VEHICLE_MANAGE",
+    })
+    await expect(response.json()).resolves.toEqual([
+      {
+        id: "vehicle-1",
+        status: "MAINTENANCE",
+        statusContext: { activeMaintenances: [], inProgressBookings: [], scheduledBookings: [] },
+      },
+    ])
   })
 })

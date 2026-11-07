@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import axios from "axios"
 import { useToast } from "@/app/component/toast-provider"
 import api from "@/lib/api"
 import { usePermissions } from "@/lib/use-permissions"
@@ -14,6 +13,7 @@ import VehicleTable from "./_components/VehicleTable"
 import VehicleTypesTable from "./_components/VehicleTypesTable"
 import VehicleFormModal from "./_components/VehicleFormModal"
 import VehicleTypeFormModal from "./_components/VehicleTypeFormModal"
+import VehicleStatusModal from "./_components/VehicleStatusModal"
 
 export default function AdminVehiclesPage() {
   const toast = useToast()
@@ -27,6 +27,7 @@ export default function AdminVehiclesPage() {
   const [activeTab, setActiveTab] = useState<"vehicles" | "types">("vehicles")
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null)
   const [editingType, setEditingType] = useState<VehicleType | null>(null)
+  const [statusVehicleId, setStatusVehicleId] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [formData, setFormData] = useState<VehicleFormData>(
     INITIAL_VEHICLE_FORM,
@@ -38,7 +39,9 @@ export default function AdminVehiclesPage() {
     try {
       setLoading(true)
       setError("")
-      const response = await api.get<Vehicle[]>("/api/verhicle")
+      const response = await api.get<Vehicle[]>("/api/verhicle", {
+        params: { include: "statusContext" },
+      })
       setVehicles(response.data)
     } catch (error) {
       setError(getErrorMessage(error, "ไม่สามารถโหลดข้อมูลรถได้"))
@@ -102,31 +105,16 @@ export default function AdminVehiclesPage() {
     try {
       setLoading(true)
       setError("")
-      const payload = { id: editingVehicle.id, ...formData }
-      const response = await api
-        .put<Vehicle>("/api/verhicle", payload)
-        .catch(async (error) => {
-          // รถมีงานซ่อมค้าง — ถามก่อนปิดงานซ่อมให้ ไม่อย่างนั้นสถานะจะกลับเป็นซ่อมบำรุง
-          if (
-            !axios.isAxiosError<{ code?: string; message?: string }>(error) ||
-            error.response?.data?.code !== "ACTIVE_MAINTENANCE"
-          ) {
-            throw error
-          }
-          const confirmed = confirm(
-            `${error.response.data.message}\nต้องการปิดงานซ่อมเป็น "เสร็จสิ้น" (วันที่เสร็จ = ตอนนี้) และเปลี่ยนรถเป็นว่างใช่หรือไม่?\nรายละเอียดการซ่อมและค่าใช้จ่ายเพิ่มภายหลังได้ที่หน้าแจ้งซ่อม`,
-          )
-          if (!confirmed) return null
-          return api.put<Vehicle>("/api/verhicle", {
-            ...payload,
-            completeMaintenance: true,
-          })
-        })
-      if (!response) return
+      const response = await api.put<Vehicle>("/api/verhicle", {
+        id: editingVehicle.id,
+        ...formData,
+      })
 
       setVehicles((currentVehicles) =>
         currentVehicles.map((vehicle) =>
-          vehicle.id === editingVehicle.id ? response.data : vehicle,
+          vehicle.id === editingVehicle.id
+            ? { ...response.data, statusContext: vehicle.statusContext }
+            : vehicle,
         ),
       )
       toast.success("บันทึกการแก้ไขข้อมูลรถเรียบร้อยแล้ว")
@@ -227,7 +215,6 @@ export default function AdminVehiclesPage() {
     setFormData({
       plateNumber: vehicle.plateNumber,
       typeId: vehicle.type?.id || "",
-      status: vehicle.status,
       currentMileage: String(vehicle.currentMileage),
     })
     setError("")
@@ -256,6 +243,7 @@ export default function AdminVehiclesPage() {
     fetchVehicleTypes()
   }, [])
 
+  const statusVehicle = vehicles.find((vehicle) => vehicle.id === statusVehicleId)
   const vehicleModalTitle = editingVehicle ? "แก้ไขข้อมูลรถ" : "เพิ่มรถ"
   const vehicleSubmitLabel = editingVehicle ? "บันทึกการแก้ไข" : "เพิ่มรถ"
   const typeModalTitle = editingType ? "แก้ไขประเภทรถ" : "เพิ่มประเภทรถ"
@@ -288,6 +276,7 @@ export default function AdminVehiclesPage() {
             loading={loading}
             canManageVehicles={canManageVehicles}
             openEditModal={openEditModal}
+            openStatusModal={(vehicle) => setStatusVehicleId(vehicle.id)}
             deleteVehicle={deleteVehicle}
           />
         )}
@@ -300,6 +289,20 @@ export default function AdminVehiclesPage() {
             openEditTypeModal={openEditTypeModal}
             deleteVehicleType={deleteVehicleType}
             loading={loading}
+          />
+        )}
+
+        {statusVehicle && (
+          <VehicleStatusModal
+            key={statusVehicle.id}
+            vehicle={statusVehicle}
+            onClose={() => setStatusVehicleId(null)}
+            onRefresh={fetchVehicles}
+            onDone={async (message) => {
+              toast.success(message)
+              setStatusVehicleId(null)
+              await fetchVehicles()
+            }}
           />
         )}
 

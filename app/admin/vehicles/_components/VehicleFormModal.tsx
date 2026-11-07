@@ -2,7 +2,6 @@ import { X } from "lucide-react"
 import type * as React from "react"
 import type { Dispatch, SetStateAction } from "react"
 import type { Vehicle, VehicleType, VehicleFormData } from "../types"
-import { VEHICLE_STATUSES } from "../constants"
 
 type VehicleFormModalProps = {
   vehicleModalTitle: "แก้ไขข้อมูลรถ" | "เพิ่มรถ"
@@ -46,7 +45,7 @@ export default function VehicleFormModal({
               {vehicleModalTitle}
             </h3>
             <p className="mt-1 text-sm text-gray-600">
-              กำหนดทะเบียน ประเภท สถานะ และเลขไมล์ปัจจุบันของรถ
+              กำหนดทะเบียน ประเภท และเลขไมล์ปัจจุบันของรถ
             </p>
           </div>
           <button
@@ -106,29 +105,6 @@ export default function VehicleFormModal({
               {vehicleTypes.map((type) => (
                 <option key={type.id} value={type.id}>
                   {type.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="status"
-              className="mb-1.5 block text-sm font-medium text-gray-700"
-            >
-              สถานะ
-            </label>
-            <select
-              id="status"
-              value={formData.status}
-              onChange={(e) =>
-                setFormData({ ...formData, status: e.target.value })
-              }
-              className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-950 transition-colors duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
-            >
-              {VEHICLE_STATUSES.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
                 </option>
               ))}
             </select>

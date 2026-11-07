@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from "lucide-react"
+import { ArrowLeftRight, Pencil, Trash2 } from "lucide-react"
 import { getVehicleStatusColor, getVehicleStatusText } from "@/lib/format"
 import type { Vehicle } from "../types"
 
@@ -7,6 +7,7 @@ type VehicleTableProps = {
   loading: boolean
   canManageVehicles: boolean
   openEditModal: (vehicle: Vehicle) => void
+  openStatusModal: (vehicle: Vehicle) => void
   deleteVehicle: (id: string, plateNumber: string) => Promise<void>
 }
 
@@ -15,6 +16,7 @@ export default function VehicleTable({
   loading,
   canManageVehicles,
   openEditModal,
+  openStatusModal,
   deleteVehicle,
 }: VehicleTableProps) {
   return (
@@ -35,7 +37,7 @@ export default function VehicleTable({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[840px]">
+        <table className="w-full min-w-[960px]">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-600">
@@ -97,6 +99,14 @@ export default function VehicleTable({
                   </td>
                   <td className="px-6 py-4">
                     {canManageVehicles && <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openStatusModal(vehicle)}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-600/25"
+                      >
+                        <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
+                        เปลี่ยนสถานะ
+                      </button>
                       <button
                         type="button"
                         onClick={() => openEditModal(vehicle)}
