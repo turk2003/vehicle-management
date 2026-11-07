@@ -26,6 +26,7 @@ function addEvidence(
 export function buildVehicleUsageAiPayload(analysis: VehicleUsageAnalysis) {
   const evidence: Record<string, EvidenceValue> = {}
   const users: Record<string, { name: string }> = {}
+  const vehicles: Record<string, { plateNumber: string }> = {}
 
   addEvidence(evidence, "fleet.tripCount", "จำนวนเที่ยวใช้งานจริง", analysis.totals.tripCount, "เที่ยว")
   addEvidence(evidence, "fleet.totalDistanceKm", "ระยะทางรวม", analysis.totals.totalDistanceKm, "กม.")
@@ -61,6 +62,7 @@ export function buildVehicleUsageAiPayload(analysis: VehicleUsageAnalysis) {
   const vehiclePayload = analysis.vehicles.map((vehicle, index) => {
     const vehicleRef = `v${index + 1}`
     const subject = `${vehicle.plateNumber} (${vehicle.vehicleType})`
+    vehicles[vehicleRef] = { plateNumber: vehicle.plateNumber.slice(0, 40) }
     addEvidence(evidence, `vehicles.${vehicleRef}.usageCount`, "จำนวนเที่ยว", vehicle.usageCount, "เที่ยว", subject)
     addEvidence(evidence, `vehicles.${vehicleRef}.totalDistanceKm`, "ระยะทางรวม", vehicle.totalDistanceKm, "กม.", subject)
     addEvidence(evidence, `vehicles.${vehicleRef}.breakdownCount`, "งานซ่อมจากความขัดข้อง", vehicle.breakdownCount, "รายการ", subject)
@@ -130,6 +132,7 @@ export function buildVehicleUsageAiPayload(analysis: VehicleUsageAnalysis) {
     payload,
     evidence,
     users,
+    vehicles,
     cacheKey: createHash("sha256").update(JSON.stringify(payload)).digest("hex"),
   }
 }

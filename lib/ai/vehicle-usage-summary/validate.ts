@@ -8,12 +8,25 @@ const unsafePatterns = [
 
 export class InvalidAiSummaryError extends Error {}
 
+const refPattern = /\b[uv]\d+\b/g
+
 export function validateAiSummary(
   summary: VehicleUsageSummary,
   allowedEvidenceKeys: Set<string>,
   users: Record<string, { name: string }>,
   allowedLimitations: string[],
+  vehicles: Record<string, { plateNumber: string }> = {},
 ) {
+  // vehicleRef/userRef เช่น v4, u1 มีตัวเลขอยู่ในตัว — ยกเว้นเฉพาะ ref ที่มีอยู่จริงก่อนตรวจตัวเลข
+  const refNames: Record<string, string> = {
+    ...Object.fromEntries(Object.entries(vehicles).map(([ref, v]) => [ref, v.plateNumber])),
+    ...Object.fromEntries(Object.entries(users).map(([ref, u]) => [ref, u.name])),
+  }
+  const withoutKnownRefs = (text: string) =>
+    text.replace(refPattern, (ref) => (ref in refNames ? "" : ref))
+  const resolveRefs = (text: string) =>
+    text.replace(refPattern, (ref) => refNames[ref] ?? ref)
+
   const allEvidenceGroups = [
     ...summary.vehicleUsageInsights,
     ...summary.userUsageInsights,
@@ -44,7 +57,7 @@ export function validateAiSummary(
   ]
 
   for (const text of prose) {
-    if (/\d/.test(text)) {
+    if (/\d/.test(withoutKnownRefs(text))) {
       throw new InvalidAiSummaryError("AI prose must reference evidence instead of writing numbers")
     }
     if (unsafePatterns.some((pattern) => pattern.test(text))) {
@@ -64,8 +77,27 @@ export function validateAiSummary(
     throw new InvalidAiSummaryError("AI returned an unsupported data limitation")
   }
 
+  // แปลง ref เป็นทะเบียนรถ/ชื่อหลังผ่านการตรวจแล้ว เพื่อให้ผู้อ่านเข้าใจได้
   return {
     ...summary,
+    executiveSummary: resolveRefs(summary.executiveSummary),
+    vehicleUsageInsights: summary.vehicleUsageInsights.map((item) => ({
+      ...item,
+      insight: resolveRefs(item.insight),
+    })),
+    userUsageInsights: summary.userUsageInsights.map((item) => ({
+      ...item,
+      insight: resolveRefs(item.insight),
+    })),
+    maintenanceInsights: summary.maintenanceInsights.map((item) => ({
+      ...item,
+      insight: resolveRefs(item.insight),
+    })),
+    recommendations: summary.recommendations.map((item) => ({
+      ...item,
+      recommendation: resolveRefs(item.recommendation),
+      reason: resolveRefs(item.reason),
+    })),
     dataLimitations: allowedLimitations,
   }
 }

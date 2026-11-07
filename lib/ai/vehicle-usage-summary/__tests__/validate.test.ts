@@ -63,6 +63,32 @@ describe("validateAiSummary", () => {
     }, evidence, users, [])).toThrow("use userRef")
   })
 
+  it("allows known vehicle and user refs and resolves them for display", () => {
+    const result = validateAiSummary({
+      ...validSummary,
+      vehicleUsageInsights: [{
+        insight: "การใช้งานกระจุกตัวที่ v1 ขณะที่ u1 ใช้รถมากที่สุด",
+        evidenceMetricKeys: ["fleet.tripCount"],
+      }],
+    }, evidence, users, [], { v1: { plateNumber: "กข 1234" } })
+
+    expect(result.vehicleUsageInsights[0].insight).toBe(
+      "การใช้งานกระจุกตัวที่ กข 1234 ขณะที่ สมชาย ใช้รถมากที่สุด",
+    )
+  })
+
+  it("still rejects unknown refs and other numbers", () => {
+    expect(() => validateAiSummary({
+      ...validSummary,
+      executiveSummary: "รถ v9 ใช้งานสูง",
+    }, evidence, users, [], { v1: { plateNumber: "กข 1234" } })).toThrow("reference evidence")
+
+    expect(() => validateAiSummary({
+      ...validSummary,
+      executiveSummary: "v1 วิ่งไป 300 กม.",
+    }, evidence, users, [], { v1: { plateNumber: "กข 1234" } })).toThrow("reference evidence")
+  })
+
   it("uses only deterministic data limitations", () => {
     expect(() => validateAiSummary({
       ...validSummary,

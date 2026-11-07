@@ -52,7 +52,7 @@ export async function generateVehicleUsageSummary(
 }> {
   const openai = getOpenAiClient()
   const model = process.env.OPENAI_VEHICLE_SUMMARY_MODEL || "gpt-5.6-luna"
-  const { payload, evidence, users } = buildVehicleUsageAiPayload(analysis)
+  const { payload, evidence, users, vehicles } = buildVehicleUsageAiPayload(analysis)
   const startedAt = Date.now()
   let latestError: unknown
 
@@ -86,6 +86,7 @@ export async function generateVehicleUsageSummary(
         new Set(Object.keys(evidence)),
         users,
         analysis.dataLimitations,
+        vehicles,
       )
 
       return {
