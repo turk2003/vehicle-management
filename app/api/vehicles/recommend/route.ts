@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     // ดึงรถที่ไม่ได้อยู่ระหว่างซ่อม
     let vehicles = await prisma.vehicle.findMany({
       where: {
-        status: { in: ["AVAILABLE", "BOOKED"] },
+        status: { not: "MAINTENANCE" },
         ...(vehicleTypeId && { typeId: vehicleTypeId })
       },
       include: { type: true }

@@ -70,6 +70,23 @@ describe('Booking API', () => {
       expect(data).toHaveLength(1)
       expect(data[0].id).toBe('v2')
     })
+
+    it('should include vehicles currently in use when the requested slot is free', async () => {
+      prismaMock.vehicle.findMany.mockResolvedValue([
+        { id: 'v1', status: 'IN_USE', plateNumber: '1111' }
+      ])
+      prismaMock.booking.findMany.mockResolvedValue([])
+      prismaMock.maintenance.findMany.mockResolvedValue([])
+
+      const req = new Request('http://localhost:3000/api/booking?startDate=2026-05-01T13:30&endDate=2026-05-01T14:22')
+      const response = await GET(req as Parameters<typeof GET>[0])
+
+      const data = await response.json()
+      expect(data).toHaveLength(1)
+      expect(prismaMock.vehicle.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { status: { not: 'MAINTENANCE' } }
+      }))
+    })
   })
 
   describe('POST /api/booking', () => {

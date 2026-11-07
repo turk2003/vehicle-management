@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
     const candidates = await prisma.vehicle.findMany({
       where: {
         id: { not: booking.vehicleId },
-        status: { in: ["AVAILABLE", "BOOKED"] },
+        status: { not: "MAINTENANCE" },
         bookings: {
           none: {
             status: { in: [...ACTIVE_BOOKING_STATUSES] },
@@ -201,7 +201,7 @@ export async function PUT(req: NextRequest) {
         const replacement = await tx.vehicle.findFirst({
           where: {
             id: newVehicleId,
-            status: { in: ["AVAILABLE", "BOOKED"] },
+            status: { not: "MAINTENANCE" },
             bookings: {
               none: {
                 status: { in: [...ACTIVE_BOOKING_STATUSES] },

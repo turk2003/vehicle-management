@@ -119,8 +119,9 @@ export async function GET(req: NextRequest) {
 
     let availableVehicles = await prisma.vehicle.findMany({
       where: {
-        // ดึงทั้ง AVAILABLE และ BOOKED (เพราะ BOOKED อาจว่างในช่วงที่ต้องการจอง)
-        status: { in: ["AVAILABLE", "BOOKED"] },
+        // ไม่กรอง IN_USE/BOOKED เพราะเป็นสถานะ ณ ตอนนี้ — รถอาจว่างในช่วงที่ต้องการจอง
+        // ช่วงเวลาที่ชนจะถูกกรองด้วย booking/maintenance ด้านล่าง
+        status: { not: "MAINTENANCE" },
         ...(vehicleTypeId && { typeId: vehicleTypeId }),
       },
       include: { type: true },
