@@ -4,6 +4,7 @@ import { accessErrorResponse, requireAccess } from "@/lib/permissions";
 import { syncAllVehicleStatuses } from "@/lib/syncStatuses";
 import { notifyBookingEvent } from "@/lib/email/bookingNotifications";
 import { lockVehicleSchedule } from "@/lib/booking/lock";
+import { attachUnreturnedHolders } from "@/lib/booking/pickup";
 import type { Prisma } from "@/app/generated/prisma/client";
 
 const MAX_DESTINATION_LENGTH = 255;
@@ -108,7 +109,7 @@ export async function GET(req: NextRequest) {
         },
         orderBy: { createdAt: "desc" },
       });
-      return NextResponse.json(bookings);
+      return NextResponse.json(await attachUnreturnedHolders(bookings));
     }
 
     // ดึงรถที่จองได้ (ตามช่วงเวลา)

@@ -12,6 +12,7 @@ export default function MileageModal({
   loadingLabel,
   submitLabel,
   tone,
+  notice,
   onChange,
   onClose,
   onSubmit,
@@ -26,6 +27,7 @@ export default function MileageModal({
   loadingLabel: string
   submitLabel: string
   tone: "indigo" | "teal"
+  notice?: React.ReactNode
   onChange: (value: string) => void
   onClose: () => void
   onSubmit: (e: React.FormEvent) => void
@@ -51,6 +53,15 @@ export default function MileageModal({
         />
 
         <form onSubmit={onSubmit} className="space-y-5 px-6 py-6">
+          {notice && (
+            <div
+              role="status"
+              className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900"
+            >
+              {notice}
+            </div>
+          )}
+
           <div>
             <label
               htmlFor={`${id}-mileage`}

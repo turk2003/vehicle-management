@@ -128,6 +128,9 @@ export default function MyBookingsPage() {
       await fetchBookings()
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "ไม่สามารถรับรถได้"))
+      // สถานะบนหน้าอาจเก่า (เช่นรับรถไปแล้วจากแท็บอื่น) — โหลดใหม่เพื่อไม่ให้กดซ้ำ
+      closeModal()
+      await fetchBookings()
     } finally {
       setLoading(false)
     }
@@ -251,7 +254,11 @@ export default function MyBookingsPage() {
             description="ระบุเลขไมล์เริ่มต้นก่อนเปลี่ยนสถานะเป็นกำลังใช้งาน"
             label="เลขไมล์เริ่มต้น (km)"
             value={mileageInput}
-            min={0}
+            min={selectedBooking.unreturnedHolder?.mileageStart ?? 0}
+            notice={
+              selectedBooking.unreturnedHolder &&
+              `รถคันนี้ยังไม่ถูกกดคืนโดย ${selectedBooking.unreturnedHolder.name} เมื่อยืนยันรับรถ ระบบจะปิดการจองนั้นให้อัตโนมัติ โดยใช้เลขไมล์ที่คุณกรอกเป็นเลขไมล์คืนรถ`
+            }
             loading={loading}
             loadingLabel="กำลังบันทึก..."
             submitLabel="ยืนยันการรับรถ"

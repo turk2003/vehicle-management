@@ -259,6 +259,9 @@ export default function AdminBookingsPage() {
             : "ไม่สามารถบันทึกคืนรถได้",
         ),
       )
+      // สถานะบนหน้าอาจเก่า — โหลดใหม่เพื่อไม่ให้กดซ้ำ
+      closeMileageModal()
+      await fetchData()
     } finally {
       setMileageLoading(false)
     }

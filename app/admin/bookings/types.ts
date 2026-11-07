@@ -9,6 +9,12 @@ export type Booking = {
   mileageEnd?: number | null
   pickedUpAt?: string | null
   returnedAt?: string | null
+  autoReturned?: boolean
+  unreturnedHolder?: {
+    name: string
+    mileageStart?: number | null
+    pickedUpAt?: string | null
+  } | null
   createdAt: string
   user: { id: string; name: string; email: string; role: string }
   vehicle: {

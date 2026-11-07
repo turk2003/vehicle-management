@@ -182,6 +182,7 @@ export default function BookingList({
                         {booking.returnedAt && (
                           <p className="mt-1 text-sm text-indigo-800">
                             คืนรถจริง: {formatDateTime(booking.returnedAt)}
+                            {booking.autoReturned && " (ระบบปิดให้อัตโนมัติ)"}
                           </p>
                         )}
                       </div>

@@ -44,7 +44,7 @@ describe('Booking API', () => {
       
       expect(response.status).toBe(200)
       const data = await response.json()
-      expect(data).toEqual(mockBookings)
+      expect(data).toEqual([{ ...mockBookings[0], unreturnedHolder: null }])
       expect(syncAllVehicleStatuses).toHaveBeenCalled()
       expect(prismaMock.booking.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: { userId: 'user1' }

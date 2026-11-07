@@ -132,6 +132,8 @@ model Booking {
   mileageEnd   Int?
   pickedUpAt   DateTime?
   returnedAt   DateTime?
+  // true เมื่อระบบปิดการจองให้เอง เพราะผู้จองถัดไปรับรถไปแล้วโดยที่ผู้ใช้ไม่ได้กดคืน
+  autoReturned Boolean   @default(false)
 
   user     User    @relation(fields: [userId], references: [id])
   vehicle  Vehicle @relation(fields: [vehicleId], references: [id])

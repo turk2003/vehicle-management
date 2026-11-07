@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { accessErrorResponse, requireAccess } from "@/lib/permissions"
 import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
+import { attachUnreturnedHolders } from "@/lib/booking/pickup"
 import type { BookingEmailEvent } from "@/lib/email/templates"
 import { BookingStatus } from "@/app/generated/prisma/client"
 
@@ -79,7 +80,7 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    return NextResponse.json(bookings)
+    return NextResponse.json(await attachUnreturnedHolders(bookings))
   } catch (error: unknown) {
     console.error("Get bookings error:", error)
     const accessResponse = accessErrorResponse(error)

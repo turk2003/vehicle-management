@@ -39,6 +39,13 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: "ไม่พบการจอง" }, { status: 404 })
     }
 
+    if (booking.status === "COMPLETED" && booking.autoReturned) {
+      return NextResponse.json(
+        { message: "ระบบปิดการจองนี้ให้แล้ว เนื่องจากผู้จองถัดไปรับรถไปแล้ว" },
+        { status: 409 }
+      )
+    }
+
     if (booking.status !== "IN_PROGRESS") {
       return NextResponse.json(
         { message: "สามารถคืนรถได้เฉพาะการจองที่กำลังใช้งานอยู่เท่านั้น" },

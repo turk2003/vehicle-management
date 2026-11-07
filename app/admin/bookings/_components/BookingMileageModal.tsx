@@ -85,6 +85,16 @@ export default function BookingMileageModal({
             </div>
           </dl>
 
+          {action === "pickup" && booking.unreturnedHolder && (
+            <div
+              role="status"
+              className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900"
+            >
+              รถคันนี้ยังไม่ถูกกดคืนโดย {booking.unreturnedHolder.name} เมื่อยืนยันรับรถ
+              ระบบจะปิดการจองนั้นให้อัตโนมัติ โดยใช้เลขไมล์ที่กรอกเป็นเลขไมล์คืนรถ
+            </div>
+          )}
+
           {error && (
             <div
               role="alert"
@@ -108,7 +118,10 @@ export default function BookingMileageModal({
               type="number"
               min={
                 action === "pickup"
-                  ? booking.vehicle.currentMileage
+                  ? Math.max(
+                      booking.vehicle.currentMileage,
+                      booking.unreturnedHolder?.mileageStart ?? 0,
+                    )
                   : booking.mileageStart ?? 0
               }
               step="1"

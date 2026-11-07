@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { accessErrorResponse, requireAccess } from "@/lib/permissions"
-import { notifyBookingEvent } from "@/lib/email/bookingNotifications"
+import { PickupError, pickUpBooking } from "@/lib/booking/pickup"
 
 /**
  * PUT /api/admin/bookings/pickup
  * Admin กดรับรถ — บันทึกเลขไมล์เริ่มต้น + เปลี่ยนสถานะ
+ * ถ้าคนก่อนหน้ายังไม่กดคืน ระบบจะปิดการจองนั้นให้อัตโนมัติ
  */
 export async function PUT(req: NextRequest) {
   try {
@@ -29,67 +29,21 @@ export async function PUT(req: NextRequest) {
       )
     }
 
-    // ดึง booking
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: { vehicle: true, user: true }
+    const { booking, autoReturned } = await pickUpBooking({
+      bookingId,
+      mileageStart,
+      actorUserId: decoded.userId,
+      logLabel: "Picked up",
     })
 
-    if (!booking) {
-      return NextResponse.json({ message: "ไม่พบการจอง" }, { status: 404 })
-    }
-
-    if (!["APPROVED", "CHANGED"].includes(booking.status)) {
-      return NextResponse.json(
-        { message: "สามารถรับรถได้เฉพาะการจองที่อนุมัติแล้วเท่านั้น" },
-        { status: 400 }
-      )
-    }
-
-    // Validate mileageStart >= vehicle.currentMileage
-    if (mileageStart < booking.vehicle.currentMileage) {
-      return NextResponse.json(
-        { message: `เลขไมล์เริ่มต้นต้องไม่น้อยกว่าเลขไมล์ปัจจุบันของรถ (${booking.vehicle.currentMileage} km)` },
-        { status: 400 }
-      )
-    }
-
-    // อัปเดต booking → IN_PROGRESS
-    const updatedBooking = await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: "IN_PROGRESS",
-        mileageStart,
-        pickedUpAt: new Date()
-      },
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        vehicle: { include: { type: true } },
-        approver: { select: { id: true, name: true, email: true } }
-      }
+    return NextResponse.json({
+      ...booking,
+      autoReturnedCount: autoReturned.length,
     })
-
-    // อัปเดตสถานะรถ → IN_USE
-    await prisma.vehicle.update({
-      where: { id: booking.vehicleId },
-      data: { status: "IN_USE" }
-    })
-
-    await notifyBookingEvent({
-      event: "PICKED_UP",
-      booking: updatedBooking
-    })
-
-    // สร้าง log
-    await prisma.log.create({
-      data: {
-        userId: decoded.userId,
-        action: `Picked up vehicle ${booking.vehicle.plateNumber} for booking ${bookingId}, mileage: ${mileageStart} km`
-      }
-    })
-
-    return NextResponse.json(updatedBooking)
   } catch (error: unknown) {
+    if (error instanceof PickupError) {
+      return NextResponse.json({ message: error.message }, { status: error.status })
+    }
     console.error("Pickup error:", error)
     const accessResponse = accessErrorResponse(error)
     if (accessResponse) return accessResponse
